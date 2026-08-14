@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../inventory/presentation/inventory_screen.dart';
@@ -27,7 +28,15 @@ class HouseholdHomeScreen extends ConsumerWidget {
   final Household household;
 
   Future<void> _showInviteCode(BuildContext context, WidgetRef ref) async {
-    final code = await ref.read(householdRepositoryProvider).createInvite(household.id);
+    final String code;
+    try {
+      code = await ref.read(householdRepositoryProvider).createInvite(household.id);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      }
+      return;
+    }
     if (!context.mounted) return;
     showDialog(
       context: context,

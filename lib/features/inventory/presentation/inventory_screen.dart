@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../household/data/household_repository.dart';
 import '../application/inventory_providers.dart';
 import '../data/inventory_repository.dart';
+import 'add_inventory_item_screen.dart';
 
 class InventoryScreen extends ConsumerWidget {
   const InventoryScreen({super.key, required this.householdId, required this.location});
@@ -38,8 +40,14 @@ class InventoryScreen extends ConsumerWidget {
 
     if (amount == null || amount <= 0) return;
     final params = InventoryParams(householdId: householdId, storageLocationId: location.id);
-    await ref.read(inventoryRepositoryProvider).consume(householdId, itemId, amount);
-    ref.invalidate(inventoryItemsProvider(params));
+    try {
+      await ref.read(inventoryRepositoryProvider).consume(householdId, itemId, amount);
+      ref.invalidate(inventoryItemsProvider(params));
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      }
+    }
   }
 
   /// Son kullanma tarihi yaklaşanları (3 gün içinde) turuncu, geçmişleri
@@ -66,9 +74,18 @@ class InventoryScreen extends ConsumerWidget {
         value: itemsAsync,
         data: (items) {
           if (items.isEmpty) {
-            return const EmptyState(
+            return EmptyState(
               icon: Icons.inventory_2_outlined,
               message: 'Bu bölüm boş.\nFiş tarayarak veya elle ekleyerek doldurabilirsin.',
+              action: FilledButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text('Ürün Ekle'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => AddInventoryItemScreen(householdId: householdId, storageLocationId: location.id),
+                  ),
+                ),
+              ),
             );
           }
           return ListView.separated(
@@ -122,6 +139,14 @@ class InventoryScreen extends ConsumerWidget {
             },
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => AddInventoryItemScreen(householdId: householdId, storageLocationId: location.id),
+          ),
+        ),
+        child: const Icon(Icons.add),
       ),
     );
   }

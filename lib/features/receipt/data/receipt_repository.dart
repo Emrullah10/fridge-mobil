@@ -21,9 +21,12 @@ class ReceiptLineItem {
   final String? matchMethod;
   final double? confidence;
 
-  /// Kademe 1 (alias) veya kademe 2 (trigram) eşleşmesi varsa yüksek güven —
-  /// UI'da bunlar ön-onaylı gösterilir, kullanıcı sadece göz atar.
-  bool get isHighConfidence => matchMethod == 'alias' || (confidence ?? 0) >= 0.6;
+  /// Kademe 1 (alias) veya kademe 2 (trigram, yüksek benzerlik) eşleşmesi
+  /// varsa yüksek güven — UI'da bunlar ön-onaylı gösterilir. AI'ın otomatik
+  /// oluşturduğu ürünler (matchMethod: 'model') her zaman düşük güven sayılır
+  /// — kimse doğrulamadı, kullanıcının göz atması gerekir.
+  bool get isHighConfidence =>
+      matchedProductId != null && (matchMethod == 'alias' || (matchMethod == 'trigram' && (confidence ?? 0) >= 0.6));
 
   factory ReceiptLineItem.fromJson(Map<String, dynamic> json) => ReceiptLineItem(
         id: json['id'] as String,
@@ -75,6 +78,7 @@ class ReceiptRepository {
     required String parsedName,
     required double parsedQuantity,
     required String parsedUnit,
+    required String matchedProductId,
   }) async {
     await _client.dio.patch(
       '/households/$householdId/receipts/$scanId/items/$itemId',
@@ -82,21 +86,33 @@ class ReceiptRepository {
         'parsedName': parsedName,
         'parsedQuantity': parsedQuantity,
         'parsedUnit': parsedUnit,
+        'matchedProductId': matchedProductId,
       },
     );
   }
 
+  /// itemSelections her satır için matchedProductId taşır — backend bunu
+  /// zorunlu tutuyor (confirm-receipt-scan.use-case.js), çünkü hangi ürüne
+  /// hangi miktarın ekleneceğini garanti eden tek bilgi bu.
   Future<void> confirm(
     String householdId,
     String scanId, {
     required String storageLocationId,
-    required List<String> lineItemIds,
+    required List<ReceiptLineItem> items,
+    Map<String, DateTime?> expiresAtByItemId = const {},
   }) async {
     await _client.dio.post(
       '/households/$householdId/receipts/$scanId/confirm',
       data: {
         'storageLocationId': storageLocationId,
-        'itemSelections': lineItemIds.map((id) => {'lineItemId': id}).toList(),
+        'itemSelections': items
+            .map((item) => {
+                  'lineItemId': item.id,
+                  'matchedProductId': item.matchedProductId,
+                  if (expiresAtByItemId[item.id] != null)
+                    'expiresAt': expiresAtByItemId[item.id]!.toIso8601String(),
+                })
+            .toList(),
       },
     );
   }

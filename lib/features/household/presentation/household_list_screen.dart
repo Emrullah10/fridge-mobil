@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -33,8 +34,14 @@ class HouseholdListScreen extends ConsumerWidget {
     );
 
     if (name == null || name.isEmpty) return;
-    await ref.read(householdRepositoryProvider).createHousehold(name);
-    ref.invalidate(householdsProvider);
+    try {
+      await ref.read(householdRepositoryProvider).createHousehold(name);
+      ref.invalidate(householdsProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      }
+    }
   }
 
   Future<void> _joinHousehold(BuildContext context, WidgetRef ref) async {
@@ -59,8 +66,14 @@ class HouseholdListScreen extends ConsumerWidget {
     );
 
     if (code == null || code.isEmpty) return;
-    await ref.read(householdRepositoryProvider).acceptInvite(code);
-    ref.invalidate(householdsProvider);
+    try {
+      await ref.read(householdRepositoryProvider).acceptInvite(code);
+      ref.invalidate(householdsProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      }
+    }
   }
 
   @override

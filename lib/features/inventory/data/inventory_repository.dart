@@ -50,4 +50,25 @@ class InventoryRepository {
       data: {'quantity': quantity},
     );
   }
+
+  Future<InventoryItem> addItem(
+    String householdId, {
+    required String storageLocationId,
+    required String productId,
+    required String unit,
+    required double quantity,
+    DateTime? expiresAt,
+  }) async {
+    final response = await _client.dio.post(
+      '/households/$householdId/inventory',
+      data: {
+        'storageLocationId': storageLocationId,
+        'productId': productId,
+        'unit': unit,
+        'quantity': quantity,
+        if (expiresAt != null) 'expiresAt': expiresAt.toIso8601String(),
+      },
+    );
+    return InventoryItem.fromJson(response.data['item'] as Map<String, dynamic>);
+  }
 }
