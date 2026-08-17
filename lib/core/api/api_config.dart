@@ -1,9 +1,7 @@
-/// Geliştirme sırasında `--dart-define=API_BASE_URL=http://192.168.1.x:4000/api`
-/// ile fiziksel cihazdan test edilebilir. Android emulator'da host makineye
-/// erişim için 10.0.2.2 kullanılır, iOS simulator'da localhost çalışır.
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+/// .env dosyasından API_BASE_URL okur. main() içinde dotenv.load()
+/// çağrılmadan önce erişilirse boş döner — bkz. lib/main.dart.
 class ApiConfig {
-  static const baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://localhost:4000/api',
-  );
+  static String get baseUrl => dotenv.env['API_BASE_URL'] ?? 'http://localhost:4000/api';
 }

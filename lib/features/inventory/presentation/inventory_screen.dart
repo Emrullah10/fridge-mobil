@@ -17,22 +17,59 @@ class InventoryScreen extends ConsumerWidget {
   final String householdId;
   final StorageLocation location;
 
-  Future<void> _consume(BuildContext context, WidgetRef ref, String itemId) async {
+  Future<void> _consume(BuildContext context, WidgetRef ref, InventoryItem item) async {
+    // Girilen miktar eldekini aşarsa backend InsufficientStockError döner,
+    // o yüzden hem "Tamamen tüketildi" kısayolu hem de anlık doğrulama var.
     final controller = TextEditingController(text: '1');
     final amount = await showDialog<double>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Ne kadar tüketildi?'),
-        content: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          autofocus: true,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Elinde ${item.quantity} ${item.unit} var.',
+              style: TextStyle(color: Theme.of(dialogContext).colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (_, value, _) {
+                final parsed = double.tryParse(value.text.replaceAll(',', '.'));
+                final tooMuch = parsed != null && parsed > item.quantity;
+                return TextField(
+                  controller: controller,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    suffixText: item.unit,
+                    errorText: tooMuch ? 'Elindekinden fazla' : null,
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextButton.icon(
+              icon: const Icon(Icons.done_all_rounded, size: 18),
+              label: const Text('Tamamen tüketildi'),
+              onPressed: () => Navigator.pop(dialogContext, item.quantity),
+            ),
+          ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('İptal')),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, double.tryParse(controller.text)),
-            child: const Text('Onayla'),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (_, value, _) {
+              final parsed = double.tryParse(value.text.replaceAll(',', '.'));
+              final valid = parsed != null && parsed > 0 && parsed <= item.quantity;
+              return FilledButton(
+                onPressed: valid ? () => Navigator.pop(dialogContext, parsed) : null,
+                child: const Text('Onayla'),
+              );
+            },
           ),
         ],
       ),
@@ -41,7 +78,7 @@ class InventoryScreen extends ConsumerWidget {
     if (amount == null || amount <= 0) return;
     final params = InventoryParams(householdId: householdId, storageLocationId: location.id);
     try {
-      await ref.read(inventoryRepositoryProvider).consume(householdId, itemId, amount);
+      await ref.read(inventoryRepositoryProvider).consume(householdId, item.id, amount);
       ref.invalidate(inventoryItemsProvider(params));
     } catch (error) {
       if (context.mounted) {
@@ -88,51 +125,99 @@ class InventoryScreen extends ConsumerWidget {
               ),
             );
           }
+          // Biten ürünler (miktar 0) kaydı silinmediği için listede kalır —
+          // aynı ürün tekrar alındığında backend var olan satırın üstüne
+          // ekler, böylece SKT/not ve stok geçmişi korunur. Kullanıcıyı
+          // şaşırtmamak için bunları listenin dibine alıp soluklaştırıyoruz.
+          final sorted = [...items]..sort((a, b) {
+            final aEmpty = a.quantity <= 0;
+            final bEmpty = b.quantity <= 0;
+            if (aEmpty == bEmpty) return 0;
+            return aEmpty ? 1 : -1;
+          });
+
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xl),
-            itemCount: items.length,
+            itemCount: sorted.length,
             separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.xs),
             itemBuilder: (context, index) {
-              final InventoryItem item = items[index];
-              final expiryColor = _expiryColor(context, item.expiresAt);
+              final InventoryItem item = sorted[index];
+              final isEmpty = item.quantity <= 0;
+              final expiryColor = isEmpty ? null : _expiryColor(context, item.expiresAt);
 
-              return Card(
-                child: ListTile(
-                  title: Text(item.productName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: item.expiresAt != null
-                      ? Row(
-                          children: [
-                            Icon(Icons.event_rounded, size: 14, color: expiryColor ?? colorScheme.onSurfaceVariant),
-                            const SizedBox(width: 4),
-                            Text(
-                              'SKT ${dateFormat.format(item.expiresAt!)}',
+              return Opacity(
+                opacity: isEmpty ? 0.5 : 1,
+                child: Card(
+                  child: ListTile(
+                    title: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            item.productName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              decoration: isEmpty ? TextDecoration.lineThrough : null,
+                              color: isEmpty ? colorScheme.onSurfaceVariant : null,
+                            ),
+                          ),
+                        ),
+                        if (isEmpty) ...[
+                          const SizedBox(width: AppSpacing.xs),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Bitti',
                               style: TextStyle(
-                                color: expiryColor ?? colorScheme.onSurfaceVariant,
-                                fontWeight: expiryColor != null ? FontWeight.w600 : FontWeight.normal,
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
                               ),
                             ),
-                          ],
-                        )
-                      : null,
-                  leading: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: colorScheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(10),
+                          ),
+                        ],
+                      ],
                     ),
-                    child: Text(
-                      '${item.quantity} ${item.unit}',
-                      style: TextStyle(
-                        color: colorScheme.onSecondaryContainer,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
+                    subtitle: item.expiresAt != null
+                        ? Row(
+                            children: [
+                              Icon(Icons.event_rounded, size: 14, color: expiryColor ?? colorScheme.onSurfaceVariant),
+                              const SizedBox(width: 4),
+                              Text(
+                                'SKT ${dateFormat.format(item.expiresAt!)}',
+                                style: TextStyle(
+                                  color: expiryColor ?? colorScheme.onSurfaceVariant,
+                                  fontWeight: expiryColor != null ? FontWeight.w600 : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          )
+                        : null,
+                    leading: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isEmpty ? colorScheme.surfaceContainerHighest : colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${item.quantity} ${item.unit}',
+                        style: TextStyle(
+                          color: isEmpty ? colorScheme.onSurfaceVariant : colorScheme.onSecondaryContainer,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.remove_circle_outline_rounded),
-                    tooltip: 'Tüket',
-                    onPressed: () => _consume(context, ref, item.id),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.remove_circle_outline_rounded),
+                      tooltip: isEmpty ? 'Ürün bitti' : 'Tüket',
+                      // Miktar 0'ken tüketmeye çalışmak backend'den
+                      // InsufficientStockError döndürür — butonu baştan kapatıyoruz.
+                      onPressed: isEmpty ? null : () => _consume(context, ref, item),
+                    ),
                   ),
                 ),
               );

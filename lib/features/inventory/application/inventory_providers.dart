@@ -11,6 +11,16 @@ class InventoryParams {
   const InventoryParams({required this.householdId, this.storageLocationId});
   final String householdId;
   final String? storageLocationId;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is InventoryParams &&
+          other.householdId == householdId &&
+          other.storageLocationId == storageLocationId);
+
+  @override
+  int get hashCode => Object.hash(householdId, storageLocationId);
 }
 
 final inventoryItemsProvider =

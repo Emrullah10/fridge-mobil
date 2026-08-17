@@ -5,21 +5,29 @@ class ReceiptLineItem {
     required this.id,
     required this.rawText,
     required this.parsedName,
+    this.parsedBrand,
     required this.parsedQuantity,
     required this.parsedUnit,
     required this.matchedProductId,
     required this.matchMethod,
     required this.confidence,
+    this.suggestedStorageKind,
   });
 
   final String id;
   final String rawText;
   final String parsedName;
+  final String? parsedBrand;
   final double parsedQuantity;
   final String parsedUnit;
   final String? matchedProductId;
   final String? matchMethod;
   final double? confidence;
+
+  /// Backend'in eşleşen ürünün kategorisinden (ya da anahtar kelime
+  /// yedeğinden) türettiği bölüm önerisi: 'fridge' | 'freezer' | 'pantry'.
+  /// null ise kategori belirsiz — kullanıcı elle seçmeli.
+  final String? suggestedStorageKind;
 
   /// Kademe 1 (alias) veya kademe 2 (trigram, yüksek benzerlik) eşleşmesi
   /// varsa yüksek güven — UI'da bunlar ön-onaylı gösterilir. AI'ın otomatik
@@ -32,11 +40,13 @@ class ReceiptLineItem {
         id: json['id'] as String,
         rawText: json['rawText'] as String,
         parsedName: json['parsedName'] as String? ?? json['rawText'] as String,
+        parsedBrand: json['parsedBrand'] as String?,
         parsedQuantity: (json['parsedQuantity'] as num?)?.toDouble() ?? 1,
         parsedUnit: json['parsedUnit'] as String? ?? 'piece',
         matchedProductId: json['matchedProductId'] as String?,
         matchMethod: json['matchMethod'] as String?,
         confidence: (json['confidence'] as num?)?.toDouble(),
+        suggestedStorageKind: json['suggestedStorageKind'] as String?,
       );
 }
 
@@ -76,6 +86,7 @@ class ReceiptRepository {
     String scanId,
     String itemId, {
     required String parsedName,
+    String? parsedBrand,
     required double parsedQuantity,
     required String parsedUnit,
     required String matchedProductId,
@@ -84,6 +95,7 @@ class ReceiptRepository {
       '/households/$householdId/receipts/$scanId/items/$itemId',
       data: {
         'parsedName': parsedName,
+        'parsedBrand': ?parsedBrand,
         'parsedQuantity': parsedQuantity,
         'parsedUnit': parsedUnit,
         'matchedProductId': matchedProductId,
@@ -93,22 +105,24 @@ class ReceiptRepository {
 
   /// itemSelections her satır için matchedProductId taşır — backend bunu
   /// zorunlu tutuyor (confirm-receipt-scan.use-case.js), çünkü hangi ürüne
-  /// hangi miktarın ekleneceğini garanti eden tek bilgi bu.
+  /// hangi miktarın ekleneceğini garanti eden tek bilgi bu. storageLocationId
+  /// da satır bazında gönderilir — her ürün kendi önerilen/seçilen bölümüne
+  /// gider (backend bunu zaten destekliyor, sadece mobil hiç kullanmıyordu).
   Future<void> confirm(
     String householdId,
     String scanId, {
-    required String storageLocationId,
+    required Map<String, String> locationIdByItemId,
     required List<ReceiptLineItem> items,
     Map<String, DateTime?> expiresAtByItemId = const {},
   }) async {
     await _client.dio.post(
       '/households/$householdId/receipts/$scanId/confirm',
       data: {
-        'storageLocationId': storageLocationId,
         'itemSelections': items
             .map((item) => {
                   'lineItemId': item.id,
                   'matchedProductId': item.matchedProductId,
+                  'storageLocationId': locationIdByItemId[item.id],
                   if (expiresAtByItemId[item.id] != null)
                     'expiresAt': expiresAtByItemId[item.id]!.toIso8601String(),
                 })

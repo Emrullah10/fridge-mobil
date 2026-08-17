@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../storage/token_storage.dart';
 import 'api_config.dart';
@@ -9,7 +8,7 @@ import 'auth_interceptor.dart';
 /// onUnauthorized callback'i router'a bağlanır (login'e yönlendirme).
 class ApiClient {
   ApiClient({required Future<void> Function() onUnauthorized})
-      : tokenStorage = TokenStorage(const FlutterSecureStorage()),
+      : tokenStorage = TokenStorage(),
         dio = Dio(BaseOptions(
           baseUrl: ApiConfig.baseUrl,
           connectTimeout: const Duration(seconds: 10),
