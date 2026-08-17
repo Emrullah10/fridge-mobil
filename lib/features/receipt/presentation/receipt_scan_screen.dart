@@ -104,18 +104,23 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     }
   }
 
-  /// scan-text senkron işlense de arka planda kısa bir gecikme olabilir,
-  /// bu yüzden review_pending/failed durumuna gelene kadar kısa aralıklarla sorar.
+  /// scan-text hemen 202 dönüyor, gerçek işleme arka plandaki worker'da
+  /// oluyor (SCAN_WORKER_INTERVAL_MS=5000 ile alınıyor, sonra Ollama
+  /// çağrısı: gemma3:12b modeliyle tek satır tahmini ~55sn sürebiliyor,
+  /// bkz. .env OLLAMA_MODEL). Süre duvar-saati bazlı — sabit deneme sayısı
+  /// yerine, çünkü model değişince (qwen2.5 -> gemma3:12b) eski 20×500ms=10sn
+  /// limiti yetersiz kalıp "zaman aşımı" hatası veriyordu.
   Future<ReceiptScanResult> _pollUntilReady(String scanId) async {
     final repo = ref.read(receiptRepositoryProvider);
-    for (var attempt = 0; attempt < 20; attempt++) {
+    final deadline = DateTime.now().add(const Duration(seconds: 90));
+    while (DateTime.now().isBefore(deadline)) {
       final result = await repo.getScan(widget.householdId, scanId);
       if (result.status == 'review_pending' || result.status == 'failed') {
         return result;
       }
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 750));
     }
-    throw Exception('Zaman aşımı');
+    throw Exception('Fiş işlenmesi beklenenden uzun sürdü, lütfen tekrar dene');
   }
 
   @override

@@ -12,7 +12,10 @@ class ApiClient {
         dio = Dio(BaseOptions(
           baseUrl: ApiConfig.baseUrl,
           connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 45), // fiş işleme uzun sürebilir
+          // Fiş tarama Ollama'ya gidiyor; OLLAMA_MODEL gemma3:12b'ye
+          // geçtikten sonra (2026-08-17) tek istek ~55sn sürebiliyor
+          // (qwen2.5'te ~20-25sn'ydi, eski 45sn limiti buradan kalmaydı).
+          receiveTimeout: const Duration(seconds: 90),
         )) {
     dio.interceptors.add(AuthInterceptor(tokenStorage: tokenStorage, onUnauthorized: onUnauthorized));
   }
