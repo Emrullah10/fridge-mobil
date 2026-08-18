@@ -4,6 +4,9 @@ import 'package:intl/intl.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/button_progress.dart';
+import '../../../core/widgets/form_error_text.dart';
+import '../../../core/widgets/responsive.dart';
 import '../../product/data/product_repository.dart';
 import '../../product/presentation/product_picker_sheet.dart';
 import '../application/inventory_providers.dart';
@@ -85,51 +88,58 @@ class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen>
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd.MM.yyyy');
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Dolaba Ekle')),
-      body: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            OutlinedButton.icon(
-              icon: const Icon(Icons.search_rounded),
-              label: Text(_selectedProduct?.canonicalName ?? 'Ürün seç'),
-              onPressed: _pickProduct,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            TextField(
-              controller: _quantityController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: 'Miktar',
-                suffixText: _selectedProduct?.defaultUnit,
+      // Klavye açıldığında TextField taşmasın diye SafeArea + scroll view
+      // içine alınır (önceden Column doğrudan Padding altındaydı ve
+      // klavye açılınca RenderFlex overflow veriyordu).
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: formMaxWidth),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.search_rounded),
+                    label: Text(_selectedProduct?.canonicalName ?? 'Ürün seç'),
+                    onPressed: _pickProduct,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    controller: _quantityController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Miktar',
+                      suffixText: _selectedProduct?.defaultUnit,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.event_rounded),
+                    label: Text(
+                      _expiresAt != null
+                          ? 'SKT: ${dateFormat.format(_expiresAt!)}'
+                          : 'Son kullanma tarihi ekle (opsiyonel)',
+                    ),
+                    onPressed: _pickExpiryDate,
+                  ),
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    FormErrorText(_errorMessage!),
+                  ],
+                  const SizedBox(height: AppSpacing.lg),
+                  FilledButton(
+                    onPressed: _isSaving ? null : _save,
+                    child: _isSaving ? const ButtonProgress() : const Text('Ekle'),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.event_rounded),
-              label: Text(
-                _expiresAt != null
-                    ? 'SKT: ${dateFormat.format(_expiresAt!)}'
-                    : 'Son kullanma tarihi ekle (opsiyonel)',
-              ),
-              onPressed: _pickExpiryDate,
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(_errorMessage!, style: TextStyle(color: colorScheme.error)),
-            ],
-            const SizedBox(height: AppSpacing.lg),
-            FilledButton(
-              onPressed: _isSaving ? null : _save,
-              child: _isSaving
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Ekle'),
-            ),
-          ],
+          ),
         ),
       ),
     );

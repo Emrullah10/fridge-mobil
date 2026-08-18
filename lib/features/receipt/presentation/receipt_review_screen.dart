@@ -4,28 +4,16 @@ import 'package:intl/intl.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_badge.dart';
+import '../../../core/widgets/async_view.dart';
+import '../../../core/widgets/button_progress.dart';
+import '../../../core/widgets/storage_kind.dart';
 import '../../household/application/household_providers.dart';
 import '../../household/data/household_repository.dart';
 import '../../inventory/application/inventory_providers.dart';
 import '../../product/presentation/product_picker_sheet.dart';
 import '../application/receipt_providers.dart';
 import '../data/receipt_repository.dart';
-
-class _LocationStyle {
-  const _LocationStyle(this.icon, this.color);
-  final IconData icon;
-  final Color color;
-}
-
-// household_home_screen.dart'taki _locationStyles ile aynı — bölüm türü
-// simgelerinin uygulama genelinde tutarlı görünmesi için (o harita private,
-// buraya taşımak yerine küçük olduğu için tekrar tanımlamak daha basit).
-const _locationStyles = {
-  'fridge': _LocationStyle(Icons.kitchen_rounded, Color(0xFF3B82F6)),
-  'freezer': _LocationStyle(Icons.ac_unit_rounded, Color(0xFF06B6D4)),
-  'pantry': _LocationStyle(Icons.inventory_2_rounded, Color(0xFFB45309)),
-};
-const _defaultLocationStyle = _LocationStyle(Icons.category_rounded, Color(0xFF6B7280));
 
 class ReceiptReviewScreen extends ConsumerStatefulWidget {
   const ReceiptReviewScreen({
@@ -265,6 +253,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
   }) {
     final isSelected = _selectedIds.contains(item.id);
     final expiresAt = _expiresAtByItemId[item.id];
+    final textTheme = Theme.of(context).textTheme;
     return Card(
       child: Column(
         children: [
@@ -277,51 +266,27 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                 _selectedIds.remove(item.id);
               }
             }),
-            title: Text(item.parsedName, style: const TextStyle(fontWeight: FontWeight.w600)),
+            title: Text(item.parsedName, style: textTheme.titleSmall),
             subtitle: Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: AppSpacing.xs),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Wrap(
                     crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 6,
+                    spacing: AppSpacing.sm,
                     children: [
                       Text('${item.parsedQuantity} ${item.parsedUnit}'),
-                      if (item.parsedBrand != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: colorScheme.secondaryContainer,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            item.parsedBrand!,
-                            style: TextStyle(fontSize: 11, color: colorScheme.onSecondaryContainer),
-                          ),
-                        ),
+                      if (item.parsedBrand != null) AppBadge(label: item.parsedBrand!),
                       if (!item.isHighConfidence)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: colorScheme.errorContainer,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            'Kontrol et',
-                            style: TextStyle(fontSize: 11, color: colorScheme.onErrorContainer),
-                          ),
-                        ),
+                        const AppBadge(label: 'Kontrol et', variant: AppBadgeVariant.warning),
                     ],
                   ),
                   // Fişteki ham metin: AI'ın çevirisini doğrulamak için
                   // kullanıcının yanına koyduğumuz referans.
                   Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      item.rawText,
-                      style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
-                    ),
+                    padding: const EdgeInsets.only(top: AppSpacing.xs),
+                    child: Text(item.rawText, style: textTheme.bodySmall),
                   ),
                 ],
               ),
@@ -333,7 +298,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
             child: Row(
               children: [
                 Expanded(
@@ -356,7 +321,16 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                   OutlinedButton.icon(
                     icon: const Icon(Icons.push_pin_outlined, size: 16),
                     label: const Text('Bölüm seç'),
-                    style: OutlinedButton.styleFrom(foregroundColor: colorScheme.error),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: colorScheme.error,
+                      // Tema minimumSize'ı Size.fromHeight(52) = sonsuz
+                      // genişlik demek; Column içinde sorun çıkarmıyor ama
+                      // bu buton doğrudan bir Row çocuğu (Row sınırsız
+                      // genişlik kısıtı verir) — sonsuz minimum asla
+                      // çözülemeyip layout'u çökertiyordu. Bu kullanım için
+                      // ezip içeriğe göre daralmasını sağlıyoruz.
+                      minimumSize: const Size(0, 40),
+                    ),
                     onPressed: () => _editItem(item),
                   ),
               ],
@@ -367,56 +341,38 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
     );
   }
 
-  List<Widget> _buildLocationSection({
-    required StorageLocation location,
+  /// Bölüm bazlı gruplama başlığı + ürün kartları. `location` verilmezse
+  /// "bölüm seçilmedi" uyarı grubu çizilir (eski _buildUnresolvedSection'ın
+  /// yerine geçen tek parametrik hâli).
+  List<Widget> _buildSection({
+    StorageLocation? location,
     required List<ReceiptLineItem> items,
     required DateFormat dateFormat,
     required ColorScheme colorScheme,
   }) {
     if (items.isEmpty) return const [];
-    final style = _locationStyles[location.kind] ?? _defaultLocationStyle;
-    return [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(4, AppSpacing.md, 4, AppSpacing.xs),
-        child: Row(
-          children: [
-            Icon(style.icon, size: 18, color: style.color),
-            const SizedBox(width: 6),
-            Text(
-              '${location.name.toUpperCase()} · ${items.length} ürün',
-              style: TextStyle(fontWeight: FontWeight.w700, color: style.color, letterSpacing: 0.3),
-            ),
-          ],
-        ),
-      ),
-      for (final item in items) ...[
-        _buildItemCard(item, dateFormat: dateFormat, colorScheme: colorScheme, locationMissing: false),
-        const SizedBox(height: AppSpacing.xs),
-      ],
-    ];
-  }
+    final icon = location == null ? Icons.help_outline_rounded : storageKindStyle(context, location.kind).icon;
+    final color = location == null ? colorScheme.error : storageKindStyle(context, location.kind).color;
+    final title = location == null
+        ? 'BÖLÜM SEÇİLMEDİ · ${items.length} ürün'
+        : '${location.name.toUpperCase()} · ${items.length} ürün';
 
-  List<Widget> _buildUnresolvedSection({
-    required List<ReceiptLineItem> items,
-    required DateFormat dateFormat,
-    required ColorScheme colorScheme,
-  }) {
     return [
       Padding(
-        padding: const EdgeInsets.fromLTRB(4, AppSpacing.md, 4, AppSpacing.xs),
+        padding: const EdgeInsets.fromLTRB(AppSpacing.xs, AppSpacing.md, AppSpacing.xs, AppSpacing.xs),
         child: Row(
           children: [
-            Icon(Icons.help_outline_rounded, size: 18, color: colorScheme.error),
-            const SizedBox(width: 6),
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: AppSpacing.xs),
             Text(
-              'BÖLÜM SEÇİLMEDİ · ${items.length} ürün',
-              style: TextStyle(fontWeight: FontWeight.w700, color: colorScheme.error, letterSpacing: 0.3),
+              title,
+              style: TextStyle(fontWeight: FontWeight.w700, color: color, letterSpacing: 0.3),
             ),
           ],
         ),
       ),
       for (final item in items) ...[
-        _buildItemCard(item, dateFormat: dateFormat, colorScheme: colorScheme, locationMissing: true),
+        _buildItemCard(item, dateFormat: dateFormat, colorScheme: colorScheme, locationMissing: location == null),
         const SizedBox(height: AppSpacing.xs),
       ],
     ];
@@ -449,9 +405,9 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
             ),
           ),
           Expanded(
-            child: locationsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text(describeApiError(error))),
+            child: AsyncView(
+              value: locationsAsync,
+              onRetry: () => ref.invalidate(storageLocationsProvider(widget.householdId)),
               data: (locations) {
                 _initializeSuggestedLocations(locations);
 
@@ -461,14 +417,14 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                   padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.xl),
                   children: [
                     for (final location in locations)
-                      ..._buildLocationSection(
+                      ..._buildSection(
                         location: location,
                         items: _items.where((i) => _locationIdByItemId[i.id] == location.id).toList(),
                         dateFormat: dateFormat,
                         colorScheme: colorScheme,
                       ),
                     if (unresolvedItems.isNotEmpty)
-                      ..._buildUnresolvedSection(
+                      ..._buildSection(
                         items: unresolvedItems,
                         dateFormat: dateFormat,
                         colorScheme: colorScheme,
@@ -485,13 +441,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
           padding: const EdgeInsets.all(AppSpacing.md),
           child: FilledButton(
             onPressed: _isConfirming || _selectedIds.isEmpty ? null : _confirm,
-            child: _isConfirming
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : Text('${_selectedIds.length} ürünü dolaba ekle'),
+            child: _isConfirming ? const ButtonProgress() : Text('${_selectedIds.length} ürünü dolaba ekle'),
           ),
         ),
       ),

@@ -1,13 +1,20 @@
 import '../../../core/api/api_client.dart';
 
 class Household {
-  const Household({required this.id, required this.name});
+  const Household({required this.id, required this.name, this.kind = 'home'});
 
   final String id;
   final String name;
 
-  factory Household.fromJson(Map<String, dynamic> json) =>
-      Household(id: json['id'] as String, name: json['name'] as String);
+  /// 'home' | 'office' | 'summerhouse' | 'other' — backend household_kind
+  /// enum'ı. Eski kayıtlarda alan gelmeyebileceği için varsayılan 'home'.
+  final String kind;
+
+  factory Household.fromJson(Map<String, dynamic> json) => Household(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        kind: json['kind'] as String? ?? 'home',
+      );
 }
 
 class StorageLocation {
@@ -35,8 +42,8 @@ class HouseholdRepository {
     return households.map((h) => Household.fromJson(h as Map<String, dynamic>)).toList();
   }
 
-  Future<Household> createHousehold(String name) async {
-    final response = await _client.dio.post('/households', data: {'name': name});
+  Future<Household> createHousehold(String name, {String kind = 'home'}) async {
+    final response = await _client.dio.post('/households', data: {'name': name, 'kind': kind});
     return Household.fromJson(response.data['household'] as Map<String, dynamic>);
   }
 

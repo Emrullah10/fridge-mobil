@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/button_progress.dart';
+import '../../../core/widgets/form_error_text.dart';
+import '../../../core/widgets/responsive.dart';
 import '../application/auth_providers.dart';
 import 'register_screen.dart';
 
@@ -54,7 +57,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: Form(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: formMaxWidth),
+              child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -66,19 +71,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(AppRadius.logo),
                     ),
                     child: Icon(Icons.kitchen_rounded, size: 36, color: colorScheme.onPrimaryContainer),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  Text(
-                    'Fridge',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
-                  ),
+                  Text('Fridge', style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     'Dolabındaki her şey tek yerde',
-                    style: TextStyle(color: colorScheme.onSurfaceVariant),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   TextFormField(
@@ -105,18 +107,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   if (_errorMessage != null) ...[
                     const SizedBox(height: AppSpacing.sm),
-                    Text(_errorMessage!, style: TextStyle(color: colorScheme.error)),
+                    FormErrorText(_errorMessage!),
                   ],
                   const SizedBox(height: AppSpacing.lg),
                   FilledButton(
                     onPressed: _isSubmitting ? null : _submit,
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Text('Giriş Yap'),
+                    child: _isSubmitting ? const ButtonProgress() : const Text('Giriş Yap'),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   TextButton(
@@ -127,6 +123,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: AppSpacing.xl),
                 ],
+              ),
               ),
             ),
           ),

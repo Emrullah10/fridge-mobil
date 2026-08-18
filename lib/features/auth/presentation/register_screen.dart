@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/button_progress.dart';
+import '../../../core/widgets/form_error_text.dart';
+import '../../../core/widgets/responsive.dart';
 import '../application/auth_providers.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -50,14 +53,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Kayıt Ol')),
       body: SafeArea(
+        child: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Form(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: formMaxWidth),
+            child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -93,22 +97,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: AppSpacing.sm),
-                  Text(_errorMessage!, style: TextStyle(color: colorScheme.error)),
+                  FormErrorText(_errorMessage!),
                 ],
                 const SizedBox(height: AppSpacing.lg),
                 FilledButton(
                   onPressed: _isSubmitting ? null : _submit,
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Kayıt Ol'),
+                  child: _isSubmitting ? const ButtonProgress() : const Text('Kayıt Ol'),
                 ),
               ],
             ),
+            ),
           ),
+        ),
         ),
       ),
     );

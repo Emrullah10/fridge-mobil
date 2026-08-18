@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_badge.dart';
+import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../household/data/household_repository.dart';
@@ -94,7 +96,7 @@ class InventoryScreen extends ConsumerWidget {
     if (expiresAt == null) return null;
     final daysLeft = expiresAt.difference(DateTime.now()).inDays;
     if (daysLeft < 0) return Theme.of(context).colorScheme.error;
-    if (daysLeft <= 3) return const Color(0xFFB45309);
+    if (daysLeft <= 3) return context.appColors.statusWarning;
     return null;
   }
 
@@ -104,11 +106,13 @@ class InventoryScreen extends ConsumerWidget {
     final itemsAsync = ref.watch(inventoryItemsProvider(params));
     final dateFormat = DateFormat('dd.MM.yyyy');
     final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(title: Text(location.name)),
       body: AsyncView(
         value: itemsAsync,
+        onRetry: () => ref.invalidate(inventoryItemsProvider(params)),
         data: (items) {
           if (items.isEmpty) {
             return EmptyState(
@@ -137,7 +141,12 @@ class InventoryScreen extends ConsumerWidget {
           });
 
           return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xl),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.fabBottomPadding,
+            ),
             itemCount: sorted.length,
             separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.xs),
             itemBuilder: (context, index) {
@@ -148,75 +157,57 @@ class InventoryScreen extends ConsumerWidget {
               return Opacity(
                 opacity: isEmpty ? 0.5 : 1,
                 child: Card(
-                  child: ListTile(
-                    title: Row(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Row(
                       children: [
-                        Flexible(
-                          child: Text(
-                            item.productName,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              decoration: isEmpty ? TextDecoration.lineThrough : null,
-                              color: isEmpty ? colorScheme.onSurfaceVariant : null,
-                            ),
-                          ),
-                        ),
-                        if (isEmpty) ...[
-                          const SizedBox(width: AppSpacing.xs),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'Bitti',
-                              style: TextStyle(
-                                color: colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    subtitle: item.expiresAt != null
-                        ? Row(
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.event_rounded, size: 14, color: expiryColor ?? colorScheme.onSurfaceVariant),
-                              const SizedBox(width: 4),
                               Text(
-                                'SKT ${dateFormat.format(item.expiresAt!)}',
-                                style: TextStyle(
-                                  color: expiryColor ?? colorScheme.onSurfaceVariant,
-                                  fontWeight: expiryColor != null ? FontWeight.w600 : FontWeight.normal,
+                                item.productName,
+                                style: textTheme.titleSmall?.copyWith(
+                                  decoration: isEmpty ? TextDecoration.lineThrough : null,
+                                  color: isEmpty ? colorScheme.onSurfaceVariant : null,
                                 ),
                               ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Row(
+                                children: [
+                                  if (isEmpty)
+                                    const AppBadge(label: 'Bitti')
+                                  else
+                                    AppBadge(label: '${item.quantity} ${item.unit}', variant: AppBadgeVariant.quantity),
+                                  if (!isEmpty && item.expiresAt != null) ...[
+                                    const SizedBox(width: AppSpacing.sm),
+                                    Icon(
+                                      Icons.event_rounded,
+                                      size: 14,
+                                      color: expiryColor ?? colorScheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: AppSpacing.xs),
+                                    Text(
+                                      'SKT: ${dateFormat.format(item.expiresAt!)}',
+                                      style: textTheme.bodySmall?.copyWith(
+                                        color: expiryColor ?? colorScheme.onSurfaceVariant,
+                                        fontWeight: expiryColor != null ? FontWeight.w600 : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ],
-                          )
-                        : null,
-                    leading: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isEmpty ? colorScheme.surfaceContainerHighest : colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '${item.quantity} ${item.unit}',
-                        style: TextStyle(
-                          color: isEmpty ? colorScheme.onSurfaceVariant : colorScheme.onSecondaryContainer,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
+                          ),
                         ),
-                      ),
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.remove_circle_outline_rounded),
-                      tooltip: isEmpty ? 'Ürün bitti' : 'Tüket',
-                      // Miktar 0'ken tüketmeye çalışmak backend'den
-                      // InsufficientStockError döndürür — butonu baştan kapatıyoruz.
-                      onPressed: isEmpty ? null : () => _consume(context, ref, item),
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline_rounded),
+                          tooltip: isEmpty ? 'Ürün bitti' : 'Tüket',
+                          // Miktar 0'ken tüketmeye çalışmak backend'den
+                          // InsufficientStockError döndürür — butonu baştan kapatıyoruz.
+                          onPressed: isEmpty ? null : () => _consume(context, ref, item),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -233,6 +224,7 @@ class InventoryScreen extends ConsumerWidget {
         ),
         child: const Icon(Icons.add),
       ),
+      bottomNavigationBar: const AppBottomNav(currentTab: AppBottomTab.areas),
     );
   }
 }

@@ -128,25 +128,32 @@ class _ProductPickerSheetState extends ConsumerState<_ProductPickerSheet> {
             ),
             if (_isLoading) const LinearProgressIndicator(),
             Expanded(
-              child: ListView(
-                controller: scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                children: [
-                  for (final product in _results)
-                    ListTile(
-                      title: Text(product.canonicalName),
-                      subtitle: Text(_unitLabels[product.defaultUnit] ?? product.defaultUnit),
-                      onTap: () => Navigator.of(context).pop(product),
+              child: _results.isEmpty && !_isLoading && _searchController.text.trim().isEmpty
+                  ? Center(
+                      child: Text(
+                        'Aramaya başla',
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                    )
+                  : ListView(
+                      controller: scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                      children: [
+                        for (final product in _results)
+                          ListTile(
+                            title: Text(product.canonicalName),
+                            subtitle: Text(_unitLabels[product.defaultUnit] ?? product.defaultUnit),
+                            onTap: () => Navigator.of(context).pop(product),
+                          ),
+                        if (_searchController.text.trim().isNotEmpty)
+                          ListTile(
+                            leading: const Icon(Icons.add_circle_outline_rounded),
+                            title: Text('"${_searchController.text.trim()}" olarak yeni ürün ekle'),
+                            onTap: _createNew,
+                          ),
+                        const SizedBox(height: AppSpacing.lg),
+                      ],
                     ),
-                  if (_searchController.text.trim().isNotEmpty)
-                    ListTile(
-                      leading: const Icon(Icons.add_circle_outline_rounded),
-                      title: Text('"${_searchController.text.trim()}" olarak yeni ürün ekle'),
-                      onTap: _createNew,
-                    ),
-                  const SizedBox(height: AppSpacing.lg),
-                ],
-              ),
             ),
           ],
         ),
