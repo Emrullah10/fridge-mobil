@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -81,6 +82,13 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
           .read(pendingReceiptScanProvider(widget.householdId).notifier)
           .start(scanId);
       Navigator.of(context).pop();
+    } on PlatformException catch (error) {
+      setState(() {
+        _step = _ScanStep.idle;
+        _errorMessage = error.code == 'camera_access_denied'
+            ? 'Kamera izni verilmedi. Fişi taramak için Ayarlar > Uygulamalar > Fridge yolundan kamera iznini aç.'
+            : 'Bir şeyler ters gitti: ${error.message ?? error.code}';
+      });
     } catch (error) {
       setState(() {
         _step = _ScanStep.idle;

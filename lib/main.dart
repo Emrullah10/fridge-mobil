@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -9,10 +12,28 @@ import 'features/auth/application/auth_providers.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/household/presentation/household_list_screen.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
-  runApp(const ProviderScope(child: FridgeApp()));
+// Crash reporting servisi (Sentry/Crashlytics) yok — bunlar olmadan
+// production'da hiçbir hata görünürlüğü sıfırdı. Şimdilik en azından
+// konsola/logcat'e düşsün diye framework ve zone hatalarını yakalıyoruz;
+// bu bir crash reporting servisinin yerini tutmaz.
+void main() {
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      debugPrint('FlutterError: ${details.exceptionAsString()}');
+    };
+    PlatformDispatcher.instance.onError = (error, stack) {
+      debugPrint('Uncaught error: $error\n$stack');
+      return true;
+    };
+
+    await dotenv.load(fileName: '.env');
+    runApp(const ProviderScope(child: FridgeApp()));
+  }, (error, stack) {
+    debugPrint('Zone error: $error\n$stack');
+  });
 }
 
 class FridgeApp extends ConsumerWidget {

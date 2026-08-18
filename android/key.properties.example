@@ -1,0 +1,4 @@
+storePassword=KEYSTORE_SIFRESI
+keyPassword=KEY_SIFRESI
+keyAlias=upload
+storeFile=/Users/senin-adin/fridge-upload.jks

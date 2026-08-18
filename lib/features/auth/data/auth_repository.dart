@@ -61,4 +61,9 @@ class AuthRepository {
     final token = await _client.tokenStorage.readRefreshToken();
     return token != null;
   }
+
+  Future<void> deleteAccount({required String password}) async {
+    await _client.dio.delete('/auth/me', data: {'password': password});
+    await _client.tokenStorage.clear();
+  }
 }

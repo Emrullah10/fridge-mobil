@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_providers.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/single_field_dialog.dart';
 import '../../auth/application/auth_providers.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -23,6 +25,46 @@ class SettingsScreen extends ConsumerWidget {
     );
     if (confirmed == true) {
       await ref.read(authControllerProvider.notifier).logout();
+    }
+  }
+
+  Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Hesabını sil'),
+        content: const Text(
+          'Bu işlem geri alınamaz. Hesabın ve yalnızca senin sahibi olduğun '
+          'alanlardaki tüm envanter/fiş verisi kalıcı olarak silinir. '
+          'Paylaşımlı alanlarda sahiplik başka bir üyeye devredilir.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('İptal')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(dialogContext).colorScheme.error),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Devam et'),
+          ),
+        ],
+      ),
+    );
+    if (proceed != true || !context.mounted) return;
+
+    final password = await showSingleFieldDialog(
+      context,
+      title: 'Şifreni doğrula',
+      contentText: 'Silme işlemini onaylamak için şifreni gir.',
+      hintText: 'Şifre',
+      confirmLabel: 'Hesabı sil',
+      obscureText: true,
+    );
+    if (password == null || password.isEmpty || !context.mounted) return;
+
+    try {
+      await ref.read(authControllerProvider.notifier).deleteAccount(password: password);
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
     }
   }
 
@@ -84,10 +126,20 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           Card(
-            child: ListTile(
-              leading: Icon(Icons.logout_rounded, color: colorScheme.error),
-              title: Text('Çıkış yap', style: TextStyle(color: colorScheme.error)),
-              onTap: () => _confirmLogout(context, ref),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(Icons.logout_rounded, color: colorScheme.error),
+                  title: Text('Çıkış yap', style: TextStyle(color: colorScheme.error)),
+                  onTap: () => _confirmLogout(context, ref),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Icon(Icons.delete_forever_rounded, color: colorScheme.error),
+                  title: Text('Hesabımı sil', style: TextStyle(color: colorScheme.error)),
+                  onTap: () => _confirmDeleteAccount(context, ref),
+                ),
+              ],
             ),
           ),
         ],

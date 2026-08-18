@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- CAMERA izni tek başına kamerayı zorunlu cihaz özelliği yapıyor;
+         galeriden fiş seçmek de mümkün olduğu için kamerasız cihazlar
+         (Chromebook vb.) Play'de uygulamayı görebilsin diye required=false. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
         android:label="Fridge"
         android:name="${applicationName}"

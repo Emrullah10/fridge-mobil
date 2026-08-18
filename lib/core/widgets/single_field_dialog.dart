@@ -8,16 +8,29 @@ Future<String?> showSingleFieldDialog(
   required String title,
   required String hintText,
   required String confirmLabel,
+  bool obscureText = false,
+  String? contentText,
 }) {
   final controller = TextEditingController();
   return showDialog<String>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(title),
-      content: TextField(
-        controller: controller,
-        decoration: InputDecoration(hintText: hintText),
-        autofocus: true,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (contentText != null) ...[
+            Text(contentText),
+            const SizedBox(height: 12),
+          ],
+          TextField(
+            controller: controller,
+            decoration: InputDecoration(hintText: hintText),
+            autofocus: true,
+            obscureText: obscureText,
+          ),
+        ],
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('İptal')),

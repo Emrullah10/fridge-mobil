@@ -45,6 +45,11 @@ class AuthController extends StateNotifier<AuthState> {
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 
+  Future<void> deleteAccount({required String password}) async {
+    await _repo.deleteAccount(password: password);
+    state = const AuthState(status: AuthStatus.unauthenticated);
+  }
+
   void forceUnauthenticated() {
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
