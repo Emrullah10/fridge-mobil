@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/button_progress.dart';
 import '../../../core/widgets/form_error_text.dart';
@@ -42,7 +43,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             password: _passwordController.text,
           );
     } catch (error) {
-      setState(() => _errorMessage = 'Giriş başarısız: $error');
+      setState(() => _errorMessage = describeApiError(error));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

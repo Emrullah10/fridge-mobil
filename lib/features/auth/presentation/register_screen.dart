@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/button_progress.dart';
 import '../../../core/widgets/form_error_text.dart';
@@ -44,8 +45,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             displayName: _nameController.text.trim(),
           );
       if (mounted) Navigator.of(context).pop();
-    } catch (_) {
-      setState(() => _errorMessage = 'Kayıt başarısız, e-posta zaten kullanılıyor olabilir');
+    } catch (error) {
+      setState(() => _errorMessage = describeApiError(error));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -93,7 +94,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   ),
                   validator: (value) =>
-                      (value == null || value.length < 6) ? 'En az 6 karakter' : null,
+                      (value == null || value.length < 8) ? 'En az 8 karakter' : null,
                 ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: AppSpacing.sm),
