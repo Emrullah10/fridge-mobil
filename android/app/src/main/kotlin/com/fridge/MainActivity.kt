@@ -1,4 +1,4 @@
-package com.fridge.fridge_mobil
+package com.fridge
 
 import io.flutter.embedding.android.FlutterActivity
 
