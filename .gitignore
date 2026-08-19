@@ -46,3 +46,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Play Store yayın malzemeleri — koda dahil değil, sadece Play Console'a
+# manuel yüklenir. app_icon.png / app_icon_foreground.png bunun dışında
+# tutulur çünkü flutter_launcher_icons'ın kaynağı (pubspec.yaml).
+/assets/icon/play_store_icon_512.png
+/assets/icon/feature_graphic.png
+/store-assets/

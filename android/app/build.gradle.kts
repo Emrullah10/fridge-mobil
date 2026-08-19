@@ -65,6 +65,15 @@ android {
                 // --release` için debug'a düşer.
                 signingConfigs.getByName("debug")
             }
+            // ML Kit'in çok dilli text recognizer sınıfları (Çince/Japonca/
+            // Korece/Devanagari) R8 ile "missing class" hatası veriyordu —
+            // uygulama sadece Latin/varsayılan recognizer'ı kullanıyor,
+            // bu diğer dil paketleri hiç bundle edilmemiş. minify kapalı
+            // kalınca R8 bu sınıfları analiz etmeye çalışmıyor, sorun ortadan
+            // kalkıyor. Bedel: AAB biraz daha büyük ve obfuscate değil —
+            // ilk yayın için kabul edilebilir bir takas.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
