@@ -1,17 +1,16 @@
-# fridge_mobil
+# fridge-mobil
 
-A new Flutter project.
+Flutter mobile client for the **receipt-scanning & shared fridge inventory** app. Users photograph a grocery receipt, the backend parses it with Google Gemini, and the parsed items land in a shared household inventory.
 
-## Getting Started
+Backend: **[fridge-monorepo](https://github.com/Emrullah10/fridge-monorepo)**
 
-This project is a starting point for a Flutter application.
+## Tech Stack
 
-A few resources to get you started if this is your first Flutter project:
+Flutter, Dart. Camera capture, custom design system components, account management.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Getting started
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter pub get
+flutter run
+```
