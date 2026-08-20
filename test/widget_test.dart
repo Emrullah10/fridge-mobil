@@ -14,5 +14,12 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: FridgeApp()));
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    // _AuthGate açılışta arka planda /app-config'i sorgular (bkz. main.dart
+    // _checkAppVersion) — testte gerçek bir sunucu olmadığı için istek asla
+    // yanıtlanmaz ama pending bir Dio timer'ı bırakır. Bir sonraki pump
+    // network hatasını (bağlantı reddedildi) tetikleyip timer'ı temizler;
+    // AppConfigRepository.fetch bunu zaten yutuyor (best-effort tasarım).
+    await tester.pump(const Duration(seconds: 15));
   });
 }

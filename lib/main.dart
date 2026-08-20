@@ -127,7 +127,10 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
   void initState() {
     super.initState();
     _initDeepLinks();
-    _checkAppVersion();
+    // Bir sonraki frame'e ertelenir — widget test'lerinde initState içinde
+    // senkron başlatılan bir network çağrısı, test bittiğinde hâlâ bekleyen
+    // bir Dio timer'ı bırakıp "Timer is still pending" hatası veriyordu.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAppVersion());
   }
 
   Future<void> _checkAppVersion() async {
