@@ -17,3 +17,7 @@ final selectedHouseholdIdProvider = StateProvider<String?>((ref) => null);
 final storageLocationsProvider = FutureProvider.family<List<StorageLocation>, String>((ref, householdId) async {
   return ref.watch(householdRepositoryProvider).listLocations(householdId);
 });
+
+final householdMembersProvider = FutureProvider.family<List<HouseholdMember>, String>((ref, householdId) async {
+  return ref.watch(householdRepositoryProvider).listMembers(householdId);
+});

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
@@ -7,9 +8,117 @@ import '../../../core/theme/theme_providers.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/single_field_dialog.dart';
 import '../../auth/application/auth_providers.dart';
+import '../../notification/application/notification_providers.dart';
 
-class SettingsScreen extends ConsumerWidget {
+/// backend notification-types.js NOTIFICATION_TYPES ile birebir aynı
+/// anahtarlar. Tercih satırı yoksa varsayılan açık (bkz. backend
+/// notification-preference.repository.js filterEnabledUserIds).
+const _notificationTypeLabels = {
+  'member_joined': 'Birisi alana katıldığında',
+  'item_expiring': 'Son kullanma tarihi yaklaştığında',
+  'receipt_processed': 'Fiş işlendiğinde',
+  'item_consumed': 'Bir ürün tüketildiğinde',
+};
+
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  final Map<String, bool> _pushEnabledByType = {
+    for (final type in _notificationTypeLabels.keys) type: true,
+  };
+  bool _preferencesLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final preferences = await ref.read(notificationRepositoryProvider).listPreferences();
+      if (!mounted) return;
+      setState(() {
+        for (final preference in preferences) {
+          _pushEnabledByType[preference.type] = preference.pushEnabled;
+        }
+        _preferencesLoaded = true;
+      });
+    } catch (_) {
+      // Sessizce varsayılan (hepsi açık) ile devam et — ayarlar ekranının
+      // açılmasını bir ağ hatasına bağımlı kılmaya değmez.
+      if (mounted) setState(() => _preferencesLoaded = true);
+    }
+  }
+
+  Future<void> _togglePreference(String type, bool value) async {
+    setState(() => _pushEnabledByType[type] = value);
+    try {
+      await ref.read(notificationRepositoryProvider).updatePreference(type, pushEnabled: value);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _pushEnabledByType[type] = !value);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+    }
+  }
+
+  Future<void> _editProfile(BuildContext context, WidgetRef ref, String currentName) async {
+    final newName = await showSingleFieldDialog(
+      context,
+      title: 'Adını düzenle',
+      hintText: 'Ad Soyad',
+      confirmLabel: 'Kaydet',
+      initialText: currentName,
+    );
+    if (newName == null || newName.trim().isEmpty || !context.mounted) return;
+
+    try {
+      await ref.read(authControllerProvider.notifier).updateProfile(displayName: newName.trim());
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      }
+    }
+  }
+
+  Future<void> _changePassword(BuildContext context, WidgetRef ref) async {
+    final currentPassword = await showSingleFieldDialog(
+      context,
+      title: 'Mevcut şifren',
+      hintText: 'Mevcut şifre',
+      confirmLabel: 'Devam et',
+      obscureText: true,
+    );
+    if (currentPassword == null || currentPassword.isEmpty || !context.mounted) return;
+
+    final newPassword = await showSingleFieldDialog(
+      context,
+      title: 'Yeni şifre',
+      hintText: 'Yeni şifre (en az 8 karakter)',
+      confirmLabel: 'Şifreyi değiştir',
+      obscureText: true,
+    );
+    if (newPassword == null || newPassword.isEmpty || !context.mounted) return;
+
+    try {
+      await ref.read(authControllerProvider.notifier).changePassword(
+            currentPassword: currentPassword,
+            newPassword: newPassword,
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Şifren güncellendi')));
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      }
+    }
+  }
 
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
@@ -69,10 +178,11 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final user = ref.watch(authControllerProvider).user;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Ayarlar')),
@@ -84,6 +194,25 @@ class SettingsScreen extends ConsumerWidget {
           AppSpacing.fabBottomPadding,
         ),
         children: [
+          if (user != null) ...[
+            Card(
+              child: ListTile(
+                leading: CircleAvatar(
+                  radius: 22,
+                  backgroundColor: colorScheme.primaryContainer,
+                  child: Text(
+                    user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : '?',
+                    style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                title: Text(user.displayName, style: textTheme.titleSmall),
+                subtitle: Text(user.email),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => _editProfile(context, ref, user.displayName),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
           Padding(
             padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: AppSpacing.sm),
             child: Text(
@@ -121,6 +250,33 @@ class SettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: AppSpacing.sm),
             child: Text(
+              'BİLDİRİMLER',
+              style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant, letterSpacing: 0.3),
+            ),
+          ),
+          Card(
+            child: _preferencesLoaded
+                ? Column(
+                    children: [
+                      for (final entry in _notificationTypeLabels.entries) ...[
+                        SwitchListTile(
+                          title: Text(entry.value),
+                          value: _pushEnabledByType[entry.key] ?? true,
+                          onChanged: (value) => _togglePreference(entry.key, value),
+                        ),
+                        if (entry.key != _notificationTypeLabels.keys.last) const Divider(height: 1),
+                      ],
+                    ],
+                  )
+                : const Padding(
+                    padding: EdgeInsets.all(AppSpacing.lg),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Padding(
+            padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: AppSpacing.sm),
+            child: Text(
               'HESAP',
               style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant, letterSpacing: 0.3),
             ),
@@ -128,6 +284,12 @@ class SettingsScreen extends ConsumerWidget {
           Card(
             child: Column(
               children: [
+                ListTile(
+                  leading: const Icon(Icons.lock_outline_rounded),
+                  title: const Text('Şifreyi değiştir'),
+                  onTap: () => _changePassword(context, ref),
+                ),
+                const Divider(height: 1),
                 ListTile(
                   leading: Icon(Icons.logout_rounded, color: colorScheme.error),
                   title: Text('Çıkış yap', style: TextStyle(color: colorScheme.error)),
@@ -140,6 +302,31 @@ class SettingsScreen extends ConsumerWidget {
                   onTap: () => _confirmDeleteAccount(context, ref),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Padding(
+            padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: AppSpacing.sm),
+            child: Text(
+              'HAKKINDA',
+              style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant, letterSpacing: 0.3),
+            ),
+          ),
+          Card(
+            child: FutureBuilder<PackageInfo>(
+              future: PackageInfo.fromPlatform(),
+              builder: (context, snapshot) {
+                final version = snapshot.data?.version ?? '—';
+                final buildNumber = snapshot.data?.buildNumber;
+                return ListTile(
+                  leading: const Icon(Icons.info_outline_rounded),
+                  title: const Text('Sürüm'),
+                  trailing: Text(
+                    buildNumber != null ? '$version ($buildNumber)' : version,
+                    style: TextStyle(color: colorScheme.onSurfaceVariant),
+                  ),
+                );
+              },
             ),
           ),
         ],

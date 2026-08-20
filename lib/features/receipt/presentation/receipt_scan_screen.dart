@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/responsive.dart';
+import '../../../core/widgets/scan_progress.dart';
 import '../application/receipt_providers.dart';
 import '../data/on_device_ocr.dart';
 import '../data/receipt_stitcher.dart';
@@ -41,18 +42,6 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     super.dispose();
   }
 
-  String _stepLabel(_ScanStep step) {
-    switch (step) {
-      case _ScanStep.capturing:
-        return 'Fotoğraf seçiliyor...';
-      case _ScanStep.extractingText:
-        return 'Fiş okunuyor...';
-      case _ScanStep.uploading:
-        return 'Gönderiliyor...';
-      case _ScanStep.idle:
-        return '';
-    }
-  }
 
   Future<void> _capturePart(ImageSource source) async {
     setState(() {
@@ -182,16 +171,9 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (isBusy) ...[
-                    const SizedBox(
-                      width: 56,
-                      height: 56,
-                      child: CircularProgressIndicator(strokeWidth: 3),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    Text(
-                      _stepLabel(_step),
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleSmall,
+                    ScanProgress(
+                      steps: const ['Fotoğraf seçiliyor', 'Fiş okunuyor', 'Gönderiliyor'],
+                      currentStep: _step.index - 1,
                     ),
                   ] else ...[
                     Center(

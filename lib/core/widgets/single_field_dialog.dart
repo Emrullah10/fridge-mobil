@@ -10,8 +10,9 @@ Future<String?> showSingleFieldDialog(
   required String confirmLabel,
   bool obscureText = false,
   String? contentText,
+  String? initialText,
 }) {
-  final controller = TextEditingController();
+  final controller = TextEditingController(text: initialText);
   return showDialog<String>(
     context: context,
     builder: (dialogContext) => AlertDialog(

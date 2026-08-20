@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -7,7 +8,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/button_progress.dart';
+import '../../../core/widgets/storage_icon_box.dart';
 import '../../../core/widgets/storage_kind.dart';
+import '../../../core/widgets/unit_label.dart';
 import '../../household/application/household_providers.dart';
 import '../../household/data/household_repository.dart';
 import '../../inventory/application/inventory_providers.dart';
@@ -20,19 +23,23 @@ class ReceiptReviewScreen extends ConsumerStatefulWidget {
     super.key,
     required this.householdId,
     required this.scanId,
-    required this.lineItems,
+    this.lineItems,
   });
 
   final String householdId;
   final String scanId;
-  final List<ReceiptLineItem> lineItems;
+  // Bildirimden veya fiş geçmişinden scanId ile açılırken null gelir —
+  // ekran kendi GET /:scanId ile satırları çeker (bkz. initState).
+  final List<ReceiptLineItem>? lineItems;
 
   @override
   ConsumerState<ReceiptReviewScreen> createState() => _ReceiptReviewScreenState();
 }
 
 class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
-  late final List<ReceiptLineItem> _items = List.of(widget.lineItems);
+  List<ReceiptLineItem> _items = [];
+  bool _loadingItems = false;
+  Object? _loadError;
   // Eşleşmemiş satırlar hiçbir zaman kalmıyor (AI otomatik ürün oluşturuyor),
   // ama düşük güvenli satırları varsayılan seçili göndermek riskli — kullanıcı
   // önce göz atmalı. Sadece yüksek güvenli (alias/trigram) satırlar baştan seçili.
@@ -45,6 +52,58 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
   final Map<String, String?> _locationIdByItemId = {};
   bool _locationsInitialized = false;
   bool _isConfirming = false;
+  // Sürükleme sürüyor mu — alt bırakma çubuğunu sadece bu sırada göster,
+  // aksi halde ekranda gereksiz yer kaplamasın.
+  bool _isDragging = false;
+  // Sürüklenen kartın üstünde durulan hedef bölüm (vurgu için).
+  String? _dragHoverLocationId;
+  // "Belirsiz" (bölüm ataması kaldır) hedefi gerçek bir storage location id'si
+  // değil — locationId'lerle çakışmayacak sabit bir sentinel.
+  static const _unassignedDropId = '__unassigned__';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.lineItems != null) {
+      _items = List.of(widget.lineItems!);
+    } else {
+      _fetchItems();
+    }
+    // Sürükle-bırak keşfedilebilir değil (uzun basış görsel bir ipucu
+    // vermiyor) — ekran ilk açıldığında bir kez kısa bir tüyo göster.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('İpucu: bir ürünü uzun basıp bölüme sürükleyebilirsin'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    });
+  }
+
+  Future<void> _fetchItems() async {
+    setState(() {
+      _loadingItems = true;
+      _loadError = null;
+    });
+    try {
+      final result = await ref
+          .read(receiptRepositoryProvider)
+          .getScan(widget.householdId, widget.scanId);
+      if (!mounted) return;
+      setState(() {
+        _items = result.lineItems;
+        _loadingItems = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error;
+        _loadingItems = false;
+      });
+    }
+  }
 
   // locations her build'de aynı referansla gelmeyebilir ama sadece BİR kere
   // öneriden doldurmak istiyoruz — aksi halde kullanıcının elle seçtiği
@@ -175,6 +234,16 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
     });
   }
 
+  // Sürükle-bırak ile bölüm atama — _editItem'daki dropdown'ın (L173-174)
+  // aynı etkisi, ama sunucuda correctLineItem çağrısı OLMADAN: sürüklemek
+  // sadece yerel state değiştirir, ürün adını/markasını düzeltmez.
+  void _assignLocation(String itemId, String locationId) {
+    setState(() {
+      _locationIdByItemId[itemId] = locationId;
+      _selectedIds.add(itemId);
+    });
+  }
+
   Future<void> _pickExpiryDate(String itemId) async {
     final picked = await showDatePicker(
       context: context,
@@ -232,9 +301,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
       ref.invalidate(inventoryItemsProvider(InventoryParams(householdId: widget.householdId)));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$summary eklendi')));
-        Navigator.of(context)
-          ..pop()
-          ..pop();
+        Navigator.of(context).pop(true);
       }
     } catch (error) {
       if (mounted) {
@@ -254,7 +321,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
     final isSelected = _selectedIds.contains(item.id);
     final expiresAt = _expiresAtByItemId[item.id];
     final textTheme = Theme.of(context).textTheme;
-    return Card(
+    final card = Card(
       child: Column(
         children: [
           CheckboxListTile(
@@ -276,7 +343,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     spacing: AppSpacing.sm,
                     children: [
-                      Text('${item.parsedQuantity} ${item.parsedUnit}'),
+                      Text('${item.parsedQuantity} ${unitLabel(item.parsedUnit)}'),
                       if (item.parsedBrand != null) AppBadge(label: item.parsedBrand!),
                       if (!item.isHighConfidence)
                         const AppBadge(label: 'Kontrol et', variant: AppBadgeVariant.warning),
@@ -339,6 +406,28 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
         ],
       ),
     );
+
+    // CheckboxListTile zaten tap'i tüketiyor, uzun basış boştaydı — kartı
+    // uzun basıp sürükleyerek doğrudan bir bölüm başlığına bırakmak,
+    // "kalem ikonu -> dialog -> dropdown" akışına kısayol sağlar.
+    return LongPressDraggable<String>(
+      data: item.id,
+      onDragStarted: () => setState(() => _isDragging = true),
+      onDragEnd: (_) => setState(() {
+        _isDragging = false;
+        _dragHoverLocationId = null;
+      }),
+      feedback: Material(
+        elevation: 4,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width - AppSpacing.md * 2,
+          child: Opacity(opacity: 0.9, child: card),
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: 0.3, child: card),
+      child: card,
+    );
   }
 
   /// Bölüm bazlı gruplama başlığı + ürün kartları. `location` verilmezse
@@ -383,6 +472,31 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
     final locationsAsync = ref.watch(storageLocationsProvider(widget.householdId));
     final colorScheme = Theme.of(context).colorScheme;
     final dateFormat = DateFormat('dd.MM.yyyy');
+
+    if (_loadingItems) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Fişi Onayla')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_loadError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Fişi Onayla')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(describeApiError(_loadError!)),
+                const SizedBox(height: AppSpacing.sm),
+                FilledButton(onPressed: _fetchItems, child: const Text('Tekrar dene')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Fişi Onayla')),
@@ -437,14 +551,192 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
         ],
       ),
       bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: FilledButton(
-            onPressed: _isConfirming || _selectedIds.isEmpty ? null : _confirm,
-            child: _isConfirming ? const ButtonProgress() : Text('${_selectedIds.length} ürünü dolaba ekle'),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_isDragging) _buildDropBar(context, locationsAsync.valueOrNull ?? []),
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: FilledButton(
+                onPressed: _isConfirming || _selectedIds.isEmpty ? null : _confirm,
+                child: _isConfirming ? const ButtonProgress() : Text('${_selectedIds.length} ürünü dolaba ekle'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Sürükleme sürdüğü sürece görünen sabit bırakma çubuğu — liste ne kadar
+  /// kaydırılırsa kaydırılsın her zaman erişilebilir kalır (CustomScrollView +
+  /// pinned header yerine daha basit ve güvenilir bir çözüm). Giriş/çıkışta
+  /// kayarak belirir — eskiden `if (_isDragging)` ile aniden çıkıyordu.
+  Widget _buildDropBar(BuildContext context, List<StorageLocation> locations) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      offset: _isDragging ? Offset.zero : const Offset(0, 1),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        opacity: _isDragging ? 1 : 0,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, -4)),
+            ],
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final location in locations) ...[
+                  _buildDropTarget(context, location),
+                  const SizedBox(width: AppSpacing.sm),
+                ],
+                _buildUnassignDropTarget(context),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  int _countAssigned(String? locationId) =>
+      _items.where((i) => _locationIdByItemId[i.id] == locationId).length;
+
+  Widget _buildDropTarget(BuildContext context, StorageLocation location) {
+    final style = storageKindStyle(context, location.kind, icon: location.icon);
+    final count = _countAssigned(location.id);
+    return _DropTargetCard(
+      isHovering: _dragHoverLocationId == location.id,
+      color: style.color,
+      icon: style.icon,
+      label: location.name,
+      count: count,
+      onWillAccept: () => setState(() => _dragHoverLocationId = location.id),
+      onLeave: () => setState(() => _dragHoverLocationId = null),
+      onAccept: (itemId) {
+        HapticFeedback.selectionClick();
+        _assignLocation(itemId, location.id);
+        setState(() => _dragHoverLocationId = null);
+      },
+    );
+  }
+
+  // "Bölüm seçilmedi" hedefi — önceden sadece listede bir grup başlığı
+  // olarak vardı, sürükleyerek bir atamayı GERİ ALMANIN yolu yoktu.
+  Widget _buildUnassignDropTarget(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final count = _countAssigned(null);
+    return _DropTargetCard(
+      isHovering: _dragHoverLocationId == _unassignedDropId,
+      color: colorScheme.onSurfaceVariant,
+      icon: Icons.remove_circle_outline_rounded,
+      label: 'Belirsiz',
+      count: count,
+      onWillAccept: () => setState(() => _dragHoverLocationId = _unassignedDropId),
+      onLeave: () => setState(() => _dragHoverLocationId = null),
+      onAccept: (itemId) {
+        HapticFeedback.selectionClick();
+        setState(() {
+          _locationIdByItemId[itemId] = null;
+          _dragHoverLocationId = null;
+        });
+      },
+    );
+  }
+}
+
+/// Sürükle-bırak hedef kartı — sabit boyut, gölgeli Material yüzey, hover'da
+/// ölçekleniyor ve ürün sayısı rozeti taşıyor. Eskiden sabit boyutsuz, gölgesiz
+/// bir AnimatedContainer'dı; metin uzunluğuna göre chip'ler farklı genişlikte
+/// hizasız görünüyordu (kullanıcı geri bildirimi: "çok düz bir tasarım").
+class _DropTargetCard extends StatelessWidget {
+  const _DropTargetCard({
+    required this.isHovering,
+    required this.color,
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.onWillAccept,
+    required this.onLeave,
+    required this.onAccept,
+  });
+
+  final bool isHovering;
+  final Color color;
+  final IconData icon;
+  final String label;
+  final int count;
+  final VoidCallback onWillAccept;
+  final VoidCallback onLeave;
+  final ValueChanged<String> onAccept;
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) {
+        onWillAccept();
+        return true;
+      },
+      onLeave: (_) => onLeave(),
+      onAcceptWithDetails: (details) => onAccept(details.data),
+      builder: (context, candidateData, rejectedData) {
+        return AnimatedScale(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          scale: isHovering ? 1.08 : 1.0,
+          child: Material(
+            color: isHovering ? color.withValues(alpha: 0.18) : Theme.of(context).colorScheme.surfaceContainerLow,
+            elevation: isHovering ? 4 : 1,
+            shadowColor: color.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            child: Container(
+              width: 84,
+              height: 84,
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppRadius.card),
+                border: Border.all(color: color.withValues(alpha: isHovering ? 0.9 : 0.35), width: isHovering ? 2 : 1),
+              ),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      StorageIconBox(icon: icon, color: color, size: 36, iconSize: 20),
+                      const SizedBox(height: AppSpacing.xs),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (count > 0)
+                    Positioned(
+                      top: -4,
+                      right: -4,
+                      child: AppBadge(label: '$count', variant: AppBadgeVariant.quantity),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

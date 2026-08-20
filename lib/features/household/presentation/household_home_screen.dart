@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
@@ -10,63 +12,54 @@ import '../../../core/widgets/responsive.dart';
 import '../../../core/widgets/storage_icon_box.dart';
 import '../../../core/widgets/storage_kind.dart';
 import '../../inventory/presentation/inventory_screen.dart';
+import '../../notification/application/notification_providers.dart';
+import '../../notification/presentation/notifications_screen.dart';
 import '../../receipt/application/receipt_providers.dart';
+import '../../receipt/presentation/receipt_history_screen.dart';
+import 'household_members_screen.dart';
 import '../../receipt/presentation/receipt_review_screen.dart';
 import '../../receipt/presentation/receipt_scan_screen.dart';
 import '../application/household_providers.dart';
 import '../data/household_repository.dart';
+import 'edit_storage_location_dialog.dart';
 
 class HouseholdHomeScreen extends ConsumerWidget {
   const HouseholdHomeScreen({super.key, required this.household});
 
   final Household household;
 
+  static const _inviteBaseUrl = 'https://api-fridge.emrullahbozkurt.com/join';
+
+  String _formatCode(String code) => code.replaceAllMapped(
+        RegExp(r'.{1,4}'),
+        (match) => '${match.group(0)} ',
+      ).trim();
+
   Future<void> _showInviteCode(BuildContext context, WidgetRef ref) async {
-    final String code;
+    String? code;
+    String? loadError;
     try {
-      code = await ref
-          .read(householdRepositoryProvider)
-          .createInvite(household.id);
+      code = await ref.read(householdRepositoryProvider).createInvite(household.id);
     } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
-      }
-      return;
+      loadError = describeApiError(error);
     }
     if (!context.mounted) return;
-    showDialog(
+
+    if (loadError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loadError)));
+      return;
+    }
+
+    await showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Davet Kodu'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Bu kodu alanı paylaştığın kişiyle paylaş.'),
-            const SizedBox(height: AppSpacing.sm),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: Theme.of(dialogContext).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(AppRadius.input),
-              ),
-              child: SelectableText(
-                code,
-                textAlign: TextAlign.center,
-                style: Theme.of(dialogContext).textTheme.titleSmall?.copyWith(letterSpacing: 1),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Kapat'),
-          ),
-        ],
+      builder: (dialogContext) => _InviteCodeDialog(
+        household: household,
+        initialCode: code!,
+        baseUrl: _inviteBaseUrl,
+        formatCode: _formatCode,
+        onRotate: (expiresInDays) => ref
+            .read(householdRepositoryProvider)
+            .rotateInvite(household.id, expiresInDays: expiresInDays),
       ),
     );
   }
@@ -116,7 +109,7 @@ class HouseholdHomeScreen extends ConsumerWidget {
           child: InkWell(
             onTap: () {
               Navigator.of(context)
-                  .push(
+                  .push<bool>(
                     MaterialPageRoute(
                       builder: (_) => ReceiptReviewScreen(
                         householdId: household.id,
@@ -125,7 +118,13 @@ class HouseholdHomeScreen extends ConsumerWidget {
                       ),
                     ),
                   )
-                  .then((_) => notifier.clear());
+                  .then((confirmed) {
+                    // Yalnızca kullanıcı gerçekten onaylarsa banner temizlenir
+                    // ve kalıcı kayıt silinir — yarım bırakılıp geri çıkılırsa
+                    // (geri tuşu, uygulamayı kapatma) tarama "review_pending"de
+                    // asılı kalmamalı, banner bir sonraki açılışta da görünmeli.
+                    if (confirmed == true) notifier.clear();
+                  });
             },
             child: Padding(
               padding: const EdgeInsets.symmetric(
@@ -193,14 +192,156 @@ class HouseholdHomeScreen extends ConsumerWidget {
     }
   }
 
-  Widget _buildLocationCard(BuildContext context, dynamic location) {
-    final style = storageKindStyle(context, location.kind as String);
+  Future<void> _createLocation(BuildContext context, WidgetRef ref) async {
+    final result = await showStorageLocationFormDialog(context);
+    if (result == null) return;
+    try {
+      await ref.read(householdRepositoryProvider).createLocation(
+            household.id,
+            name: result.name,
+            kind: result.kind,
+            icon: result.icon,
+          );
+      ref.invalidate(storageLocationsProvider(household.id));
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      }
+    }
+  }
+
+  Future<void> _editLocation(BuildContext context, WidgetRef ref, StorageLocation location) async {
+    final result = await showStorageLocationFormDialog(context, existing: location);
+    if (result == null) return;
+    try {
+      final response = await ref.read(householdRepositoryProvider).updateLocation(
+            household.id,
+            location.id,
+            name: result.name,
+            kind: result.kind,
+            icon: result.icon ?? '',
+          );
+      ref.invalidate(storageLocationsProvider(household.id));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${response.name} güncellendi')));
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      }
+    }
+  }
+
+  Future<void> _deleteLocation(BuildContext context, WidgetRef ref, StorageLocation location) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Bölümü Sil'),
+        content: Text('"${location.name}" bölümünü silmek istediğine emin misin?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text('Sil', style: TextStyle(color: Theme.of(dialogContext).colorScheme.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final repo = ref.read(householdRepositoryProvider);
+    try {
+      await repo.deleteLocation(household.id, location.id);
+      ref.invalidate(storageLocationsProvider(household.id));
+      return;
+    } on Object catch (error) {
+      final itemCount = _extractItemCount(error);
+      if (itemCount == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        }
+        return;
+      }
+    }
+
+    // Bölüm dolu (409) — kullanıcıya hedef bölüm seçtirip taşıma ile sil.
+    if (!context.mounted) return;
+    final locations = ref.read(storageLocationsProvider(household.id)).valueOrNull ?? [];
+    final otherLocations = locations.where((l) => l.id != location.id).toList();
+    if (otherLocations.isEmpty) return;
+
+    final targetId = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text('"${location.name}" dolu — ürünleri nereye taşıyalım?'),
+        children: [
+          for (final target in otherLocations)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, target.id),
+              child: Text(target.name),
+            ),
+        ],
+      ),
+    );
+    if (targetId == null) return;
+
+    try {
+      await repo.deleteLocation(household.id, location.id, strategy: 'move', targetLocationId: targetId);
+      ref.invalidate(storageLocationsProvider(household.id));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bölüm silindi, ürünler taşındı')));
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      }
+    }
+  }
+
+  int? _extractItemCount(Object error) {
+    try {
+      final data = (error as dynamic).response.data;
+      if (data is Map && data['itemCount'] is int) return data['itemCount'] as int;
+    } catch (_) {
+      // response yoksa (ağ hatası vb.) itemCount de yok — null dön.
+    }
+    return null;
+  }
+
+  Widget _buildLocationCard(BuildContext context, WidgetRef ref, StorageLocation location) {
+    final style = storageKindStyle(context, location.kind, icon: location.icon);
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.card),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => InventoryScreen(householdId: household.id, location: location),
+          ),
+        ),
+        onLongPress: () => showModalBottomSheet<void>(
+          context: context,
+          builder: (sheetContext) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('Düzenle'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _editLocation(context, ref, location);
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.delete_outline_rounded, color: Theme.of(sheetContext).colorScheme.error),
+                  title: Text('Sil', style: TextStyle(color: Theme.of(sheetContext).colorScheme.error)),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _deleteLocation(context, ref, location);
+                  },
+                ),
+              ],
+            ),
           ),
         ),
         child: Padding(
@@ -211,7 +352,7 @@ class HouseholdHomeScreen extends ConsumerWidget {
               StorageIconBox(icon: style.icon, color: style.color, size: 48, iconSize: 24),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                location.name as String,
+                location.name,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleSmall,
               ),
@@ -231,9 +372,52 @@ class HouseholdHomeScreen extends ConsumerWidget {
         title: Text(household.name),
         actions: [
           IconButton(
+            icon: const Icon(Icons.add_box_outlined),
+            tooltip: 'Bölüm ekle',
+            onPressed: () => _createLocation(context, ref),
+          ),
+          IconButton(
+            icon: const Icon(Icons.receipt_long_rounded),
+            tooltip: 'Fiş geçmişi',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ReceiptHistoryScreen(householdId: household.id),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.group_outlined),
+            tooltip: 'Üyeler',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => HouseholdMembersScreen(household: household),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.person_add_alt_rounded),
             tooltip: 'Bu alana davet et',
             onPressed: () => _showInviteCode(context, ref),
+          ),
+          Consumer(
+            builder: (context, ref, _) {
+              final unreadCount = ref.watch(notificationListProvider).valueOrNull?.unreadCount ?? 0;
+              return IconButton(
+                icon: Badge(
+                  label: Text('$unreadCount'),
+                  isLabelVisible: unreadCount > 0,
+                  child: const Icon(Icons.notifications_outlined),
+                ),
+                tooltip: 'Bildirimler',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                ),
+              );
+            },
           ),
           const SizedBox(width: AppSpacing.xs),
         ],
@@ -272,7 +456,7 @@ class HouseholdHomeScreen extends ConsumerWidget {
                               childAspectRatio: 1.1,
                             ),
                             delegate: SliverChildBuilderDelegate(
-                              (context, index) => _buildLocationCard(context, locations[index]),
+                              (context, index) => _buildLocationCard(context, ref, locations[index]),
                               childCount: gridCount,
                             ),
                           ),
@@ -283,7 +467,7 @@ class HouseholdHomeScreen extends ConsumerWidget {
                             sliver: SliverToBoxAdapter(
                               child: SizedBox(
                                 height: constraints.maxWidth / columns / 1.1,
-                                child: _buildLocationCard(context, locations.last),
+                                child: _buildLocationCard(context, ref, locations.last),
                               ),
                             ),
                           ),
@@ -309,6 +493,153 @@ class HouseholdHomeScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Davet kodu dialogu — süre seçimi ve "Kodu yenile" içerdiği için ayrı bir
+/// StatefulWidget: her yenilemede kod değişip dialogun kendi state'ini
+/// güncellemesi (parent'ı yeniden build etmeden) gerekiyor.
+class _InviteCodeDialog extends StatefulWidget {
+  const _InviteCodeDialog({
+    required this.household,
+    required this.initialCode,
+    required this.baseUrl,
+    required this.formatCode,
+    required this.onRotate,
+  });
+
+  final Household household;
+  final String initialCode;
+  final String baseUrl;
+  final String Function(String code) formatCode;
+  final Future<String> Function(int? expiresInDays) onRotate;
+
+  @override
+  State<_InviteCodeDialog> createState() => _InviteCodeDialogState();
+}
+
+class _InviteCodeDialogState extends State<_InviteCodeDialog> {
+  late String _code = widget.initialCode;
+  // null = süresiz (backend varsayılanı).
+  int? _expiresInDays;
+  bool _rotating = false;
+
+  String get _link => '${widget.baseUrl}/$_code';
+
+  Future<void> _rotate() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Kodu yenile?'),
+        content: const Text('Eski kod artık çalışmaz. Bu kodu daha önce paylaştığın kişiler yeni kodu almadan katılamaz.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Yenile')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _rotating = true);
+    try {
+      final newCode = await widget.onRotate(_expiresInDays);
+      if (mounted) setState(() => _code = newCode);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _rotating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AlertDialog(
+      title: const Text('Davet Kodu'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Bu kod alan için sabittir — istediğin kadar kişi aynı kodla katılabilir.'),
+          const SizedBox(height: AppSpacing.sm),
+          InkWell(
+            borderRadius: BorderRadius.circular(AppRadius.input),
+            onTap: () async {
+              await Clipboard.setData(ClipboardData(text: _code));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kod kopyalandı')));
+              }
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(AppRadius.input),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.formatCode(_code),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(letterSpacing: 1),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Icon(Icons.copy_rounded, size: 18, color: colorScheme.onSurfaceVariant),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text('Kodun süresi', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            children: [
+              for (final option in const [
+                (null, 'Süresiz'),
+                (1, '1 gün'),
+                (7, '7 gün'),
+                (30, '30 gün'),
+              ])
+                ChoiceChip(
+                  label: Text(option.$2),
+                  selected: _expiresInDays == option.$1,
+                  onSelected: (_) => setState(() => _expiresInDays = option.$1),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _rotating ? null : _rotate,
+              icon: _rotating
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Kodu yenile'),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton.icon(
+          onPressed: () => Share.share(
+            '${widget.household.name} alanıma katıl! Davet kodu: $_code\n$_link',
+          ),
+          icon: const Icon(Icons.share_rounded, size: 18),
+          label: const Text('Paylaş'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Kapat'),
+        ),
+      ],
     );
   }
 }

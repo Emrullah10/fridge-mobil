@@ -27,7 +27,21 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> _restoreSession() async {
     final hasSession = await _repo.hasStoredSession();
-    state = AuthState(status: hasSession ? AuthStatus.authenticated : AuthStatus.unauthenticated);
+    if (!hasSession) {
+      state = const AuthState(status: AuthStatus.unauthenticated);
+      return;
+    }
+    // Token varlığı tek başına kullanıcı bilgisini (ad/e-posta) vermiyor —
+    // önceden burada user hep null kalıyordu, profil ekranı boş görünürdü.
+    try {
+      final user = await _repo.fetchCurrentUser();
+      state = AuthState(status: AuthStatus.authenticated, user: user);
+    } catch (_) {
+      // Token geçersizse ApiClient zaten 401 -> forceUnauthenticated akışını
+      // tetikler; burada en azından authenticated'a düşüp uygulamanın
+      // açılmasını engellememek yeterli.
+      state = const AuthState(status: AuthStatus.authenticated);
+    }
   }
 
   Future<void> login({required String email, required String password}) async {
@@ -43,6 +57,15 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> logout() async {
     await _repo.logout();
     state = const AuthState(status: AuthStatus.unauthenticated);
+  }
+
+  Future<void> updateProfile({required String displayName}) async {
+    final user = await _repo.updateProfile(displayName: displayName);
+    state = state.copyWith(user: user);
+  }
+
+  Future<void> changePassword({required String currentPassword, required String newPassword}) {
+    return _repo.changePassword(currentPassword: currentPassword, newPassword: newPassword);
   }
 
   Future<void> deleteAccount({required String password}) async {

@@ -3,16 +3,18 @@ import 'package:dio/dio.dart';
 import '../../../core/api/api_client.dart';
 
 class AppUser {
-  const AppUser({required this.id, required this.email, required this.displayName});
+  const AppUser({required this.id, required this.email, required this.displayName, this.locale = 'tr'});
 
   final String id;
   final String email;
   final String displayName;
+  final String locale;
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
         id: json['id'] as String,
         email: json['email'] as String,
         displayName: json['displayName'] as String,
+        locale: json['locale'] as String? ?? 'tr',
       );
 }
 
@@ -60,6 +62,29 @@ class AuthRepository {
   Future<bool> hasStoredSession() async {
     final token = await _client.tokenStorage.readRefreshToken();
     return token != null;
+  }
+
+  /// Oturum token'dan geri yüklendiğinde kullanıcı bilgisini (ad/e-posta)
+  /// hidre eder — token varlığı tek başına user'ı bilmemize yetmiyordu,
+  /// uygulama yeniden açıldığında profil ekranı boş kalıyordu.
+  Future<AppUser> fetchCurrentUser() async {
+    final response = await _client.dio.get('/auth/me');
+    return AppUser.fromJson(response.data['user'] as Map<String, dynamic>);
+  }
+
+  Future<AppUser> updateProfile({required String displayName, String? locale}) async {
+    final response = await _client.dio.patch('/auth/me', data: {
+      'displayName': displayName,
+      if (locale != null) 'locale': locale,
+    });
+    return AppUser.fromJson(response.data['user'] as Map<String, dynamic>);
+  }
+
+  Future<void> changePassword({required String currentPassword, required String newPassword}) async {
+    await _client.dio.post('/auth/change-password', data: {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+    });
   }
 
   Future<void> deleteAccount({required String password}) async {

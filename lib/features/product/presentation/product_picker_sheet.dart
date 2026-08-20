@@ -4,18 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/unit_label.dart';
 import '../application/product_providers.dart';
 import '../data/product_repository.dart';
 
-const _units = ['piece', 'gram', 'kilogram', 'milliliter', 'liter', 'package'];
-const _unitLabels = {
-  'piece': 'Adet',
-  'gram': 'Gram',
-  'kilogram': 'Kilogram',
-  'milliliter': 'Mililitre',
-  'liter': 'Litre',
-  'package': 'Paket',
-};
+const _units = unitOptions;
 
 /// Ürün arama/seçme/oluşturma bottom sheet'i. Fiş düzeltme ve manuel
 /// envanter ekleme ekranlarının ikisi de bunu kullanır — tek bir yerden
@@ -83,7 +76,7 @@ class _ProductPickerSheetState extends ConsumerState<_ProductPickerSheet> {
           content: DropdownButtonFormField<String>(
             initialValue: selectedUnit,
             decoration: const InputDecoration(labelText: 'Birim'),
-            items: [for (final u in _units) DropdownMenuItem(value: u, child: Text(_unitLabels[u]!))],
+            items: [for (final u in _units) DropdownMenuItem(value: u, child: Text(unitLabel(u)))],
             onChanged: (value) => setDialogState(() => selectedUnit = value ?? 'piece'),
           ),
           actions: [
@@ -142,7 +135,7 @@ class _ProductPickerSheetState extends ConsumerState<_ProductPickerSheet> {
                         for (final product in _results)
                           ListTile(
                             title: Text(product.canonicalName),
-                            subtitle: Text(_unitLabels[product.defaultUnit] ?? product.defaultUnit),
+                            subtitle: Text(unitLabel(product.defaultUnit)),
                             onTap: () => Navigator.of(context).pop(product),
                           ),
                         if (_searchController.text.trim().isNotEmpty)

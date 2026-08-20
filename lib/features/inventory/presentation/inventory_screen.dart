@@ -8,6 +8,7 @@ import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/unit_label.dart';
 import '../../household/data/household_repository.dart';
 import '../application/inventory_providers.dart';
 import '../data/inventory_repository.dart';
@@ -32,7 +33,7 @@ class InventoryScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Elinde ${item.quantity} ${item.unit} var.',
+              'Elinde ${item.quantity} ${unitLabel(item.unit)} var.',
               style: TextStyle(color: Theme.of(dialogContext).colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -46,7 +47,7 @@ class InventoryScreen extends ConsumerWidget {
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   autofocus: true,
                   decoration: InputDecoration(
-                    suffixText: item.unit,
+                    suffixText: unitLabel(item.unit),
                     errorText: tooMuch ? 'Elindekinden fazla' : null,
                   ),
                 );
@@ -178,7 +179,7 @@ class InventoryScreen extends ConsumerWidget {
                                   if (isEmpty)
                                     const AppBadge(label: 'Bitti')
                                   else
-                                    AppBadge(label: '${item.quantity} ${item.unit}', variant: AppBadgeVariant.quantity),
+                                    AppBadge(label: '${item.quantity} ${unitLabel(item.unit)}', variant: AppBadgeVariant.quantity),
                                   if (!isEmpty && item.expiresAt != null) ...[
                                     const SizedBox(width: AppSpacing.sm),
                                     Icon(

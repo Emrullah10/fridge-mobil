@@ -56,10 +56,48 @@ class ReceiptScanResult {
   final List<ReceiptLineItem> lineItems;
 }
 
+class ReceiptScanSummary {
+  const ReceiptScanSummary({
+    required this.id,
+    required this.status,
+    required this.createdAt,
+    this.merchantName,
+    this.totalAmount,
+    this.errorMessage,
+  });
+
+  final String id;
+  final String status;
+  final DateTime createdAt;
+  final String? merchantName;
+  final double? totalAmount;
+  final String? errorMessage;
+
+  factory ReceiptScanSummary.fromJson(Map<String, dynamic> json) => ReceiptScanSummary(
+        id: json['id'] as String,
+        status: json['status'] as String,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+        merchantName: json['merchantName'] as String?,
+        totalAmount: (json['totalAmount'] as num?)?.toDouble(),
+        errorMessage: json['errorMessage'] as String?,
+      );
+}
+
 class ReceiptRepository {
   ReceiptRepository(this._client);
 
   final ApiClient _client;
+
+  /// Fiş geçmişi: household'a ait tüm taramalar, en yeniden eskiye.
+  Future<List<ReceiptScanSummary>> listScans(String householdId) async {
+    final response = await _client.dio.get('/households/$householdId/receipts');
+    final scans = response.data['scans'] as List;
+    return scans.map((s) => ReceiptScanSummary.fromJson(s as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> retry(String householdId, String scanId) async {
+    await _client.dio.post('/households/$householdId/receipts/$scanId/retry');
+  }
 
   /// Telefonda ML Kit ile çıkarılan ham metni gönderir — backend'de OCR
   /// (kademe 1) atlanır, sadece Ollama anlamlandırması (kademe 2) çalışır.
