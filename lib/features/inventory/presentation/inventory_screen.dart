@@ -9,6 +9,7 @@ import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/unit_label.dart';
+import '../../chef/presentation/chef_chat_screen.dart';
 import '../../household/data/household_repository.dart';
 import '../application/inventory_providers.dart';
 import '../data/inventory_repository.dart';
@@ -23,65 +24,81 @@ class InventoryScreen extends ConsumerWidget {
   Future<void> _consume(BuildContext context, WidgetRef ref, InventoryItem item) async {
     // Girilen miktar eldekini aşarsa backend InsufficientStockError döner,
     // o yüzden hem "Tamamen tüketildi" kısayolu hem de anlık doğrulama var.
+    //
+    // reason ayrımı para & israf paneli için kritik: 'consumed' -> "kurtarılan
+    // para", 'discarded'/'expired' -> "israf".
     final controller = TextEditingController(text: '1');
+    var reason = 'consumed';
     final amount = await showDialog<double>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Ne kadar tüketildi?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Elinde ${item.quantity} ${unitLabel(item.unit)} var.',
-              style: TextStyle(color: Theme.of(dialogContext).colorScheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: AppSpacing.sm),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Bu üründen ne oldu?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'consumed', label: Text('Kullandım'), icon: Icon(Icons.restaurant_rounded, size: 16)),
+                  ButtonSegment(value: 'discarded', label: Text('Bozuldu'), icon: Icon(Icons.delete_outline_rounded, size: 16)),
+                ],
+                selected: {reason},
+                showSelectedIcon: false,
+                onSelectionChanged: (s) => setDialogState(() => reason = s.first),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Elinde ${item.quantity} ${unitLabel(item.unit)} var.',
+                style: TextStyle(color: Theme.of(dialogContext).colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (_, value, _) {
+                  final parsed = double.tryParse(value.text.replaceAll(',', '.'));
+                  final tooMuch = parsed != null && parsed > item.quantity;
+                  return TextField(
+                    controller: controller,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      suffixText: unitLabel(item.unit),
+                      errorText: tooMuch ? 'Elindekinden fazla' : null,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextButton.icon(
+                icon: const Icon(Icons.done_all_rounded, size: 18),
+                label: Text(reason == 'consumed' ? 'Tamamı kullanıldı' : 'Tamamı bozuldu'),
+                onPressed: () => Navigator.pop(dialogContext, item.quantity),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('İptal')),
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: controller,
               builder: (_, value, _) {
                 final parsed = double.tryParse(value.text.replaceAll(',', '.'));
-                final tooMuch = parsed != null && parsed > item.quantity;
-                return TextField(
-                  controller: controller,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    suffixText: unitLabel(item.unit),
-                    errorText: tooMuch ? 'Elindekinden fazla' : null,
-                  ),
+                final valid = parsed != null && parsed > 0 && parsed <= item.quantity;
+                return FilledButton(
+                  onPressed: valid ? () => Navigator.pop(dialogContext, parsed) : null,
+                  child: const Text('Onayla'),
                 );
               },
             ),
-            const SizedBox(height: AppSpacing.sm),
-            TextButton.icon(
-              icon: const Icon(Icons.done_all_rounded, size: 18),
-              label: const Text('Tamamen tüketildi'),
-              onPressed: () => Navigator.pop(dialogContext, item.quantity),
-            ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('İptal')),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (_, value, _) {
-              final parsed = double.tryParse(value.text.replaceAll(',', '.'));
-              final valid = parsed != null && parsed > 0 && parsed <= item.quantity;
-              return FilledButton(
-                onPressed: valid ? () => Navigator.pop(dialogContext, parsed) : null,
-                child: const Text('Onayla'),
-              );
-            },
-          ),
-        ],
       ),
     );
 
     if (amount == null || amount <= 0) return;
     final params = InventoryParams(householdId: householdId, storageLocationId: location.id);
     try {
-      await ref.read(inventoryRepositoryProvider).consume(householdId, item.id, amount);
+      await ref.read(inventoryRepositoryProvider).consume(householdId, item.id, amount, reason: reason);
       ref.invalidate(inventoryItemsProvider(params));
     } catch (error) {
       if (context.mounted) {
@@ -110,7 +127,23 @@ class InventoryScreen extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text(location.name)),
+      appBar: AppBar(
+        title: Text(location.name),
+        actions: [
+          IconButton(
+            tooltip: 'AI Chef’e sor',
+            icon: const Icon(Icons.auto_awesome_rounded),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ChefChatScreen(
+                  householdId: householdId,
+                  seedPrompt: 'Son kullanma tarihi yaklaşanlarla ne pişirebilirim?',
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: AsyncView(
         value: itemsAsync,
         onRetry: () => ref.invalidate(inventoryItemsProvider(params)),
@@ -225,7 +258,7 @@ class InventoryScreen extends ConsumerWidget {
         ),
         child: const Icon(Icons.add),
       ),
-      bottomNavigationBar: const AppBottomNav(currentTab: AppBottomTab.areas),
+      bottomNavigationBar: AppBottomNav(currentTab: AppBottomTab.areas, householdId: householdId),
     );
   }
 }

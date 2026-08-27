@@ -483,7 +483,7 @@ class HouseholdHomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      bottomNavigationBar: const AppBottomNav(currentTab: AppBottomTab.areas),
+      bottomNavigationBar: AppBottomNav(currentTab: AppBottomTab.areas, householdId: household.id),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.document_scanner_rounded),
         label: const Text('Fiş Tara'),

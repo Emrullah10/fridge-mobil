@@ -27,9 +27,13 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Alışveriş fişlerini taramak için kamera erişimi gerekiyor.</string>
+	<string>Alışveriş fişlerini taramak ve ürün barkodu okutmak için kamera erişimi gerekiyor.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Galeriden fiş fotoğrafı seçebilmek için fotoğraflara erişim gerekiyor.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ürünleri sesle eklemek için mikrofon erişimi gerekiyor.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Söylediğiniz ürünleri metne çevirmek için konuşma tanıma kullanılıyor.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

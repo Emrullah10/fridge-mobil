@@ -5,6 +5,8 @@
          gerektiriyor — bu sadece manifest deklarasyonu, kullanıcıya soru
          main.dart'taki FirebaseMessaging.requestPermission() ile sorulur. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Sesli ürün girişi (speech_to_text) — runtime izni paket kendisi ister. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!-- CAMERA izni tek başına kamerayı zorunlu cihaz özelliği yapıyor;
          galeriden fiş seçmek de mümkün olduğu için kamerasız cihazlar
          (Chromebook vb.) Play'de uygulamayı görebilsin diye required=false. -->

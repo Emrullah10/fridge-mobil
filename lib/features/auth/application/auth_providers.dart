@@ -59,10 +59,14 @@ class AuthController extends StateNotifier<AuthState> {
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 
-  Future<void> updateProfile({required String displayName}) async {
-    final user = await _repo.updateProfile(displayName: displayName);
+  Future<void> updateProfile({required String displayName, Object? dietProfile = _keepDiet}) async {
+    final user = identical(dietProfile, _keepDiet)
+        ? await _repo.updateProfile(displayName: displayName)
+        : await _repo.updateProfile(displayName: displayName, dietProfile: dietProfile);
     state = state.copyWith(user: user);
   }
+
+  static const _keepDiet = Object();
 
   Future<void> changePassword({required String currentPassword, required String newPassword}) {
     return _repo.changePassword(currentPassword: currentPassword, newPassword: newPassword);

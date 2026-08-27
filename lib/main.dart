@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+
+import 'l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:app_links/app_links.dart';
@@ -22,6 +24,7 @@ import 'features/household/application/household_providers.dart';
 import 'features/household/presentation/household_list_screen.dart';
 import 'features/notification/application/notification_providers.dart';
 import 'features/notification/data/push_service.dart';
+import 'features/receipt/application/receipt_providers.dart';
 import 'features/receipt/presentation/receipt_review_screen.dart';
 import 'firebase_options.dart';
 
@@ -74,13 +77,22 @@ class FridgeApp extends ConsumerWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
-      locale: const Locale('tr'),
-      supportedLocales: const [Locale('tr'), Locale('en')],
+      // locale null: cihaz dilini takip eder, desteklenmeyen dilde tr'ye düşer
+      // (supportedLocales sırası). İleride Ayarlar'dan manuel geçiş bir
+      // localeProvider ile buraya bağlanabilir.
+      supportedLocales: AppL10n.supportedLocales,
       localizationsDelegates: const [
+        AppL10n.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      localeResolutionCallback: (locale, supported) {
+        for (final s in supported) {
+          if (s.languageCode == locale?.languageCode) return s;
+        }
+        return const Locale('tr');
+      },
       home: const _AuthGate(),
     );
   }
@@ -89,16 +101,27 @@ class FridgeApp extends ConsumerWidget {
 /// RECEIPT_PROCESSED bildirimine tıklanınca (bkz. notification-types.js)
 /// doğrudan review ekranına götürür — lineItems verilmiyor, ekran kendi
 /// GET /:scanId ile satırları çeker (bkz. receipt_review_screen.dart).
-void _handleNotificationTap(Map<String, dynamic> data) {
+///
+/// household_home_screen.dart'taki "Fiş hazır" banner'ının onTap'i gibi
+/// dönüş değerini (true = onaylandı) dinleyip pendingReceiptScanProvider'ı
+/// temizler — bu olmadan bildirimden açılıp onaylanan bir fiş, ev ekranında
+/// "Fiş hazır" banner'ının asılı kalmasına yol açıyordu (regresyon).
+void _handleNotificationTap(WidgetRef ref, Map<String, dynamic> data) {
   final type = data['type'] as String?;
   final householdId = data['householdId'] as String?;
   final scanId = data['scanId'] as String?;
   if (type == 'receipt_processed' && householdId != null && scanId != null) {
-    rootNavigatorKey.currentState?.push(
-      MaterialPageRoute(
-        builder: (_) => ReceiptReviewScreen(householdId: householdId, scanId: scanId),
-      ),
-    );
+    rootNavigatorKey.currentState
+        ?.push<bool>(
+          MaterialPageRoute(
+            builder: (_) => ReceiptReviewScreen(householdId: householdId, scanId: scanId),
+          ),
+        )
+        .then((confirmed) {
+          if (confirmed == true) {
+            ref.read(pendingReceiptScanProvider(householdId).notifier).clear();
+          }
+        });
   }
 }
 
@@ -276,7 +299,7 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
       final previousStatus = _lastStatus;
       _lastStatus = authState.status;
       if (authState.status == AuthStatus.authenticated) {
-        ref.read(pushServiceProvider).registerForCurrentUser(onTap: _handleNotificationTap);
+        ref.read(pushServiceProvider).registerForCurrentUser(onTap: (data) => _handleNotificationTap(ref, data));
         final pendingCode = _pendingInviteCode;
         if (pendingCode != null) {
           _pendingInviteCode = null;

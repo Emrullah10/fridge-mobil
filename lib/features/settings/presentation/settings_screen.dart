@@ -9,6 +9,7 @@ import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/single_field_dialog.dart';
 import '../../auth/application/auth_providers.dart';
 import '../../notification/application/notification_providers.dart';
+import 'diet_profile_screen.dart';
 
 /// backend notification-types.js NOTIFICATION_TYPES ile birebir aynı
 /// anahtarlar. Tercih satırı yoksa varsayılan açık (bkz. backend
@@ -209,6 +210,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 subtitle: Text(user.email),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => _editProfile(context, ref, user.displayName),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.restaurant_menu_rounded),
+                title: const Text('Diyet & Alerjenler'),
+                subtitle: Text(
+                  (user.dietProfile == null || user.dietProfile!.isEmpty)
+                      ? 'Tarif önerileri için ayarla'
+                      : [
+                          if (user.dietProfile!.diet != 'none') user.dietProfile!.diet,
+                          if (user.dietProfile!.allergens.isNotEmpty)
+                            '${user.dietProfile!.allergens.length} alerjen',
+                        ].join(' · '),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const DietProfileScreen()),
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.lg),

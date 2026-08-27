@@ -2,19 +2,51 @@ import 'package:dio/dio.dart';
 
 import '../../../core/api/api_client.dart';
 
+class DietProfile {
+  const DietProfile({this.allergens = const [], this.diet = 'none', this.dailyKcalTarget});
+
+  final List<String> allergens;
+  final String diet;
+  final int? dailyKcalTarget;
+
+  bool get isEmpty => allergens.isEmpty && diet == 'none' && dailyKcalTarget == null;
+
+  factory DietProfile.fromJson(Map<String, dynamic> json) => DietProfile(
+        allergens: (json['allergens'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+        diet: json['diet'] as String? ?? 'none',
+        dailyKcalTarget: (json['dailyKcalTarget'] as num?)?.toInt(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'allergens': allergens,
+        'diet': diet,
+        'dailyKcalTarget': dailyKcalTarget,
+      };
+}
+
 class AppUser {
-  const AppUser({required this.id, required this.email, required this.displayName, this.locale = 'tr'});
+  const AppUser({
+    required this.id,
+    required this.email,
+    required this.displayName,
+    this.locale = 'tr',
+    this.dietProfile,
+  });
 
   final String id;
   final String email;
   final String displayName;
   final String locale;
+  final DietProfile? dietProfile;
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
         id: json['id'] as String,
         email: json['email'] as String,
         displayName: json['displayName'] as String,
         locale: json['locale'] as String? ?? 'tr',
+        dietProfile: json['dietProfile'] != null
+            ? DietProfile.fromJson(json['dietProfile'] as Map<String, dynamic>)
+            : null,
       );
 }
 
@@ -72,13 +104,22 @@ class AuthRepository {
     return AppUser.fromJson(response.data['user'] as Map<String, dynamic>);
   }
 
-  Future<AppUser> updateProfile({required String displayName, String? locale}) async {
+  Future<AppUser> updateProfile({
+    required String displayName,
+    String? locale,
+    // sentinel: alan hiç geçilmezse dokunulmaz; null geçilirse temizlenir.
+    Object? dietProfile = _noDietProfile,
+  }) async {
     final response = await _client.dio.patch('/auth/me', data: {
       'displayName': displayName,
       if (locale != null) 'locale': locale,
+      if (!identical(dietProfile, _noDietProfile))
+        'dietProfile': dietProfile is DietProfile ? dietProfile.toJson() : null,
     });
     return AppUser.fromJson(response.data['user'] as Map<String, dynamic>);
   }
+
+  static const _noDietProfile = Object();
 
   Future<void> changePassword({required String currentPassword, required String newPassword}) async {
     await _client.dio.post('/auth/change-password', data: {

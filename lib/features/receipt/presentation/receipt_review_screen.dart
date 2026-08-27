@@ -14,6 +14,7 @@ import '../../../core/widgets/unit_label.dart';
 import '../../household/application/household_providers.dart';
 import '../../household/data/household_repository.dart';
 import '../../inventory/application/inventory_providers.dart';
+import '../../product/application/product_providers.dart';
 import '../../product/presentation/product_picker_sheet.dart';
 import '../application/receipt_providers.dart';
 import '../data/receipt_repository.dart';
@@ -122,10 +123,15 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
     final nameController = TextEditingController(text: item.parsedName);
     final brandController = TextEditingController(text: item.parsedBrand ?? '');
     final quantityController = TextEditingController(text: item.parsedQuantity.toString());
+    final packSizeController = TextEditingController(text: item.parsedPackSize?.toString() ?? '');
     String selectedProductId = item.matchedProductId!;
     String selectedProductName = item.parsedName;
     String? selectedLocationId = _locationIdByItemId[item.id];
+    String selectedUnit = item.parsedUnit;
+    String? selectedCategoryKey;
+    String selectedPackUnit = item.parsedPackUnit ?? 'milliliter';
     final locations = ref.read(storageLocationsProvider(widget.householdId)).valueOrNull ?? [];
+    final categories = ref.read(productCategoriesProvider(widget.householdId)).valueOrNull ?? [];
 
     final edited = await showDialog<bool>(
       context: context,
@@ -179,6 +185,64 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(labelText: 'Miktar'),
               ),
+              const SizedBox(height: AppSpacing.sm),
+              DropdownButtonFormField<String>(
+                initialValue: selectedUnit,
+                decoration: const InputDecoration(labelText: 'Birim'),
+                items: [
+                  for (final unit in unitOptions)
+                    DropdownMenuItem(value: unit, child: Text(unitLabel(unit))),
+                ],
+                onChanged: (value) {
+                  if (value != null) setDialogState(() => selectedUnit = value);
+                },
+              ),
+              if (selectedUnit == 'piece') ...[
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: packSizeController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Paket boyutu (opsiyonel)',
+                          helperText: 'örn. 6 adet × 200 ml için 200 yaz',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: selectedPackUnit,
+                        decoration: const InputDecoration(labelText: 'Birim'),
+                        items: [
+                          for (final unit in unitOptions.where((u) => u != 'piece'))
+                            DropdownMenuItem(value: unit, child: Text(unitShortLabel(unit))),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) setDialogState(() => selectedPackUnit = value);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: AppSpacing.sm),
+              DropdownButtonFormField<String>(
+                initialValue: selectedCategoryKey,
+                decoration: const InputDecoration(
+                  labelText: 'Kategori (opsiyonel)',
+                  helperText: 'Doğru kategori tarif önerilerini iyileştirir',
+                ),
+                hint: const Text('Kategori seç'),
+                items: [
+                  for (final category in categories)
+                    DropdownMenuItem(value: category.key, child: Text(category.nameTr)),
+                ],
+                onChanged: (value) => setDialogState(() => selectedCategoryKey = value),
+              ),
             ],
           ),
           actions: [
@@ -194,6 +258,10 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
     final newName = nameController.text.trim();
     final newBrand = brandController.text.trim();
     final newQuantity = double.tryParse(quantityController.text) ?? item.parsedQuantity;
+    // Paket boyutu yalnızca 'piece' birimi için anlamlı — birim değiştiyse
+    // veya alan boş bırakıldıysa null gönderilir (paket bilgisi silinir).
+    final newPackSize = selectedUnit == 'piece' ? double.tryParse(packSizeController.text) : null;
+    final newPackUnit = newPackSize != null ? selectedPackUnit : null;
 
     try {
       await ref.read(receiptRepositoryProvider).correctLineItem(
@@ -203,8 +271,11 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
             parsedName: newName,
             parsedBrand: newBrand.isEmpty ? null : newBrand,
             parsedQuantity: newQuantity,
-            parsedUnit: item.parsedUnit,
+            parsedUnit: selectedUnit,
+            parsedPackSize: newPackSize,
+            parsedPackUnit: newPackUnit,
             matchedProductId: selectedProductId,
+            categoryKey: selectedCategoryKey,
           );
     } catch (error) {
       if (mounted) {
@@ -221,7 +292,9 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
         parsedName: newName,
         parsedBrand: newBrand.isEmpty ? null : newBrand,
         parsedQuantity: newQuantity,
-        parsedUnit: item.parsedUnit,
+        parsedUnit: selectedUnit,
+        parsedPackSize: newPackSize,
+        parsedPackUnit: newPackUnit,
         matchedProductId: selectedProductId,
         matchMethod: 'manual',
         confidence: 1.0,
@@ -343,7 +416,9 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     spacing: AppSpacing.sm,
                     children: [
-                      Text('${item.parsedQuantity} ${unitLabel(item.parsedUnit)}'),
+                      Text(item.parsedPackSize != null
+                          ? '${item.parsedQuantity.toStringAsFixed(0)} adet × ${item.parsedPackSize} ${unitShortLabel(item.parsedPackUnit!)}'
+                          : '${item.parsedQuantity} ${unitLabel(item.parsedUnit)}'),
                       if (item.parsedBrand != null) AppBadge(label: item.parsedBrand!),
                       if (!item.isHighConfidence)
                         const AppBadge(label: 'Kontrol et', variant: AppBadgeVariant.warning),
@@ -514,6 +589,19 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                 Text(
                   '${_selectedIds.length} seçili',
                   style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                TextButton(
+                  onPressed: () => setState(() {
+                    if (_selectedIds.length == _items.length) {
+                      _selectedIds.clear();
+                    } else {
+                      _selectedIds
+                        ..clear()
+                        ..addAll(_items.map((i) => i.id));
+                    }
+                  }),
+                  child: Text(_selectedIds.length == _items.length ? 'Tümünü Kaldır' : 'Tümünü Seç'),
                 ),
               ],
             ),

@@ -7,9 +7,11 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/button_progress.dart';
 import '../../../core/widgets/form_error_text.dart';
 import '../../../core/widgets/responsive.dart';
+import '../../product/application/product_providers.dart';
 import '../../product/data/product_repository.dart';
 import '../../product/presentation/product_picker_sheet.dart';
 import '../application/inventory_providers.dart';
+import 'barcode_scan_screen.dart';
 
 class AddInventoryItemScreen extends ConsumerStatefulWidget {
   const AddInventoryItemScreen({super.key, required this.householdId, required this.storageLocationId});
@@ -37,6 +39,34 @@ class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen>
   Future<void> _pickProduct() async {
     final product = await showProductPicker(context, householdId: widget.householdId);
     if (product != null) setState(() => _selectedProduct = product);
+  }
+
+  Future<void> _scanBarcode() async {
+    final code = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const BarcodeScanScreen()),
+    );
+    if (code == null || !mounted) return;
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+    try {
+      final result = await ref.read(productRepositoryProvider).lookupBarcode(widget.householdId, code);
+      if (!mounted) return;
+      if (result.found && result.product != null) {
+        setState(() => _selectedProduct = result.product);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${result.product!.canonicalName} seçildi')),
+        );
+      } else {
+        setState(() => _errorMessage = 'Barkod tanınmadı ($code). Ürünü elle seçebilirsin.');
+      }
+    } catch (error) {
+      if (mounted) setState(() => _errorMessage = describeApiError(error));
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _pickExpiryDate() async {
@@ -103,10 +133,25 @@ class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.search_rounded),
-                    label: Text(_selectedProduct?.canonicalName ?? 'Ürün seç'),
-                    onPressed: _pickProduct,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.search_rounded),
+                          label: Text(
+                            _selectedProduct?.canonicalName ?? 'Ürün seç',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onPressed: _isSaving ? null : _pickProduct,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      IconButton.outlined(
+                        tooltip: 'Barkod okut',
+                        icon: const Icon(Icons.qr_code_scanner_rounded),
+                        onPressed: _isSaving ? null : _scanBarcode,
+                      ),
+                    ],
                   ),
                   const SizedBox(height: AppSpacing.md),
                   TextField(

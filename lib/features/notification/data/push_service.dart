@@ -76,14 +76,23 @@ class PushService {
       return;
     }
 
-    final token = await messaging.getToken();
-    if (token != null) {
-      await _sendToken(token);
+    try {
+      final token = await messaging.getToken();
+      if (token != null) {
+        await _sendToken(token);
+      }
+    } catch (e) {
+      debugPrint('FCM getToken error (e.g. Simulator without APNs): $e');
     }
 
     // Token FCM tarafından herhangi bir zamanda (uygulama silinip
     // yüklendiğinde, cihaz değiştiğinde vb.) değişebilir.
-    FirebaseMessaging.instance.onTokenRefresh.listen(_sendToken);
+    FirebaseMessaging.instance.onTokenRefresh.listen(
+      _sendToken,
+      onError: (e) {
+        debugPrint('FCM onTokenRefresh error: $e');
+      },
+    );
 
     // Uygulama ön plandayken FCM'in kendisi hiçbir şey göstermez (data-only
     // payload varsayımıyla) — foreground'da heads-up bildirimi biz
@@ -96,9 +105,13 @@ class PushService {
     });
 
     // Uygulama tamamen kapalıyken bildirime tıklanıp açıldığında.
-    final initialMessage = await messaging.getInitialMessage();
-    if (initialMessage != null) {
-      _onTap?.call(initialMessage.data);
+    try {
+      final initialMessage = await messaging.getInitialMessage();
+      if (initialMessage != null) {
+        _onTap?.call(initialMessage.data);
+      }
+    } catch (e) {
+      debugPrint('FCM getInitialMessage error: $e');
     }
   }
 

@@ -9,6 +9,7 @@ class InventoryItem {
     required this.quantity,
     required this.unit,
     this.expiresAt,
+    this.unitPrice,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class InventoryItem {
   final double quantity;
   final String unit;
   final DateTime? expiresAt;
+  final double? unitPrice;
 
   factory InventoryItem.fromJson(Map<String, dynamic> json) => InventoryItem(
         id: json['id'] as String,
@@ -27,6 +29,7 @@ class InventoryItem {
         quantity: (json['quantity'] as num).toDouble(),
         unit: json['unit'] as String,
         expiresAt: json['expiresAt'] != null ? DateTime.parse(json['expiresAt'] as String) : null,
+        unitPrice: json['unitPrice'] != null ? (json['unitPrice'] as num).toDouble() : null,
       );
 }
 
@@ -44,10 +47,30 @@ class InventoryRepository {
     return items.map((i) => InventoryItem.fromJson(i as Map<String, dynamic>)).toList();
   }
 
-  Future<void> consume(String householdId, String itemId, double quantity) async {
+  /// [reason]: `consumed` (kullanıldı, para tasarrufu) | `expired` | `discarded`
+  /// (bozuldu/atıldı, israf). Boş bırakılırsa backend `consumed` varsayar.
+  Future<void> consume(
+    String householdId,
+    String itemId,
+    double quantity, {
+    String reason = 'consumed',
+  }) async {
     await _client.dio.post(
       '/households/$householdId/inventory/$itemId/consume',
-      data: {'quantity': quantity},
+      data: {'quantity': quantity, 'reason': reason},
+    );
+  }
+
+  /// Kalemi tamamen kaldırır. [reason]: `discarded` (varsayılan, israf) |
+  /// `expired` | `consumed`.
+  Future<void> deleteItem(
+    String householdId,
+    String itemId, {
+    String reason = 'discarded',
+  }) async {
+    await _client.dio.delete(
+      '/households/$householdId/inventory/$itemId',
+      queryParameters: {'reason': reason},
     );
   }
 
@@ -58,6 +81,7 @@ class InventoryRepository {
     required String unit,
     required double quantity,
     DateTime? expiresAt,
+    double? unitPrice,
   }) async {
     final response = await _client.dio.post(
       '/households/$householdId/inventory',
@@ -67,6 +91,7 @@ class InventoryRepository {
         'unit': unit,
         'quantity': quantity,
         if (expiresAt != null) 'expiresAt': expiresAt.toIso8601String(),
+        if (unitPrice != null) 'unitPrice': unitPrice,
       },
     );
     return InventoryItem.fromJson(response.data['item'] as Map<String, dynamic>);

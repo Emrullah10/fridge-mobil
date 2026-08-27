@@ -8,6 +8,8 @@ class ReceiptLineItem {
     this.parsedBrand,
     required this.parsedQuantity,
     required this.parsedUnit,
+    this.parsedPackSize,
+    this.parsedPackUnit,
     required this.matchedProductId,
     required this.matchMethod,
     required this.confidence,
@@ -20,6 +22,13 @@ class ReceiptLineItem {
   final String? parsedBrand;
   final double parsedQuantity;
   final String parsedUnit;
+
+  /// Çoklu paket satırlarında ("6X200ML") tek paketin boyutu — parsedQuantity
+  /// paket ADEDİ (6), parsedUnit 'piece' olur, boyut burada ayrı taşınır.
+  /// null ise satır çoklu paket değil, tek ölçülü (parsedQuantity/parsedUnit
+  /// yeterli).
+  final double? parsedPackSize;
+  final String? parsedPackUnit;
   final String? matchedProductId;
   final String? matchMethod;
   final double? confidence;
@@ -43,6 +52,8 @@ class ReceiptLineItem {
         parsedBrand: json['parsedBrand'] as String?,
         parsedQuantity: (json['parsedQuantity'] as num?)?.toDouble() ?? 1,
         parsedUnit: json['parsedUnit'] as String? ?? 'piece',
+        parsedPackSize: (json['parsedPackSize'] as num?)?.toDouble(),
+        parsedPackUnit: json['parsedPackUnit'] as String?,
         matchedProductId: json['matchedProductId'] as String?,
         matchMethod: json['matchMethod'] as String?,
         confidence: (json['confidence'] as num?)?.toDouble(),
@@ -127,7 +138,10 @@ class ReceiptRepository {
     String? parsedBrand,
     required double parsedQuantity,
     required String parsedUnit,
+    double? parsedPackSize,
+    String? parsedPackUnit,
     required String matchedProductId,
+    String? categoryKey,
   }) async {
     await _client.dio.patch(
       '/households/$householdId/receipts/$scanId/items/$itemId',
@@ -136,7 +150,10 @@ class ReceiptRepository {
         'parsedBrand': ?parsedBrand,
         'parsedQuantity': parsedQuantity,
         'parsedUnit': parsedUnit,
+        'parsedPackSize': ?parsedPackSize,
+        'parsedPackUnit': ?parsedPackUnit,
         'matchedProductId': matchedProductId,
+        'categoryKey': ?categoryKey,
       },
     );
   }
