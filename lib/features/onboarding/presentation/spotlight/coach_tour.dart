@@ -6,23 +6,43 @@ import 'spotlight_painter.dart';
 
 /// Bir spotlight turu adımı: ekranda halihazırda var olan bir widget'ı
 /// [targetKey] ile işaret eder. [targetKey] `null` verilirse (ör. navbar
-/// sekmesi gibi kendine GlobalKey verilemeyen bir hedef) [rectResolver}
+/// sekmesi gibi kendine GlobalKey verilemeyen bir hedef) [rectResolver]
 /// çağrılır — turu barındıran overlay context'i verilir, ekran uzayında
-/// bir Rect döndürmesi beklenir.
+/// bir Rect (ya da hedef o an yoksa `null`) döndürmesi beklenir.
 class CoachStep {
   const CoachStep({
     this.targetKey,
     this.rectResolver,
+    this.optional = false,
     required this.title,
     required this.body,
     required this.accent,
   }) : assert(targetKey != null || rectResolver != null);
 
   final GlobalKey? targetKey;
-  final Rect Function(BuildContext overlayContext)? rectResolver;
+
+  /// Hedef o an ekranda yoksa `null` dönebilir (bkz. [optional]).
+  final Rect? Function(BuildContext overlayContext)? rectResolver;
+
+  /// true ise hedef bulunamadığında adım ATLANIR — ekran ortasına düşen
+  /// anlamsız spotlight yerine. Yalnızca veriye bağlı hedefler için:
+  /// "Dolaba Aktar" butonu, SKT rozeti, eşleşme halkası...
+  final bool optional;
+
   final String title;
   final String body;
   final Color accent;
+}
+
+/// Adımın ekran dikdörtgeni; hedef o an ağaçta değilse `null`. Hem tur öncesi
+/// ön-eleme hem tur sırasındaki canlı takip bunu kullanır.
+Rect? resolveStepRect(CoachStep step, BuildContext context) {
+  if (step.targetKey != null) {
+    final box = step.targetKey!.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize || !box.attached) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
+  return step.rectResolver?.call(context);
 }
 
 /// Turu saydam bir rota olarak açar — altındaki gerçek ekran görünür kalır.
@@ -33,7 +53,11 @@ Future<void> showCoachTour(
   required List<CoachStep> steps,
   required VoidCallback onFinished,
 }) {
-  if (steps.isEmpty) {
+  // optional adımlar yalnızca hedefleri o an ekrandaysa tura girer — hedefi
+  // veriye bağlı olanlar (Dolaba Aktar, SKT rozeti, eşleşme halkası) boş
+  // ekranda "ekran ortasında anlamsız delik" üretmesin.
+  final usable = steps.where((s) => !s.optional || resolveStepRect(s, context) != null).toList();
+  if (usable.isEmpty) {
     onFinished();
     return Future.value();
   }
@@ -41,7 +65,7 @@ Future<void> showCoachTour(
     PageRouteBuilder(
       opaque: false,
       barrierDismissible: false,
-      pageBuilder: (_, a1, a2) => _CoachTourOverlay(steps: steps, onFinished: onFinished),
+      pageBuilder: (_, a1, a2) => _CoachTourOverlay(steps: usable, onFinished: onFinished),
     ),
   );
 }
@@ -80,24 +104,20 @@ class _CoachTourOverlayState extends State<_CoachTourOverlay> with TickerProvide
     super.dispose();
   }
 
+  /// O anki adımın CANLI dikdörtgeni — her `build`/`AnimatedBuilder` frame'inde
+  /// yeniden okunur. Hedef hareket edebilir: Scaffold'un FAB giriş animasyonu,
+  /// açılıp kapanan pending-scan banner'ı, SnackBar'ın FAB'ı itmesi, geç gelen
+  /// veri... Tek seferlik ölçüm bunların hepsinde spotlight'ı kaydırıyordu.
+  /// `_pulse` sonsuz `repeat()` olduğu için overlay zaten her frame repaint
+  /// oluyor — ekstra frame planlamadan, sadece burada `localToGlobal`
+  /// çağırarak takip ediyoruz. build fazında çağrıldığı için layout bitmiştir.
+  Rect get _liveTargetRect =>
+      resolveStepRect(widget.steps[_index], context) ??
+      _currentRect ??
+      Rect.fromCenter(center: MediaQuery.sizeOf(context).center(Offset.zero), width: 120, height: 48);
+
   void _resolveRect({required bool animate}) {
-    final step = widget.steps[_index];
-    Rect? rect;
-    if (step.targetKey != null) {
-      final ctx = step.targetKey!.currentContext;
-      final box = ctx?.findRenderObject() as RenderBox?;
-      if (box != null && box.hasSize) {
-        final offset = box.localToGlobal(Offset.zero);
-        rect = offset & box.size;
-      }
-    } else if (step.rectResolver != null) {
-      rect = step.rectResolver!(context);
-    }
-    rect ??= Rect.fromCenter(
-      center: MediaQuery.sizeOf(context).center(Offset.zero),
-      width: 120,
-      height: 48,
-    );
+    final rect = _liveTargetRect;
     setState(() {
       _previousRect = _currentRect ?? rect;
       _currentRect = rect;
@@ -110,11 +130,19 @@ class _CoachTourOverlayState extends State<_CoachTourOverlay> with TickerProvide
   }
 
   void _advance() {
-    if (_index >= widget.steps.length - 1) {
+    var next = _index + 1;
+    // Hedefi kaybolmuş optional adımları atla (kullanıcı aradaki adımda
+    // kutuyu işaretsiz bıraktı, veri silindi vb.).
+    while (next < widget.steps.length) {
+      final step = widget.steps[next];
+      if (!step.optional || resolveStepRect(step, context) != null) break;
+      next++;
+    }
+    if (next >= widget.steps.length) {
       _finish();
       return;
     }
-    setState(() => _index++);
+    setState(() => _index = next);
     _resolveRect(animate: true);
   }
 
@@ -137,7 +165,15 @@ class _CoachTourOverlayState extends State<_CoachTourOverlay> with TickerProvide
         animation: Listenable.merge([_pulse, _moveController]),
         builder: (context, _) {
           final moveT = Curves.easeOutCubic.transform(_moveController.value);
-          final rect = Rect.lerp(_previousRect, _currentRect, moveT) ?? _currentRect ?? Rect.zero;
+          // Adım geçişi sürerken önceki → yeni hedef arasında lerp. Geçiş
+          // bittiğinde CANLI dikdörtgeni izle — hedef sonradan kayarsa
+          // (FAB animasyonu, banner, geç veri) spotlight ona yapışsın.
+          final Rect rect;
+          if (_moveController.isCompleted) {
+            rect = _liveTargetRect;
+          } else {
+            rect = Rect.lerp(_previousRect, _currentRect, moveT) ?? _currentRect ?? Rect.zero;
+          }
           final pulseT = _reduceMotion ? 0.0 : Curves.easeOut.transform(_pulse.value);
 
           // Balon hedefin altına ya da üstüne — ekran ortasının hangi

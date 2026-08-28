@@ -93,7 +93,12 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
     final lowerAccent = _accentFor(lower, appColors, scheme);
     final upperAccent = _accentFor(upper, appColors, scheme);
     final blendedAccent = Color.lerp(lowerAccent, upperAccent, frac)!;
-    final bg = Color.lerp(scheme.surface, blendedAccent.withValues(alpha: 0.10), 1.0)!;
+    // surface'i accent'e doğru %10 karıştır — OPAK bir zemin çıkmalı.
+    // Eski hali `Color.lerp(surface, accent.withOpacity(0.10), 1.0)` idi:
+    // t=1.0 ikinci rengi ALFASIYLA döndürüyordu → %90 şeffaf Scaffold, altından
+    // sistem penceresi rengi sızıyordu (sistem açık + uygulama koyu = beyaz
+    // zeminde koyu-tema metinleri = "yazılar kayboluyor").
+    final bg = Color.lerp(scheme.surface, blendedAccent, 0.10)!;
 
     final onLastContent = _page.round() >= _contentPages;
 

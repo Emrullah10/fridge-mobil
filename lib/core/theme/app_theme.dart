@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../navigation/app_page_transitions.dart';
+
 /// Uygulama genelinde tek gerçek kaynak: renkler, boşluklar, köşe
 /// yuvarlaklığı. Yeni bir ekran eklerken buradaki token'ları kullan,
 /// renk/boşluk değerini elle yazma.
@@ -68,9 +70,17 @@ class AppColors extends ThemeExtension<AppColors> {
     statusWarning: Color(0xFFB45309),
   );
 
-  // Koyu temada aynı renkler kullanılır — bölüm kimliği sabit kalmalı,
-  // Stitch'in koyu ekranlarında da aynı hex'ler görünüyor.
-  static const dark = light;
+  // Koyu tema: bölüm kimliği (mavi/turkuaz) korunur ama koyu yüzey (#0F1512)
+  // üstünde AA-altı kalan kehribar ve gri tonlar açığa çekilir — light'taki
+  // #B45309 ≈ 3.4:1, #6B7280 ≈ 3.2:1 idi (normal metinde okunmuyordu).
+  // Yeni değerler koyu yüzey üstünde ≥ 4.5:1.
+  static const dark = AppColors(
+    storageFridge: Color(0xFF7BB5FF),
+    storageFreezer: Color(0xFF4DD4E8),
+    storagePantry: Color(0xFFE8A33D),
+    storageOther: Color(0xFF9CA3AF),
+    statusWarning: Color(0xFFE8A33D),
+  );
 
   @override
   AppColors copyWith({
@@ -225,6 +235,15 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.snackbar)),
+      ),
+      // Tüm push/pop geçişleri tek noktadan — bkz. app_page_transitions.dart.
+      // Mevcut çıplak MaterialPageRoute çağrılarının hiçbirine dokunmadan
+      // uygulanır (platform builder'ı override eder).
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: AppPageTransitionsBuilder(),
+          TargetPlatform.iOS: AppPageTransitionsBuilder(),
+        },
       ),
     );
   }

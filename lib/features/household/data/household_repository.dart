@@ -11,10 +11,14 @@ class Household {
   /// Eski kayıtlarda alan gelmeyebileceği için varsayılan 'home'.
   final String kind;
 
-  /// household.features JSONB — şu an tek anahtar: 'food' (bool). Kullanıcı
-  /// açıkça karar vermediyse map'te hiç yer almaz, o durumda [foodEnabled]
-  /// türden türetir (backend'deki resolveFeatures ile aynı mantık).
+  /// household.features JSONB — anahtarlar: 'food' (bool), 'icon' (string).
+  /// Kullanıcı açıkça karar vermediyse ilgili anahtar map'te hiç yer almaz.
   final Map<String, dynamic> features;
+
+  /// Kullanıcının seçtiği serbest simge anahtarı (bkz.
+  /// core/widgets/household_kind.dart `householdIconChoices`). null ise
+  /// [householdIconFor] eski `kind` ikonuna düşer.
+  String? get icon => features['icon'] as String?;
 
   /// Tarifler/AI Chef sekmelerinin görünürlüğü. Kayıtlı bir 'food' değeri
   /// varsa o kullanılır (kullanıcı türü ezmiş demektir), yoksa `foodKinds`
@@ -71,13 +75,31 @@ class HouseholdRepository {
     return households.map((h) => Household.fromJson(h as Map<String, dynamic>)).toList();
   }
 
-  Future<Household> createHousehold(String name, {String kind = 'home', bool? foodEnabled}) async {
+  /// Yeni alan. Tür (`kind`) artık istemciden gönderilmez — backend 'other'e
+  /// düşürür. `icon` kullanıcının seçtiği serbest simge anahtarı,
+  /// `foodEnabled` "Yemek özellikleri" switch'i (varsayılan kapalı).
+  Future<Household> createHousehold(String name, {String? icon, bool? foodEnabled}) async {
     final response = await _client.dio.post(
       '/households',
       data: {
         'name': name,
-        'kind': kind,
-        if (foodEnabled != null) 'features': {'food': foodEnabled},
+        'features': {
+          if (foodEnabled != null) 'food': foodEnabled,
+          if (icon != null) 'icon': icon,
+        },
+      },
+    );
+    return Household.fromJson(response.data['household'] as Map<String, dynamic>);
+  }
+
+  /// Alan adı ve/veya serbest simgesini günceller (PATCH /households/:id).
+  /// Yemek özelliği ayrı endpoint'te ([updateFoodFeature]).
+  Future<Household> updateHouseholdProfile(String householdId, {String? name, String? icon}) async {
+    final response = await _client.dio.patch(
+      '/households/$householdId',
+      data: {
+        if (name != null) 'name': name,
+        if (icon != null) 'icon': icon,
       },
     );
     return Household.fromJson(response.data['household'] as Map<String, dynamic>);

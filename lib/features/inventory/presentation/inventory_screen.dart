@@ -11,15 +11,49 @@ import '../../../core/widgets/unit_label.dart';
 import '../../chef/presentation/chef_chat_screen.dart';
 import '../../household/application/household_providers.dart';
 import '../../household/data/household_repository.dart';
+import '../../onboarding/application/onboarding_providers.dart';
+import '../../onboarding/presentation/spotlight/coach_tour.dart';
+import '../../onboarding/presentation/spotlight/coach_tour_launcher.dart';
 import '../application/inventory_providers.dart';
 import '../data/inventory_repository.dart';
 import 'add_inventory_item_screen.dart';
+
+/// Envanter turunun hedefledikleri — aynı anda tek InventoryScreen görünür.
+final inventoryAddFabKey = GlobalKey();
+final inventoryChefKey = GlobalKey();
+final inventoryExpiryKey = GlobalKey();
 
 class InventoryScreen extends ConsumerWidget {
   const InventoryScreen({super.key, required this.householdId, required this.location});
 
   final String householdId;
   final StorageLocation location;
+
+  List<CoachStep> _coachSteps(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return [
+      CoachStep(
+        targetKey: inventoryAddFabKey,
+        title: 'Ürün ekle',
+        body: 'Fiş taramadan da ekleyebilirsin — isim, miktar ve son kullanma tarihi yeter.',
+        accent: scheme.primary,
+      ),
+      CoachStep(
+        targetKey: inventoryExpiryKey,
+        optional: true,
+        title: 'Tarihi yaklaşanlar',
+        body: 'Son kullanma tarihi 3 günden yakınsa turuncu, geçtiyse kırmızı görürsün.',
+        accent: context.appColors.statusWarning,
+      ),
+      CoachStep(
+        targetKey: inventoryChefKey,
+        optional: true,
+        title: 'Elindekiyle pişir',
+        body: 'AI Chef’e sor — tarihi yaklaşan ürünlerle ne yapabileceğini söylesin.',
+        accent: scheme.tertiary,
+      ),
+    ];
+  }
 
   Future<void> _consume(BuildContext context, WidgetRef ref, InventoryItem item) async {
     // Girilen miktar eldekini aşarsa backend InsufficientStockError döner,
@@ -129,12 +163,15 @@ class InventoryScreen extends ConsumerWidget {
     // bkz. app_bottom_nav.dart'taki aynı gating.
     final foodEnabled = ref.watch(householdByIdProvider(householdId))?.foodEnabled ?? true;
 
+    maybeStartCoachTour(context, ref, id: CoachTourId.inventory, buildSteps: () => _coachSteps(context));
+
     return Scaffold(
       appBar: AppBar(
         title: Text(location.name),
         actions: [
           if (foodEnabled)
             IconButton(
+              key: inventoryChefKey,
               tooltip: 'AI Chef’e sor',
               icon: const Icon(Icons.auto_awesome_rounded),
               onPressed: () => Navigator.of(context).push(
@@ -177,6 +214,8 @@ class InventoryScreen extends ConsumerWidget {
             if (aEmpty == bEmpty) return 0;
             return aEmpty ? 1 : -1;
           });
+          // Coach tour SKT adımı: ilk SKT'li (ve bitmemiş) satıra key ver.
+          final expiryRowIndex = sorted.indexWhere((i) => i.quantity > 0 && i.expiresAt != null);
 
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(
@@ -225,18 +264,24 @@ class InventoryScreen extends ConsumerWidget {
                                   ],
                                   if (!isEmpty && item.expiresAt != null) ...[
                                     const SizedBox(width: AppSpacing.sm),
-                                    Icon(
-                                      Icons.event_rounded,
-                                      size: 14,
-                                      color: expiryColor ?? colorScheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: AppSpacing.xs),
-                                    Text(
-                                      'SKT: ${dateFormat.format(item.expiresAt!)}',
-                                      style: textTheme.bodySmall?.copyWith(
-                                        color: expiryColor ?? colorScheme.onSurfaceVariant,
-                                        fontWeight: expiryColor != null ? FontWeight.w600 : FontWeight.normal,
-                                      ),
+                                    Row(
+                                      key: index == expiryRowIndex ? inventoryExpiryKey : null,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.event_rounded,
+                                          size: 14,
+                                          color: expiryColor ?? colorScheme.onSurfaceVariant,
+                                        ),
+                                        const SizedBox(width: AppSpacing.xs),
+                                        Text(
+                                          'SKT: ${dateFormat.format(item.expiresAt!)}',
+                                          style: textTheme.bodySmall?.copyWith(
+                                            color: expiryColor ?? colorScheme.onSurfaceVariant,
+                                            fontWeight: expiryColor != null ? FontWeight.w600 : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ],
@@ -261,6 +306,7 @@ class InventoryScreen extends ConsumerWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
+        key: inventoryAddFabKey,
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => AddInventoryItemScreen(householdId: householdId, storageLocationId: location.id),

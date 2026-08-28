@@ -9,16 +9,51 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/voice_input_button.dart';
 import '../../../core/widgets/unit_label.dart';
 import '../../inventory/application/inventory_providers.dart';
+import '../../onboarding/application/onboarding_providers.dart';
+import '../../onboarding/presentation/spotlight/coach_tour.dart';
+import '../../onboarding/presentation/spotlight/coach_tour_launcher.dart';
 import '../../product/presentation/product_picker_sheet.dart';
 import '../application/shopping_providers.dart';
 import '../data/shopping_repository.dart';
 import 'shopping_item_sheet.dart';
 import 'transfer_sheet.dart';
 
+/// Alışveriş turunun hedefledikleri — aynı anda tek ShoppingListScreen görünür.
+final shoppingAddFabKey = GlobalKey();
+final shoppingFirstItemKey = GlobalKey();
+final shoppingTransferKey = GlobalKey();
+
 class ShoppingListScreen extends ConsumerWidget {
   const ShoppingListScreen({super.key, required this.householdId});
 
   final String householdId;
+
+  List<CoachStep> _coachSteps(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final appColors = context.appColors;
+    return [
+      CoachStep(
+        targetKey: shoppingAddFabKey,
+        title: 'Listene ekle',
+        body: 'Ürün seç, miktarı yaz. Yukarıdaki çiplerden azalanları tek dokunuşla da atabilirsin.',
+        accent: scheme.primary,
+      ),
+      CoachStep(
+        targetKey: shoppingFirstItemKey,
+        optional: true,
+        title: 'Markette işaretle',
+        body: 'Aldıklarını kutucuktan işaretle; sola kaydırırsan listeden siler.',
+        accent: appColors.storageFreezer,
+      ),
+      CoachStep(
+        targetKey: shoppingTransferKey,
+        optional: true,
+        title: 'Dönüşte dolaba aktar',
+        body: 'İşaretlediklerin tek dokunuşla envantere geçsin — bölümü ve son kullanma tarihini sen seçersin.',
+        accent: appColors.storageFridge,
+      ),
+    ];
+  }
 
   Future<void> _addFromPicker(BuildContext context, WidgetRef ref) async {
     final product = await showProductPicker(context, householdId: householdId);
@@ -181,8 +216,10 @@ class ShoppingListScreen extends ConsumerWidget {
     };
   }
 
-  Widget _buildItemTile(BuildContext context, WidgetRef ref, ShoppingItem item) {
-    return Dismissible(
+  Widget _buildItemTile(BuildContext context, WidgetRef ref, ShoppingItem item, {Key? tileKey}) {
+    return KeyedSubtree(
+      key: tileKey,
+      child: Dismissible(
       key: ValueKey(item.id),
       direction: DismissDirection.endToStart,
       background: Container(
@@ -215,6 +252,7 @@ class ShoppingListScreen extends ConsumerWidget {
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -223,6 +261,8 @@ class ShoppingListScreen extends ConsumerWidget {
     final listAsync = ref.watch(shoppingListProvider(householdId));
     final suggestionsAsync = ref.watch(shoppingSuggestionsProvider(householdId));
     final aiSuggestionsAsync = ref.watch(aiShoppingSuggestionsProvider(householdId));
+
+    maybeStartCoachTour(context, ref, id: CoachTourId.shopping, buildSteps: () => _coachSteps(context));
 
     return Scaffold(
       appBar: AppBar(
@@ -326,7 +366,9 @@ class ShoppingListScreen extends ConsumerWidget {
                     : ListView(
                         padding: const EdgeInsets.only(bottom: AppSpacing.fabBottomPadding),
                         children: [
-                          for (final item in unchecked) _buildItemTile(context, ref, item),
+                          for (var i = 0; i < unchecked.length; i++)
+                            _buildItemTile(context, ref, unchecked[i],
+                                tileKey: i == 0 ? shoppingFirstItemKey : null),
                           if (checked.isNotEmpty) ...[
                             Padding(
                               padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xs),
@@ -344,6 +386,7 @@ class ShoppingListScreen extends ConsumerWidget {
                     child: SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
+                        key: shoppingTransferKey,
                         onPressed: () => _transfer(context, ref),
                         icon: const Icon(Icons.kitchen_rounded),
                         label: Text('Dolaba Aktar (${checked.length})'),
@@ -356,6 +399,8 @@ class ShoppingListScreen extends ConsumerWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'shopping_add_fab',
+        key: shoppingAddFabKey,
         onPressed: () => _addFromPicker(context, ref),
         child: const Icon(Icons.add_rounded),
       ),

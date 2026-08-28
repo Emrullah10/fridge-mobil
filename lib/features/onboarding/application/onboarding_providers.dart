@@ -7,11 +7,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// tek satır değişiklikle tüm kullanıcılara tekrar gösterilebilsin diye.
 const _prefsKey = 'onboarding_seen_v1';
 
-/// Alan ana ekranındaki spotlight turu (coach_tour.dart) görüldü mü —
-/// tanıtımdan BAĞIMSIZ bir bayrak: kullanıcı tanıtımı atlayıp turu
-/// görebilmeli ya da tersi. Ayarlar'daki "Tanıtımı tekrar göster" ikisini
-/// birden sıfırlar.
-const _coachTourPrefsKey = 'coach_tour_seen_v1';
+/// Ekran başına spotlight turları. Her ana ekran ilk kez açıldığında kendi
+/// mini turu çalışır; her turun kendi kalıcı bayrağı var. `householdHome`'un
+/// anahtarı ESKİ isimde (`coach_tour_seen_v1`) bırakıldı — mevcut kullanıcılar
+/// gördükleri turu tekrar görmesin. Tanıtımdan (IntroScreen) bağımsız:
+/// kullanıcı tanıtımı atlayıp turları görebilir ya da tersi. Ayarlar'daki
+/// "Tanıtımı tekrar göster" hepsini birden sıfırlar.
+enum CoachTourId {
+  householdHome('coach_tour_seen_v1'),
+  inventory('coach_tour_inventory_v1'),
+  shopping('coach_tour_shopping_v1'),
+  recipes('coach_tour_recipes_v1'),
+  insights('coach_tour_insights_v1');
+
+  const CoachTourId(this.prefsKey);
+  final String prefsKey;
+}
 
 class _FlagController extends StateNotifier<bool?> {
   _FlagController(this._key) : super(null) {
@@ -48,6 +59,7 @@ final onboardingSeenProvider = StateNotifierProvider<_FlagController, bool?>((re
   return _FlagController(_prefsKey);
 });
 
-final coachTourSeenProvider = StateNotifierProvider<_FlagController, bool?>((ref) {
-  return _FlagController(_coachTourPrefsKey);
-});
+/// Ekran başına tur bayrağı — `tourSeenProvider(CoachTourId.inventory)` gibi.
+final tourSeenProvider = StateNotifierProvider.family<_FlagController, bool?, CoachTourId>(
+  (ref, id) => _FlagController(id.prefsKey),
+);

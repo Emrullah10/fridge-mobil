@@ -89,10 +89,11 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
 
   Widget _matchIcon(BuildContext context, String? status) {
     final colorScheme = Theme.of(context).colorScheme;
+    final warning = context.appColors.statusWarning;
     return switch (status) {
       'available' => Icon(Icons.check_circle_rounded, color: colorScheme.primary, size: 20),
-      'partial' => const Icon(Icons.circle_outlined, color: Color(0xFFB45309), size: 20),
-      'unit_mismatch' => const Icon(Icons.help_outline_rounded, color: Color(0xFFB45309), size: 20),
+      'partial' => Icon(Icons.circle_outlined, color: warning, size: 20),
+      'unit_mismatch' => Icon(Icons.help_outline_rounded, color: warning, size: 20),
       _ => Icon(Icons.cancel_outlined, color: colorScheme.error, size: 20),
     };
   }

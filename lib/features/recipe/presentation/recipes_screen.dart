@@ -7,10 +7,22 @@ import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/scan_progress.dart';
 import '../../chef/presentation/chef_chat_screen.dart';
+import '../../onboarding/application/onboarding_providers.dart';
+import '../../onboarding/presentation/spotlight/coach_tour.dart';
+import '../../onboarding/presentation/spotlight/coach_tour_launcher.dart';
 import '../application/recipe_providers.dart';
 import '../data/recipe_repository.dart';
 import 'recipe_detail_screen.dart';
 import 'recipe_match_ring.dart';
+
+/// Tarifler turunun hedefledikleri — aynı anda tek RecipesScreen görünür.
+final recipesGenerateKey = GlobalKey();
+final recipesMatchRingKey = GlobalKey();
+final recipesTabsKey = GlobalKey();
+
+/// Bir tarif kartı çizici — `first: true` yalnızca Önerilenler sekmesinin ilk
+/// kartında verilir (coach tour eşleşme halkası adımı oraya nişan alır).
+typedef RecipeCardBuilder = Widget Function(BuildContext context, Recipe recipe, {bool first});
 
 class RecipesScreen extends ConsumerStatefulWidget {
   const RecipesScreen({super.key, required this.householdId});
@@ -50,6 +62,32 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
     }
   }
 
+  List<CoachStep> _coachSteps() {
+    final scheme = Theme.of(context).colorScheme;
+    final appColors = context.appColors;
+    return [
+      CoachStep(
+        targetKey: recipesGenerateKey,
+        title: 'Dolabına göre tarif',
+        body: 'Elindeki ürünlere bakıp sana özel tarifler üretsin.',
+        accent: scheme.primary,
+      ),
+      CoachStep(
+        targetKey: recipesMatchRingKey,
+        optional: true,
+        title: 'Kaç malzemen var?',
+        body: 'Halka, tarifin malzemelerinden kaçının dolabında olduğunu gösterir.',
+        accent: appColors.storagePantry,
+      ),
+      CoachStep(
+        targetKey: recipesTabsKey,
+        title: 'Kaydet, favorile',
+        body: 'Beğendiğin tarif Kayıtlı’ya düşer, kalbe bastıkların Favoriler’de birikir.',
+        accent: scheme.tertiary,
+      ),
+    ];
+  }
+
   void _openDetail(Recipe recipe) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -60,6 +98,15 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
 
   Widget _buildHeroCard(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = colorScheme.brightness == Brightness.dark;
+    // Light'ta gradyan primary → primaryContainer (koyu yeşiller), metin beyaz.
+    // Dark'ta primary AÇIK bir yeşil (#88D6AF); primaryContainer ile arasına
+    // onPrimary (#00301A, neredeyse siyah) yazınca gradyanın koyu ucunda metin
+    // kayboluyordu. Dark'ta iki koyu yeşil arası gradyan + açık metin kullan.
+    final gradientColors = isDark
+        ? [colorScheme.primaryContainer, const Color(0xFF00301A)]
+        : [colorScheme.primary, colorScheme.primaryContainer];
+    final onGradient = isDark ? colorScheme.onPrimaryContainer : colorScheme.onPrimary;
     return Container(
       margin: const EdgeInsets.all(AppSpacing.md),
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -67,7 +114,7 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [colorScheme.primary, colorScheme.primaryContainer],
+          colors: gradientColors,
         ),
         borderRadius: BorderRadius.circular(AppRadius.card),
       ),
@@ -81,19 +128,20 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
               children: [
                 Text(
                   'Dolabındakilerle ne pişirebilirsin?',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colorScheme.onPrimary),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(color: onGradient),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   'Yapay zeka dolabına özel tarifler önersin.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onPrimary.withValues(alpha: 0.9)),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: onGradient.withValues(alpha: 0.9)),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 FilledButton.icon(
+                  key: recipesGenerateKey,
                   onPressed: _generateAiRecipes,
                   style: FilledButton.styleFrom(
-                    backgroundColor: colorScheme.surface,
-                    foregroundColor: colorScheme.primary,
+                    backgroundColor: isDark ? colorScheme.primary : colorScheme.surface,
+                    foregroundColor: isDark ? colorScheme.onPrimary : colorScheme.primary,
                   ),
                   icon: const Icon(Icons.auto_awesome_rounded),
                   label: const Text('AI ile Tarif Üret'),
@@ -103,7 +151,7 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
     );
   }
 
-  Widget _buildRecipeCard(BuildContext context, Recipe recipe) {
+  Widget _buildRecipeCard(BuildContext context, Recipe recipe, {bool first = false}) {
     final total = recipe.totalIngredients ?? 0;
     final available = recipe.availableIngredients ?? 0;
 
@@ -117,7 +165,11 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
           child: Row(
             children: [
               if (total > 0) ...[
-                RecipeMatchRing(available: available, total: total),
+                RecipeMatchRing(
+                  key: first ? recipesMatchRingKey : null,
+                  available: available,
+                  total: total,
+                ),
                 const SizedBox(width: AppSpacing.md),
               ],
               Expanded(
@@ -163,10 +215,13 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
+    maybeStartCoachTour(context, ref, id: CoachTourId.recipes, buildSteps: _coachSteps);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tarifler'),
         bottom: TabBar(
+          key: recipesTabsKey,
           controller: _tabController,
           tabs: const [
             Tab(text: 'Önerilenler'),
@@ -188,6 +243,7 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'ai_chef_fab',
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => ChefChatScreen(householdId: widget.householdId)),
         ),
@@ -203,7 +259,7 @@ class _SuggestionsTab extends ConsumerWidget {
 
   final String householdId;
   final Widget heroCard;
-  final Widget Function(BuildContext, Recipe) buildCard;
+  final RecipeCardBuilder buildCard;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -225,7 +281,7 @@ class _SuggestionsTab extends ConsumerWidget {
               ),
             )
           else
-            for (final recipe in suggestions) buildCard(context, recipe),
+            for (var i = 0; i < suggestions.length; i++) buildCard(context, suggestions[i], first: i == 0),
         ],
       ),
     );
@@ -236,7 +292,7 @@ class _AllRecipesTab extends ConsumerWidget {
   const _AllRecipesTab({required this.householdId, required this.buildCard});
 
   final String householdId;
-  final Widget Function(BuildContext, Recipe) buildCard;
+  final RecipeCardBuilder buildCard;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -259,7 +315,7 @@ class _FavoritesTab extends ConsumerWidget {
   const _FavoritesTab({required this.householdId, required this.buildCard, required this.onOpen});
 
   final String householdId;
-  final Widget Function(BuildContext, Recipe) buildCard;
+  final RecipeCardBuilder buildCard;
   final void Function(Recipe) onOpen;
 
   @override

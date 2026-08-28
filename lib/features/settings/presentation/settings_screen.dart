@@ -362,9 +362,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: const Text('Tanıtımı tekrar göster'),
               onTap: () {
                 ref.read(onboardingSeenProvider.notifier).reset();
-                ref.read(coachTourSeenProvider.notifier).reset();
+                for (final id in CoachTourId.values) {
+                  ref.read(tourSeenProvider(id).notifier).reset();
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Bir alana girdiğinde tanıtım tekrar gösterilecek')),
+                  const SnackBar(content: Text('Ekranları tekrar gezdiğinde tanıtımlar yeniden gösterilecek')),
                 );
               },
             ),

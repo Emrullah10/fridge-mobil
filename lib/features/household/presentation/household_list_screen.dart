@@ -18,7 +18,7 @@ class HouseholdListScreen extends ConsumerWidget {
   const HouseholdListScreen({super.key});
 
   Future<void> _createHousehold(BuildContext context, WidgetRef ref) async {
-    final result = await showCreateHouseholdDialog(context);
+    final result = await showHouseholdFormDialog(context);
 
     if (result == null || result.name.isEmpty) return;
     try {
@@ -26,7 +26,7 @@ class HouseholdListScreen extends ConsumerWidget {
           .read(householdRepositoryProvider)
           .createHousehold(
             result.name,
-            kind: result.kind,
+            icon: result.icon,
             foodEnabled: result.foodEnabled,
           );
       ref.invalidate(householdsProvider);
@@ -180,21 +180,33 @@ class HouseholdListScreen extends ConsumerWidget {
                   itemCount: households.length,
                   itemBuilder: (context, index) {
                     final household = households[index];
-                    final kindStyle = householdKindStyle(household.kind);
+                    final areaIcon = householdIconFor(iconKey: household.icon, kind: household.kind);
                     return Card(
                       child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: colorScheme.primaryContainer,
-                          child: Icon(
-                            kindStyle.icon,
-                            color: colorScheme.onPrimaryContainer,
+                        // Hero: alan ana ekranının AppBar'ındaki eşleşen daireye
+                        // "uçarak" büyüyen bir açılış hissi verir (bkz.
+                        // household_home_screen.dart AppBar.title).
+                        leading: Hero(
+                          tag: 'household-avatar-${household.id}',
+                          flightShuttleBuilder: (context, animation, direction, fromContext, toContext) => Material(
+                            type: MaterialType.transparency,
+                            child: CircleAvatar(
+                              backgroundColor: colorScheme.primaryContainer,
+                              child: Icon(areaIcon, color: colorScheme.onPrimaryContainer),
+                            ),
+                          ),
+                          child: CircleAvatar(
+                            backgroundColor: colorScheme.primaryContainer,
+                            child: Icon(
+                              areaIcon,
+                              color: colorScheme.onPrimaryContainer,
+                            ),
                           ),
                         ),
                         title: Text(
                           household.name,
                           style: textTheme.titleSmall,
                         ),
-                        subtitle: Text(kindStyle.label),
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () {
                           ref.read(selectedHouseholdIdProvider.notifier).state =

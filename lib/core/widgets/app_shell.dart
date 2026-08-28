@@ -25,6 +25,16 @@ import 'app_bottom_nav.dart';
 ///
 /// Detay ekranları (Envanter, fiş/tarif detayı vb.) shell'in ÜSTÜNE tam ekran
 /// push edilir, navbar'sız — yalnızca sekmeler shell içinde kalıcıdır.
+///
+/// Coach tour (household_home_screen.dart `_startCoachTour`) navbar'daki
+/// Alışveriş/Para sekmelerini spotlight'la işaretliyor ve bunun için navbar'ın
+/// ekran üzerindeki dikdörtgenine ihtiyaç duyuyor. Key YALNIZCA alan
+/// shell'inin navbar'ına takılır: kök shell (Alanlarım listesi) alan shell'i
+/// push edildiğinde yığında canlı kalır, ikisine birden takılırsa
+/// "Duplicate GlobalKey" hatası olur. Aynı anda yalnızca tek bir alan shell'i
+/// yaşadığı için (bir alandan başka bir alan açılamaz) bu güvenli.
+final householdShellNavKey = GlobalKey<AppBottomNavState>();
+
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key}) : household = null;
 
@@ -75,11 +85,21 @@ class AppShellState extends ConsumerState<AppShell> {
     final items = _items(foodEnabled);
     final selectedIndex = _index >= items.length ? 0 : _index;
 
-    final content = _AnimatedTabBody(
+    // Sayfa tarafında geçiş animasyonu YOK (bilinçli): fade+kaydırma denendi,
+    // kullanıcı "sayfa tarafında iyi durmamış" dedi — hareket yalnızca
+    // navbar'da (bkz. AppBottomNav'ın kayan göstergesi). İçerik anında yerine
+    // oturur, bu da sekmenin zaten yüklü olduğu hissini güçlendiriyor.
+    final content = IndexedStack(
       index: selectedIndex,
       children: [
         for (var i = 0; i < items.length; i++)
-          _built.contains(i) ? _bodyFor(items[i]) : const SizedBox.shrink(),
+          if (_built.contains(i))
+            // TickerMode: gizli sekmelerin animasyonları uyusun; ayrıca
+            // coach_tour_launcher görünürlüğü buradan okur — arkadaki bir
+            // sekme (provider değişimiyle) rebuild olduğunda turunu açmasın.
+            TickerMode(enabled: i == selectedIndex, child: _bodyFor(items[i]))
+          else
+            const SizedBox.shrink(),
       ],
     );
 
@@ -98,7 +118,7 @@ class AppShellState extends ConsumerState<AppShell> {
     return Scaffold(
       body: body,
       bottomNavigationBar: AppBottomNav(
-        key: bottomNavKey,
+        key: household == null ? null : householdShellNavKey,
         items: items,
         selectedIndex: selectedIndex,
         onSelected: (index) {
@@ -113,55 +133,6 @@ class AppShellState extends ConsumerState<AppShell> {
             _built.add(index);
           });
         },
-      ),
-    );
-  }
-}
-
-/// Sekme değişiminde içerik alanına uygulanan küçük fade + yukarı kayma
-/// animasyonu — navbar'ın kendisi bu animasyonun dışında, sabit kalır.
-class _AnimatedTabBody extends StatefulWidget {
-  const _AnimatedTabBody({required this.index, required this.children});
-
-  final int index;
-  final List<Widget> children;
-
-  @override
-  State<_AnimatedTabBody> createState() => _AnimatedTabBodyState();
-}
-
-class _AnimatedTabBodyState extends State<_AnimatedTabBody> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 220),
-  )..forward();
-  late final Animation<double> _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
-  late final Animation<Offset> _slide = Tween(
-    begin: const Offset(0, 0.02),
-    end: Offset.zero,
-  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-
-  @override
-  void didUpdateWidget(covariant _AnimatedTabBody oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.index != widget.index) {
-      _controller.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _fade,
-      child: SlideTransition(
-        position: _slide,
-        child: IndexedStack(index: widget.index, children: widget.children),
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
+
 /// Tarif kartında "8/10 malzeme var" dairesel göstergesi. Renk: tüm zorunlu
 /// malzemeler varsa yeşil (primary), 1-2 eksikse amber (statusWarning), daha
 /// fazlası eksikse nötr gri.
@@ -24,7 +26,7 @@ class RecipeMatchRing extends StatelessWidget {
     final color = missing == 0
         ? colorScheme.primary
         : missing <= 2
-            ? const Color(0xFFB45309)
+            ? context.appColors.statusWarning
             : colorScheme.onSurfaceVariant;
 
     return SizedBox(

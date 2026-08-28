@@ -3,9 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/async_view.dart';
+import '../../onboarding/application/onboarding_providers.dart';
+import '../../onboarding/presentation/spotlight/coach_tour.dart';
+import '../../onboarding/presentation/spotlight/coach_tour_launcher.dart';
 import '../../product/application/product_providers.dart';
 import '../application/insights_providers.dart';
 import '../data/insights_repository.dart';
+
+/// Para turunun hedefledikleri — aynı anda tek InsightsScreen görünür.
+final insightsRangeKey = GlobalKey();
+final insightsStatsKey = GlobalKey();
+final insightsTopWastedKey = GlobalKey();
 
 /// Para & israf paneli. Frantry'nin "bu ay X TL kurtardın" kancasının
 /// karşılığı + bizde ek olan üye kırılımı ("kim ne kadar tüketti/israf etti").
@@ -34,11 +42,40 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     }
   }
 
+  List<CoachStep> _coachSteps() {
+    final scheme = Theme.of(context).colorScheme;
+    final appColors = context.appColors;
+    return [
+      CoachStep(
+        targetKey: insightsStatsKey,
+        optional: true,
+        title: 'Kurtardığın ve israf ettiğin',
+        body: 'Kullandığın ürünler “kurtarılan”, çöpe gidenler “israf” olarak buraya yazılır.',
+        accent: scheme.primary,
+      ),
+      CoachStep(
+        targetKey: insightsRangeKey,
+        title: 'Dönemi değiştir',
+        body: 'Bu ay, geçen ay ya da son 90 gün — karşılaştırıp nerede sızdırdığını gör.',
+        accent: appColors.storagePantry,
+      ),
+      CoachStep(
+        targetKey: insightsTopWastedKey,
+        optional: true,
+        title: 'En çok neyi atıyorsun?',
+        body: 'Sürekli bozulan ürünleri gör, bir dahakine daha az al.',
+        accent: scheme.error,
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = _range;
     final period = InsightsPeriod(householdId: widget.householdId, from: r.from, to: r.to);
     final value = ref.watch(householdInsightsProvider(period));
+
+    maybeStartCoachTour(context, ref, id: CoachTourId.insights, buildSteps: _coachSteps);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Para & İsraf')),
@@ -48,6 +85,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           padding: const EdgeInsets.all(AppSpacing.md),
           children: [
             _RangeSelector(
+              key: insightsRangeKey,
               index: _rangeIndex,
               onChanged: (i) => setState(() => _rangeIndex = i),
             ),
@@ -65,7 +103,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 }
 
 class _RangeSelector extends StatelessWidget {
-  const _RangeSelector({required this.index, required this.onChanged});
+  const _RangeSelector({super.key, required this.index, required this.onChanged});
   final int index;
   final ValueChanged<int> onChanged;
 
@@ -107,6 +145,7 @@ class _InsightsBody extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
+          key: insightsStatsKey,
           children: [
             Expanded(
               child: _StatTile(
@@ -148,7 +187,7 @@ class _InsightsBody extends ConsumerWidget {
         ],
         if (data.topWasted.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.lg),
-          _SectionTitle('En çok israf edilenler'),
+          KeyedSubtree(key: insightsTopWastedKey, child: const _SectionTitle('En çok israf edilenler')),
           const SizedBox(height: AppSpacing.sm),
           for (final w in data.topWasted)
             _WastedRow(
