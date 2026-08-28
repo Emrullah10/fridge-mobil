@@ -1,7 +1,8 @@
 import '../../../core/api/api_client.dart';
+import '../../../core/widgets/household_kind.dart';
 
 class Household {
-  const Household({required this.id, required this.name, this.kind = 'home'});
+  const Household({required this.id, required this.name, this.kind = 'home', this.features = const {}});
 
   final String id;
   final String name;
@@ -10,10 +11,25 @@ class Household {
   /// Eski kayıtlarda alan gelmeyebileceği için varsayılan 'home'.
   final String kind;
 
+  /// household.features JSONB — şu an tek anahtar: 'food' (bool). Kullanıcı
+  /// açıkça karar vermediyse map'te hiç yer almaz, o durumda [foodEnabled]
+  /// türden türetir (backend'deki resolveFeatures ile aynı mantık).
+  final Map<String, dynamic> features;
+
+  /// Tarifler/AI Chef sekmelerinin görünürlüğü. Kayıtlı bir 'food' değeri
+  /// varsa o kullanılır (kullanıcı türü ezmiş demektir), yoksa `foodKinds`
+  /// listesinden türetilir.
+  bool get foodEnabled {
+    final stored = features['food'];
+    if (stored is bool) return stored;
+    return foodKinds.contains(kind);
+  }
+
   factory Household.fromJson(Map<String, dynamic> json) => Household(
         id: json['id'] as String,
         name: json['name'] as String,
         kind: json['kind'] as String? ?? 'home',
+        features: (json['features'] as Map<String, dynamic>?) ?? const {},
       );
 }
 
@@ -55,8 +71,25 @@ class HouseholdRepository {
     return households.map((h) => Household.fromJson(h as Map<String, dynamic>)).toList();
   }
 
-  Future<Household> createHousehold(String name, {String kind = 'home'}) async {
-    final response = await _client.dio.post('/households', data: {'name': name, 'kind': kind});
+  Future<Household> createHousehold(String name, {String kind = 'home', bool? foodEnabled}) async {
+    final response = await _client.dio.post(
+      '/households',
+      data: {
+        'name': name,
+        'kind': kind,
+        if (foodEnabled != null) 'features': {'food': foodEnabled},
+      },
+    );
+    return Household.fromJson(response.data['household'] as Map<String, dynamic>);
+  }
+
+  /// Kullanıcının household-profile.js'teki tür varsayımını elle ezmesi —
+  /// ör. bir ofis alanında mutfak/tarif özelliklerini sonradan açabilir.
+  Future<Household> updateFoodFeature(String householdId, bool foodEnabled) async {
+    final response = await _client.dio.patch(
+      '/households/$householdId/features',
+      data: {'food': foodEnabled},
+    );
     return Household.fromJson(response.data['household'] as Map<String, dynamic>);
   }
 

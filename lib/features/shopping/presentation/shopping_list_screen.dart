@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_badge.dart';
-import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/voice_input_button.dart';
@@ -356,7 +355,6 @@ class ShoppingListScreen extends ConsumerWidget {
           );
         },
       ),
-      bottomNavigationBar: AppBottomNav(currentTab: AppBottomTab.shopping, householdId: householdId),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _addFromPicker(context, ref),
         child: const Icon(Icons.add_rounded),

@@ -25,6 +25,7 @@ class AddInventoryItemScreen extends ConsumerStatefulWidget {
 
 class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen> {
   final _quantityController = TextEditingController(text: '1');
+  final _unitPriceController = TextEditingController();
   Product? _selectedProduct;
   DateTime? _expiresAt;
   bool _isSaving = false;
@@ -33,6 +34,7 @@ class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen>
   @override
   void dispose() {
     _quantityController.dispose();
+    _unitPriceController.dispose();
     super.dispose();
   }
 
@@ -96,6 +98,9 @@ class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen>
       _errorMessage = null;
     });
 
+    final priceText = _unitPriceController.text.trim().replaceAll(',', '.');
+    final unitPrice = priceText.isEmpty ? null : double.tryParse(priceText);
+
     try {
       await ref.read(inventoryRepositoryProvider).addItem(
             widget.householdId,
@@ -104,6 +109,7 @@ class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen>
             unit: product.defaultUnit,
             quantity: quantity,
             expiresAt: _expiresAt,
+            unitPrice: unitPrice,
           );
       final params = InventoryParams(householdId: widget.householdId, storageLocationId: widget.storageLocationId);
       ref.invalidate(inventoryItemsProvider(params));
@@ -160,6 +166,16 @@ class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen>
                     decoration: InputDecoration(
                       labelText: 'Miktar',
                       suffixText: _selectedProduct?.defaultUnit,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    controller: _unitPriceController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Birim fiyat (opsiyonel)',
+                      prefixText: '₺ ',
+                      helperText: 'Para & israf panelinde harcamayı görebilmek için',
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),

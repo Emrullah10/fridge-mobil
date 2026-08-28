@@ -14,6 +14,8 @@ import '../../../core/widgets/storage_kind.dart';
 import '../../inventory/presentation/inventory_screen.dart';
 import '../../notification/application/notification_providers.dart';
 import '../../notification/presentation/notifications_screen.dart';
+import '../../onboarding/application/onboarding_providers.dart';
+import '../../onboarding/presentation/spotlight/coach_tour.dart';
 import '../../receipt/application/receipt_providers.dart';
 import '../../receipt/presentation/receipt_history_screen.dart';
 import 'household_members_screen.dart';
@@ -22,6 +24,14 @@ import '../../receipt/presentation/receipt_scan_screen.dart';
 import '../application/household_providers.dart';
 import '../data/household_repository.dart';
 import 'edit_storage_location_dialog.dart';
+
+/// Spotlight turunun hedeflediği widget'lar. Aynı anda tek bir
+/// HouseholdHomeScreen görünür olduğu için modül düzeyinde tutmak güvenli;
+/// tur motoru bu key'lerin `currentContext`'inden ekran dikdörtgenini
+/// hesaplar.
+final scanFabKey = GlobalKey();
+final firstStorageCardKey = GlobalKey();
+final bottomNavKey = GlobalKey();
 
 class HouseholdHomeScreen extends ConsumerWidget {
   const HouseholdHomeScreen({super.key, required this.household});
@@ -34,6 +44,40 @@ class HouseholdHomeScreen extends ConsumerWidget {
         RegExp(r'.{1,4}'),
         (match) => '${match.group(0)} ',
       ).trim();
+
+  /// Kullanıcının household-profile.js'teki tür varsayımını elle ezmesi —
+  /// ör. bir ofis alanında mutfak/tarif özelliklerini sonradan açabilir.
+  Future<void> _toggleFoodFeature(BuildContext context, WidgetRef ref, Household household) async {
+    final enable = !household.foodEnabled;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Yemek özellikleri'),
+        content: Text(
+          enable
+              ? 'Tarifler, AI Chef ve son kullanma tarihi takibi bu alanda açılsın mı?'
+              : 'Tarifler ve AI Chef bu alanda kapatılsın mı? Envanter ve alışveriş listesi etkilenmez.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('İptal')),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(enable ? 'Aç' : 'Kapat'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref.read(householdRepositoryProvider).updateFoodFeature(household.id, enable);
+      ref.invalidate(householdsProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      }
+    }
+  }
 
   Future<void> _showInviteCode(BuildContext context, WidgetRef ref) async {
     String? code;
@@ -308,9 +352,70 @@ class HouseholdHomeScreen extends ConsumerWidget {
     return null;
   }
 
-  Widget _buildLocationCard(BuildContext context, WidgetRef ref, StorageLocation location) {
+  /// Alan ana ekranına ilk girişte çalışan spotlight turu — eski 4 kartlık
+  /// AlertDialog'un yerini aldı. Yemek kapalı alanlarda (atölye/dükkan)
+  /// Tarifler adımı yok; navbar hedefleri görünür sekme listesine göre
+  /// hesaplanır (bkz. AppBottomNav._visibleItems).
+  void _startCoachTour(BuildContext context, WidgetRef ref, {required bool foodEnabled}) {
+    final scheme = Theme.of(context).colorScheme;
+    final appColors = context.appColors;
+
+    // Navbar'ın i. sekmesinin ekran dikdörtgeni: navbar'ın kendi RenderBox'ı
+    // + eşit bölünmüş sekme genişliği (NavigationDestination'lara ayrı
+    // GlobalKey verilemiyor).
+    Rect navTabRect(int visibleIndex, int visibleCount) {
+      final box = bottomNavKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize) {
+        final size = MediaQuery.sizeOf(context);
+        return Rect.fromLTWH(0, size.height - 64, size.width, 56);
+      }
+      final origin = box.localToGlobal(Offset.zero);
+      final tabWidth = box.size.width / visibleCount;
+      final cx = origin.dx + tabWidth * (visibleIndex + 0.5);
+      final cy = origin.dy + box.size.height / 2;
+      return Rect.fromCenter(center: Offset(cx, cy), width: tabWidth * 0.8, height: 40);
+    }
+
+    // Görünür sekmeler AppShell/AppBottomNav ile TEK kaynaktan (visibleTabsFor)
+    // — elle tutulan ikinci bir liste, sıra kayması riskini taşırdı.
+    final visibleTabs = visibleTabsFor(householdId: household.id, foodEnabled: foodEnabled);
+    final shoppingIndex = visibleTabs.indexWhere((item) => item.tab == AppBottomTab.shopping);
+    final insightsIndex = visibleTabs.indexWhere((item) => item.tab == AppBottomTab.insights);
+
+    final steps = <CoachStep>[
+      CoachStep(
+        targetKey: scanFabKey,
+        title: 'Fişini buradan tara',
+        body: 'Market fişinin fotoğrafını çek — ürünler fiyatlarıyla envantere düşsün.',
+        accent: scheme.primary,
+      ),
+      CoachStep(
+        targetKey: firstStorageCardKey,
+        title: 'Bölümlerin burada',
+        body: 'Her bölüme dokunup içindeki ürünleri gör, ekle, tüket.',
+        accent: appColors.storageFridge,
+      ),
+      CoachStep(
+        rectResolver: (_) => navTabRect(shoppingIndex, visibleTabs.length),
+        title: 'Alışveriş listesi',
+        body: 'Eksikleri buradan yönet, markette işaretle, dönüşte envantere aktar.',
+        accent: appColors.storageFreezer,
+      ),
+      CoachStep(
+        rectResolver: (_) => navTabRect(insightsIndex, visibleTabs.length),
+        title: 'Para ve israf',
+        body: 'Ne biriktirdiğini, ne israf ettiğini ay ay buradan gör.',
+        accent: appColors.storagePantry,
+      ),
+    ];
+
+    showCoachTour(context, steps: steps, onFinished: () {});
+  }
+
+  Widget _buildLocationCard(BuildContext context, WidgetRef ref, StorageLocation location, {Key? cardKey}) {
     final style = storageKindStyle(context, location.kind, icon: location.icon);
     return Card(
+      key: cardKey,
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.card),
         onTap: () => Navigator.of(context).push(
@@ -365,7 +470,24 @@ class HouseholdHomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // updateFoodFeature sonrası households listesi invalidate edilir —
+    // ekran hâlâ açıksa güncel foodEnabled'ı burada yansıtır. Liste henüz
+    // yenilenmediyse (ör. offline) constructor'dan gelen değere düşülür.
+    final household = ref.watch(householdByIdProvider(this.household.id)) ?? this.household;
     final locationsAsync = ref.watch(storageLocationsProvider(household.id));
+
+    // İlk kez bir alana giriliyorsa 4 kartlık tanıtımı göster. `seen == null`
+    // henüz SharedPreferences okunmadığı anlamına gelir — o durumda hiçbir
+    // şey yapılmaz (bir sonraki build'de `false`/`true` netleşir).
+    final coachTourSeen = ref.watch(coachTourSeenProvider);
+    if (coachTourSeen == false) {
+      final foodEnabled = household.foodEnabled;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        ref.read(coachTourSeenProvider.notifier).markSeen();
+        _startCoachTour(context, ref, foodEnabled: foodEnabled);
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -402,6 +524,11 @@ class HouseholdHomeScreen extends ConsumerWidget {
             icon: const Icon(Icons.person_add_alt_rounded),
             tooltip: 'Bu alana davet et',
             onPressed: () => _showInviteCode(context, ref),
+          ),
+          IconButton(
+            icon: Icon(household.foodEnabled ? Icons.restaurant_rounded : Icons.restaurant_outlined),
+            tooltip: 'Yemek özellikleri',
+            onPressed: () => _toggleFoodFeature(context, ref, household),
           ),
           Consumer(
             builder: (context, ref, _) {
@@ -456,7 +583,12 @@ class HouseholdHomeScreen extends ConsumerWidget {
                               childAspectRatio: 1.1,
                             ),
                             delegate: SliverChildBuilderDelegate(
-                              (context, index) => _buildLocationCard(context, ref, locations[index]),
+                              (context, index) => _buildLocationCard(
+                                context,
+                                ref,
+                                locations[index],
+                                cardKey: index == 0 ? firstStorageCardKey : null,
+                              ),
                               childCount: gridCount,
                             ),
                           ),
@@ -483,8 +615,8 @@ class HouseholdHomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      bottomNavigationBar: AppBottomNav(currentTab: AppBottomTab.areas, householdId: household.id),
       floatingActionButton: FloatingActionButton.extended(
+        key: scanFabKey,
         icon: const Icon(Icons.document_scanner_rounded),
         label: const Text('Fiş Tara'),
         onPressed: () => Navigator.of(context).push(

@@ -19,11 +19,13 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_providers.dart';
 import 'core/version/app_config_repository.dart';
 import 'features/auth/application/auth_providers.dart';
-import 'features/auth/presentation/login_screen.dart';
+import 'features/auth/presentation/welcome_screen.dart';
+import 'core/widgets/app_shell.dart';
 import 'features/household/application/household_providers.dart';
-import 'features/household/presentation/household_list_screen.dart';
 import 'features/notification/application/notification_providers.dart';
 import 'features/notification/data/push_service.dart';
+import 'features/onboarding/application/onboarding_providers.dart';
+import 'features/onboarding/presentation/intro_screen.dart';
 import 'features/receipt/application/receipt_providers.dart';
 import 'features/receipt/presentation/receipt_review_screen.dart';
 import 'firebase_options.dart';
@@ -295,17 +297,37 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
     // Push kaydı/temizliği bir yan etki — sadece durum GEÇİŞİNDE tetiklenir
     // (her rebuild'de değil), aksi halde her ekran açılışında gereksiz
     // registerDevice/unregisterDevice çağrısı yapılırdı.
+    // Misafir de (guest) bildirim alabilmeli — alan bazlı bildirimler
+    // (davet, fiş işlendi) kimlik durumundan bağımsız.
+    final isSignedIn = authState.status == AuthStatus.authenticated || authState.status == AuthStatus.guest;
+    final wasSignedIn = _lastStatus == AuthStatus.authenticated || _lastStatus == AuthStatus.guest;
     if (authState.status != _lastStatus) {
-      final previousStatus = _lastStatus;
       _lastStatus = authState.status;
-      if (authState.status == AuthStatus.authenticated) {
+      // _AuthGate yalnızca MaterialApp.home'u değiştirir; login/register gibi
+      // push edilmiş route'lar bundan etkilenmez ve yığında asılı kalır —
+      // kullanıcı arka planda giriş yapmış olsa bile login formunu görmeye
+      // devam eder (aynı sorun logout'ta Ayarlar route'u için de geçerli).
+      // Oturum açıklığı DEĞİŞTİĞİNDE (giriş ya da çıkış) kök navigator'ı
+      // köke kadar boşaltıyoruz. guest->authenticated (hesap yükseltme) bu
+      // koşula girmez — upgrade_account_screen.dart kendi pop()'unu yapar ve
+      // Ayarlar yığını bilerek korunur.
+      if (isSignedIn != wasSignedIn) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          rootNavigatorKey.currentState?.popUntil((route) => route.isFirst);
+        });
+      }
+      if (isSignedIn) {
         ref.read(pushServiceProvider).registerForCurrentUser(onTap: (data) => _handleNotificationTap(ref, data));
         final pendingCode = _pendingInviteCode;
         if (pendingCode != null) {
           _pendingInviteCode = null;
-          WidgetsBinding.instance.addPostFrameCallback((_) => _confirmJoin(pendingCode));
+          // popUntil ile aynı post-frame turunda çakışmasın diye bir sonraki
+          // frame'e ertelenir — davet dialogu temizlenmiş yığının üstünde açılır.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _confirmJoin(pendingCode));
+          });
         }
-      } else if (previousStatus == AuthStatus.authenticated) {
+      } else if (wasSignedIn) {
         ref.read(pushServiceProvider).unregister();
       }
     }
@@ -314,8 +336,22 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
       AuthStatus.unknown => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
-      AuthStatus.unauthenticated => const LoginScreen(),
-      AuthStatus.authenticated => const HouseholdListScreen(),
+      AuthStatus.unauthenticated => _resolveUnauthenticated(),
+      AuthStatus.guest => const AppShell(),
+      AuthStatus.authenticated => const AppShell(),
+    };
+  }
+
+  /// İlk açılışta (tanıtım hiç görülmemiş) tam ekran IntroScreen; aksi
+  /// halde kompakt WelcomeScreen. `seen == null` henüz SharedPreferences
+  /// okunmadı demek — o kısacık an için mevcut spinner gösterilir ki
+  /// yanlış ekran bir kare bile parlamasın.
+  Widget _resolveUnauthenticated() {
+    final seen = ref.watch(onboardingSeenProvider);
+    return switch (seen) {
+      null => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      false => const IntroScreen(),
+      true => const WelcomeScreen(),
     };
   }
 }

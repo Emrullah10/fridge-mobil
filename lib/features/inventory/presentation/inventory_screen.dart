@@ -5,11 +5,11 @@ import 'package:intl/intl.dart';
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_badge.dart';
-import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/unit_label.dart';
 import '../../chef/presentation/chef_chat_screen.dart';
+import '../../household/application/household_providers.dart';
 import '../../household/data/household_repository.dart';
 import '../application/inventory_providers.dart';
 import '../data/inventory_repository.dart';
@@ -125,23 +125,27 @@ class InventoryScreen extends ConsumerWidget {
     final dateFormat = DateFormat('dd.MM.yyyy');
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    // Yemek özelliği kapalı alanlarda (atölye/dükkan vb.) AI Chef anlamsız —
+    // bkz. app_bottom_nav.dart'taki aynı gating.
+    final foodEnabled = ref.watch(householdByIdProvider(householdId))?.foodEnabled ?? true;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(location.name),
         actions: [
-          IconButton(
-            tooltip: 'AI Chef’e sor',
-            icon: const Icon(Icons.auto_awesome_rounded),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ChefChatScreen(
-                  householdId: householdId,
-                  seedPrompt: 'Son kullanma tarihi yaklaşanlarla ne pişirebilirim?',
+          if (foodEnabled)
+            IconButton(
+              tooltip: 'AI Chef’e sor',
+              icon: const Icon(Icons.auto_awesome_rounded),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ChefChatScreen(
+                    householdId: householdId,
+                    seedPrompt: 'Son kullanma tarihi yaklaşanlarla ne pişirebilirim?',
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
       body: AsyncView(
@@ -213,6 +217,12 @@ class InventoryScreen extends ConsumerWidget {
                                     const AppBadge(label: 'Bitti')
                                   else
                                     AppBadge(label: '${item.quantity} ${unitLabel(item.unit)}', variant: AppBadgeVariant.quantity),
+                                  // Fiyat OCR/AI'dan hiç gelmemiş olabilir —
+                                  // o durumda rozet hiç gösterilmez.
+                                  if (item.unitPrice != null) ...[
+                                    const SizedBox(width: AppSpacing.sm),
+                                    AppBadge(label: '₺${item.unitPrice!.toStringAsFixed(2)}'),
+                                  ],
                                   if (!isEmpty && item.expiresAt != null) ...[
                                     const SizedBox(width: AppSpacing.sm),
                                     Icon(
@@ -258,7 +268,6 @@ class InventoryScreen extends ConsumerWidget {
         ),
         child: const Icon(Icons.add),
       ),
-      bottomNavigationBar: AppBottomNav(currentTab: AppBottomTab.areas, householdId: householdId),
     );
   }
 }

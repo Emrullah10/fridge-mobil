@@ -53,6 +53,9 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
   final Map<String, String?> _locationIdByItemId = {};
   bool _locationsInitialized = false;
   bool _isConfirming = false;
+  // Fişin tamamı için okunan toplam tutar — satır fiyatları toplamıyla
+  // karşılaştırılıp kullanıcıya eksik fiyatlı satır varsa gösterilir.
+  double? _scanTotalAmount;
   // Sürükleme sürüyor mu — alt bırakma çubuğunu sadece bu sırada göster,
   // aksi halde ekranda gereksiz yer kaplamasın.
   bool _isDragging = false;
@@ -95,6 +98,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
       if (!mounted) return;
       setState(() {
         _items = result.lineItems;
+        _scanTotalAmount = result.totalAmount;
         _loadingItems = false;
       });
     } catch (error) {
@@ -124,6 +128,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
     final brandController = TextEditingController(text: item.parsedBrand ?? '');
     final quantityController = TextEditingController(text: item.parsedQuantity.toString());
     final packSizeController = TextEditingController(text: item.parsedPackSize?.toString() ?? '');
+    final priceController = TextEditingController(text: item.parsedPrice?.toString() ?? '');
     String selectedProductId = item.matchedProductId!;
     String selectedProductName = item.parsedName;
     String? selectedLocationId = _locationIdByItemId[item.id];
@@ -230,6 +235,16 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                 ),
               ],
               const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: priceController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Fiyat (opsiyonel)',
+                  prefixText: '₺ ',
+                  helperText: 'Satırın fiş üzerindeki toplam tutarı',
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
               DropdownButtonFormField<String>(
                 initialValue: selectedCategoryKey,
                 decoration: const InputDecoration(
@@ -262,6 +277,8 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
     // veya alan boş bırakıldıysa null gönderilir (paket bilgisi silinir).
     final newPackSize = selectedUnit == 'piece' ? double.tryParse(packSizeController.text) : null;
     final newPackUnit = newPackSize != null ? selectedPackUnit : null;
+    final priceText = priceController.text.trim().replaceAll(',', '.');
+    final newPrice = priceText.isEmpty ? null : double.tryParse(priceText);
 
     try {
       await ref.read(receiptRepositoryProvider).correctLineItem(
@@ -274,6 +291,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
             parsedUnit: selectedUnit,
             parsedPackSize: newPackSize,
             parsedPackUnit: newPackUnit,
+            parsedPrice: newPrice,
             matchedProductId: selectedProductId,
             categoryKey: selectedCategoryKey,
           );
@@ -295,6 +313,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
         parsedUnit: selectedUnit,
         parsedPackSize: newPackSize,
         parsedPackUnit: newPackUnit,
+        parsedPrice: newPrice,
         matchedProductId: selectedProductId,
         matchMethod: 'manual',
         confidence: 1.0,
@@ -385,6 +404,35 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
     }
   }
 
+  /// Kalemlerin fiyat toplamı ile fişin toplamını (receipt_scan.total_amount,
+  /// TOPLAM satırından deterministik okunur) yan yana gösterir — sapma varsa
+  /// kullanıcı hangi satırların fiyatsız kaldığını fark edip düzeltebilir.
+  Widget _buildPriceComparisonBar(ColorScheme colorScheme) {
+    final itemsTotal = _items.fold<double>(0, (sum, item) => sum + (item.parsedPrice ?? 0));
+    final missingPriceCount = _items.where((item) => item.parsedPrice == null).length;
+    final total = _scanTotalAmount!;
+    final mismatch = missingPriceCount > 0 || (total - itemsTotal).abs() > 0.5;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      color: mismatch ? colorScheme.errorContainer.withValues(alpha: 0.4) : colorScheme.surfaceContainerHigh,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Kalemler ₺${itemsTotal.toStringAsFixed(2)} · Fiş ₺${total.toStringAsFixed(2)}'
+              '${missingPriceCount > 0 ? ' · $missingPriceCount fiyatsız' : ''}',
+              style: TextStyle(
+                color: mismatch ? colorScheme.onErrorContainer : colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildItemCard(
     ReceiptLineItem item, {
     required DateFormat dateFormat,
@@ -420,6 +468,10 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
                           ? '${item.parsedQuantity.toStringAsFixed(0)} adet × ${item.parsedPackSize} ${unitShortLabel(item.parsedPackUnit!)}'
                           : '${item.parsedQuantity} ${unitLabel(item.parsedUnit)}'),
                       if (item.parsedBrand != null) AppBadge(label: item.parsedBrand!),
+                      // Fiyat OCR/AI tarafından yakalanamayabilir — o zaman
+                      // rozet hiç gösterilmez, "₺0" gibi yanlış bir sinyal
+                      // verilmez. Kullanıcı kalem ikonuyla elle girebilir.
+                      if (item.parsedPrice != null) AppBadge(label: '₺${item.parsedPrice!.toStringAsFixed(2)}'),
                       if (!item.isHighConfidence)
                         const AppBadge(label: 'Kontrol et', variant: AppBadgeVariant.warning),
                     ],
@@ -643,6 +695,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_isDragging) _buildDropBar(context, locationsAsync.valueOrNull ?? []),
+            if (_scanTotalAmount != null) _buildPriceComparisonBar(colorScheme),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: FilledButton(

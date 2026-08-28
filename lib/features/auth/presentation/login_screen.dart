@@ -8,6 +8,7 @@ import '../../../core/widgets/form_error_text.dart';
 import '../../../core/widgets/responsive.dart';
 import '../application/auth_providers.dart';
 import 'register_screen.dart';
+import 'widgets/auth_hero_header.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -51,8 +52,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -66,23 +65,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: AppSpacing.xl),
-                  Container(
-                    width: 72,
-                    height: 72,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(AppRadius.logo),
-                    ),
-                    child: Icon(Icons.kitchen_rounded, size: 36, color: colorScheme.onPrimaryContainer),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Text('Fridge', style: Theme.of(context).textTheme.headlineMedium),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Dolabındaki her şey tek yerde',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                  ),
+                  const AuthHeroHeader(subtitle: 'Dolabındaki her şey tek yerde'),
                   const SizedBox(height: AppSpacing.xl),
                   TextFormField(
                     controller: _emailController,

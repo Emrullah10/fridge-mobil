@@ -5,10 +5,11 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_providers.dart';
-import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/single_field_dialog.dart';
 import '../../auth/application/auth_providers.dart';
+import '../../auth/presentation/upgrade_account_screen.dart';
 import '../../notification/application/notification_providers.dart';
+import '../../onboarding/application/onboarding_providers.dart';
 import 'diet_profile_screen.dart';
 
 /// backend notification-types.js NOTIFICATION_TYPES ile birebir aynı
@@ -122,14 +123,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+    // Misafirde çıkış = veri kaybı (hesap sentetik email/şifre taşıyor,
+    // bir daha bu cihazdan bile geri dönülemez — deviceId eşleşmesi login
+    // ekranından geçmez). Uyarı normal çıkıştan belirgin şekilde farklı.
+    final isGuest = ref.read(authControllerProvider).isGuest;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Çıkış yap'),
-        content: const Text('Hesabından çıkış yapmak istediğine emin misin?'),
+        content: Text(
+          isGuest
+              ? 'Misafir hesabındasın. Çıkış yaparsan alanların, envanterin ve '
+                'fiş geçmişin GERİ ALINAMAZ şekilde kaybolur. Önce hesabını '
+                'kalıcı yapmanı öneririz.'
+              : 'Hesabından çıkış yapmak istediğine emin misin?',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('İptal')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Çıkış yap')),
+          FilledButton(
+            style: isGuest ? FilledButton.styleFrom(backgroundColor: Theme.of(dialogContext).colorScheme.error) : null,
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(isGuest ? 'Yine de çık' : 'Çıkış yap'),
+          ),
         ],
       ),
     );
@@ -305,24 +320,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Card(
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.lock_outline_rounded),
-                  title: const Text('Şifreyi değiştir'),
-                  onTap: () => _changePassword(context, ref),
-                ),
-                const Divider(height: 1),
+                if (user?.isGuest ?? false) ...[
+                  ListTile(
+                    leading: Icon(Icons.person_add_alt_1_rounded, color: colorScheme.primary),
+                    title: Text('Hesabını kalıcı yap', style: TextStyle(color: colorScheme.primary)),
+                    subtitle: const Text('Verilerini kaybetmemek için e-posta/şifre ekle'),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const UpgradeAccountScreen()),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                ],
+                if (!(user?.isGuest ?? false)) ...[
+                  ListTile(
+                    leading: const Icon(Icons.lock_outline_rounded),
+                    title: const Text('Şifreyi değiştir'),
+                    onTap: () => _changePassword(context, ref),
+                  ),
+                  const Divider(height: 1),
+                ],
                 ListTile(
                   leading: Icon(Icons.logout_rounded, color: colorScheme.error),
                   title: Text('Çıkış yap', style: TextStyle(color: colorScheme.error)),
                   onTap: () => _confirmLogout(context, ref),
                 ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: Icon(Icons.delete_forever_rounded, color: colorScheme.error),
-                  title: Text('Hesabımı sil', style: TextStyle(color: colorScheme.error)),
-                  onTap: () => _confirmDeleteAccount(context, ref),
-                ),
+                if (!(user?.isGuest ?? false)) ...[
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: Icon(Icons.delete_forever_rounded, color: colorScheme.error),
+                    title: Text('Hesabımı sil', style: TextStyle(color: colorScheme.error)),
+                    onTap: () => _confirmDeleteAccount(context, ref),
+                  ),
+                ],
               ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.help_outline_rounded),
+              title: const Text('Tanıtımı tekrar göster'),
+              onTap: () {
+                ref.read(onboardingSeenProvider.notifier).reset();
+                ref.read(coachTourSeenProvider.notifier).reset();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Bir alana girdiğinde tanıtım tekrar gösterilecek')),
+                );
+              },
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -352,7 +396,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: const AppBottomNav(currentTab: AppBottomTab.settings),
     );
   }
 }

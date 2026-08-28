@@ -31,6 +31,7 @@ class AppUser {
     required this.displayName,
     this.locale = 'tr',
     this.dietProfile,
+    this.isGuest = false,
   });
 
   final String id;
@@ -38,6 +39,10 @@ class AppUser {
   final String displayName;
   final String locale;
   final DietProfile? dietProfile;
+
+  /// Sunucuda anonim (misafir) hesap — sentetik email/şifre taşır, kullanıcı
+  /// henüz kayıt olmadı. bkz. AuthRepository.createGuest / upgradeAccount.
+  final bool isGuest;
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
         id: json['id'] as String,
@@ -47,6 +52,7 @@ class AppUser {
         dietProfile: json['dietProfile'] != null
             ? DietProfile.fromJson(json['dietProfile'] as Map<String, dynamic>)
             : null,
+        isGuest: json['isGuest'] as bool? ?? false,
       );
 }
 
@@ -79,6 +85,33 @@ class AuthRepository {
       refreshToken: data['refreshToken'] as String,
     );
     return AppUser.fromJson(data['user'] as Map<String, dynamic>);
+  }
+
+  /// Misafir hesap açar (ya da aynı deviceId için mevcut misafiri döndürür)
+  /// — kayıt duvarı olmadan uygulamanın tamamını kullanabilme.
+  Future<AppUser> createGuest(String deviceId) async {
+    final response = await _client.dio.post('/auth/guest', data: {'deviceId': deviceId});
+    final data = response.data as Map<String, dynamic>;
+    await _client.tokenStorage.saveTokens(
+      accessToken: data['accessToken'] as String,
+      refreshToken: data['refreshToken'] as String,
+    );
+    return AppUser.fromJson(data['user'] as Map<String, dynamic>);
+  }
+
+  /// Misafir hesabını kalıcı hesaba yükseltir — oturum ve veriler korunur,
+  /// yalnızca email/şifre gerçek hale gelir.
+  Future<AppUser> upgradeAccount({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    final response = await _client.dio.post('/auth/upgrade', data: {
+      'email': email,
+      'password': password,
+      'displayName': displayName,
+    });
+    return AppUser.fromJson(response.data['user'] as Map<String, dynamic>);
   }
 
   Future<void> logout() async {

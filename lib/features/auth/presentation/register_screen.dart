@@ -7,6 +7,7 @@ import '../../../core/widgets/button_progress.dart';
 import '../../../core/widgets/form_error_text.dart';
 import '../../../core/widgets/responsive.dart';
 import '../application/auth_providers.dart';
+import 'widgets/auth_hero_header.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -44,7 +45,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             password: _passwordController.text,
             displayName: _nameController.text.trim(),
           );
-      if (mounted) Navigator.of(context).pop();
+      // pop() burada YOK: _AuthGate (main.dart) unauthenticated->authenticated
+      // geçişinde kök navigator'ı zaten köke kadar boşaltıyor — LoginScreen
+      // üzerinden gelinmiş olsa bile araya düşmez.
     } catch (error) {
       setState(() => _errorMessage = describeApiError(error));
     } finally {
@@ -67,6 +70,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const SizedBox(height: AppSpacing.sm),
+                const AuthHeroHeader(subtitle: 'Birkaç saniye — sonra fişini taramaya başla'),
+                const SizedBox(height: AppSpacing.xl),
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(labelText: 'Ad Soyad', prefixIcon: Icon(Icons.person_outline)),

@@ -10,6 +10,7 @@ class ReceiptLineItem {
     required this.parsedUnit,
     this.parsedPackSize,
     this.parsedPackUnit,
+    this.parsedPrice,
     required this.matchedProductId,
     required this.matchMethod,
     required this.confidence,
@@ -22,6 +23,11 @@ class ReceiptLineItem {
   final String? parsedBrand;
   final double parsedQuantity;
   final String parsedUnit;
+
+  /// Satırın toplam fiyatı (birim fiyat DEĞİL — envanter birim fiyat tutar,
+  /// bölme confirm sırasında backend'de yapılır). OCR/AI fiyatı yakalayamazsa
+  /// null — sessizce 0 kabul edilmez, kullanıcı elle girebilir.
+  final double? parsedPrice;
 
   /// Çoklu paket satırlarında ("6X200ML") tek paketin boyutu — parsedQuantity
   /// paket ADEDİ (6), parsedUnit 'piece' olur, boyut burada ayrı taşınır.
@@ -54,6 +60,7 @@ class ReceiptLineItem {
         parsedUnit: json['parsedUnit'] as String? ?? 'piece',
         parsedPackSize: (json['parsedPackSize'] as num?)?.toDouble(),
         parsedPackUnit: json['parsedPackUnit'] as String?,
+        parsedPrice: (json['parsedPrice'] as num?)?.toDouble(),
         matchedProductId: json['matchedProductId'] as String?,
         matchMethod: json['matchMethod'] as String?,
         confidence: (json['confidence'] as num?)?.toDouble(),
@@ -62,9 +69,14 @@ class ReceiptLineItem {
 }
 
 class ReceiptScanResult {
-  const ReceiptScanResult({required this.status, required this.lineItems});
+  const ReceiptScanResult({required this.status, required this.lineItems, this.totalAmount});
   final String status;
   final List<ReceiptLineItem> lineItems;
+
+  /// Fişin tamamı için OCR/deterministik regex ile okunan toplam tutar
+  /// (receipt_scan.total_amount) — satır fiyatları toplamıyla karşılaştırıp
+  /// kullanıcıya "kaç kalemin fiyatı eksik" sinyali vermek için.
+  final double? totalAmount;
 }
 
 class ReceiptScanSummary {
@@ -127,6 +139,7 @@ class ReceiptRepository {
     return ReceiptScanResult(
       status: scan['status'] as String,
       lineItems: items.map((i) => ReceiptLineItem.fromJson(i as Map<String, dynamic>)).toList(),
+      totalAmount: (scan['totalAmount'] as num?)?.toDouble(),
     );
   }
 
@@ -140,6 +153,7 @@ class ReceiptRepository {
     required String parsedUnit,
     double? parsedPackSize,
     String? parsedPackUnit,
+    double? parsedPrice,
     required String matchedProductId,
     String? categoryKey,
   }) async {
@@ -152,6 +166,7 @@ class ReceiptRepository {
         'parsedUnit': parsedUnit,
         'parsedPackSize': ?parsedPackSize,
         'parsedPackUnit': ?parsedPackUnit,
+        'parsedPrice': ?parsedPrice,
         'matchedProductId': matchedProductId,
         'categoryKey': ?categoryKey,
       },

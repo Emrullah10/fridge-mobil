@@ -4,15 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/household_kind.dart';
 import '../../../core/widgets/single_field_dialog.dart';
 import '../../auth/application/auth_providers.dart';
+import '../../auth/presentation/upgrade_account_screen.dart';
 import '../application/household_providers.dart';
 import 'create_household_dialog.dart';
-import 'household_home_screen.dart';
 
 class HouseholdListScreen extends ConsumerWidget {
   const HouseholdListScreen({super.key});
@@ -22,11 +22,19 @@ class HouseholdListScreen extends ConsumerWidget {
 
     if (result == null || result.name.isEmpty) return;
     try {
-      await ref.read(householdRepositoryProvider).createHousehold(result.name, kind: result.kind);
+      await ref
+          .read(householdRepositoryProvider)
+          .createHousehold(
+            result.name,
+            kind: result.kind,
+            foodEnabled: result.foodEnabled,
+          );
       ref.invalidate(householdsProvider);
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
@@ -34,7 +42,10 @@ class HouseholdListScreen extends ConsumerWidget {
   // 12 hane hex kod (bkz. household-invite.repository.js), 4'erli gruplu
   // gösterimle boşluklu ya da boşluksuz olabilir. WhatsApp'tan kopyalanan
   // kod panodaysa dialog açılırken otomatik dolsun diye kontrol ediyoruz.
-  static final _codeLikePattern = RegExp(r'^[a-f0-9\s]{12,17}$', caseSensitive: false);
+  static final _codeLikePattern = RegExp(
+    r'^[a-f0-9\s]{12,17}$',
+    caseSensitive: false,
+  );
 
   Future<void> _joinHousehold(BuildContext context, WidgetRef ref) async {
     String? clipboardCode;
@@ -66,11 +77,15 @@ class HouseholdListScreen extends ConsumerWidget {
       await ref.read(householdRepositoryProvider).acceptInvite(cleanCode);
       ref.invalidate(householdsProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alana katıldın')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Alana katıldın')));
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
@@ -80,6 +95,7 @@ class HouseholdListScreen extends ConsumerWidget {
     final householdsAsync = ref.watch(householdsProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final isGuest = ref.watch(authControllerProvider).isGuest;
 
     return Scaffold(
       appBar: AppBar(
@@ -93,54 +109,111 @@ class HouseholdListScreen extends ConsumerWidget {
           const SizedBox(width: AppSpacing.xs),
         ],
       ),
-      body: AsyncView(
-        value: householdsAsync,
-        onRetry: () => ref.invalidate(householdsProvider),
-        data: (households) {
-          if (households.isEmpty) {
-            return EmptyState(
-              icon: Icons.home_outlined,
-              message: 'Henüz bir alanın yok.\nAşağıdan yeni bir alan oluştur veya davet koduyla katıl.',
-              action: FilledButton.icon(
-                onPressed: () => _createHousehold(context, ref),
-                icon: const Icon(Icons.add),
-                label: const Text('Alan Oluştur'),
-              ),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.md,
-              AppSpacing.md,
-              AppSpacing.fabBottomPadding,
-            ),
-            itemCount: households.length,
-            itemBuilder: (context, index) {
-              final household = households[index];
-              final kindStyle = householdKindStyle(household.kind);
-              return Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: colorScheme.primaryContainer,
-                    child: Icon(kindStyle.icon, color: colorScheme.onPrimaryContainer),
+      body: Column(
+        children: [
+          // Misafirin sürekli görünür bir hatırlatıcısı — verilerin bu
+          // cihaza bağlı olduğunu ve kaybolabileceğini unutmasın.
+          if (isGuest)
+            Material(
+              color: colorScheme.tertiaryContainer,
+              child: InkWell(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const UpgradeAccountScreen(),
                   ),
-                  title: Text(household.name, style: textTheme.titleSmall),
-                  subtitle: Text(kindStyle.label),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    ref.read(selectedHouseholdIdProvider.notifier).state = household.id;
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => HouseholdHomeScreen(household: household)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 18,
+                        color: colorScheme.onTertiaryContainer,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          'Misafir modundasın — verilerin bu cihaza bağlı. Kalıcı yap.',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onTertiaryContainer,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: colorScheme.onTertiaryContainer,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          Expanded(
+            child: AsyncView(
+              value: householdsAsync,
+              onRetry: () => ref.invalidate(householdsProvider),
+              data: (households) {
+                if (households.isEmpty) {
+                  return EmptyState(
+                    icon: Icons.home_outlined,
+                    message:
+                        'Henüz bir alanın yok.\nAşağıdan yeni bir alan oluştur veya davet koduyla katıl.',
+                    action: FilledButton.icon(
+                      onPressed: () => _createHousehold(context, ref),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Alan Oluştur'),
+                    ),
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    AppSpacing.fabBottomPadding,
+                  ),
+                  itemCount: households.length,
+                  itemBuilder: (context, index) {
+                    final household = households[index];
+                    final kindStyle = householdKindStyle(household.kind);
+                    return Card(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: colorScheme.primaryContainer,
+                          child: Icon(
+                            kindStyle.icon,
+                            color: colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                        title: Text(
+                          household.name,
+                          style: textTheme.titleSmall,
+                        ),
+                        subtitle: Text(kindStyle.label),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () {
+                          ref.read(selectedHouseholdIdProvider.notifier).state =
+                              household.id;
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => AppShell.forHousehold(household),
+                            ),
+                          );
+                        },
+                      ),
                     );
                   },
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
-      bottomNavigationBar: const AppBottomNav(currentTab: AppBottomTab.areas),
       floatingActionButton: Wrap(
         alignment: WrapAlignment.end,
         spacing: AppSpacing.sm,

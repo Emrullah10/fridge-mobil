@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/scan_progress.dart';
@@ -195,7 +194,6 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
         icon: const Icon(Icons.auto_awesome_rounded),
         label: const Text('AI Chef'),
       ),
-      bottomNavigationBar: AppBottomNav(currentTab: AppBottomTab.recipes, householdId: widget.householdId),
     );
   }
 }

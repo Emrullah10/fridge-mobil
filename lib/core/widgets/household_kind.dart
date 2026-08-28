@@ -35,3 +35,9 @@ HouseholdKindStyle householdKindStyle(String kind) {
     orElse: () => householdKinds.first,
   );
 }
+
+/// Yemeğin doğal olduğu alan türleri — backend'deki
+/// household-profile.js FOOD_KINDS ile birebir aynı liste. Bir alanın
+/// household.features['food'] alanı boşsa (kullanıcı hiç karar vermediyse)
+/// buradan türetilir — Household.foodEnabled getter'ı bu listeyi kullanır.
+const foodKinds = <String>{'home', 'summerhouse', 'cottage', 'dorm', 'boat'};

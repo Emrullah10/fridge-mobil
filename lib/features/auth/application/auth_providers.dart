@@ -2,9 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/storage/device_id_storage.dart';
 import '../data/auth_repository.dart';
 
-enum AuthStatus { unknown, authenticated, unauthenticated }
+/// `guest`, `authenticated`in bir alt durumu DEĞİL, ayrı bir dal —
+/// _AuthGate (main.dart) bu enum üzerinde switch yapıyor; buraya yeni bir
+/// değer eklemek main.dart:313 ve main.dart:298'de DERLEME HATASI üretir.
+/// Bu istenen davranış: hiçbir dal unutulmadan güncellenmiş olur.
+enum AuthStatus { unknown, authenticated, guest, unauthenticated }
 
 class AuthState {
   const AuthState({required this.status, this.user});
@@ -14,16 +19,21 @@ class AuthState {
 
   static const initial = AuthState(status: AuthStatus.unknown);
 
+  bool get isGuest => status == AuthStatus.guest;
+
   AuthState copyWith({AuthStatus? status, AppUser? user}) =>
       AuthState(status: status ?? this.status, user: user ?? this.user);
 }
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._repo) : super(AuthState.initial) {
+  AuthController(this._repo, this._deviceIdStorage) : super(AuthState.initial) {
     _restoreSession();
   }
 
   final AuthRepository _repo;
+  final DeviceIdStorage _deviceIdStorage;
+
+  AuthStatus _statusFor(AppUser user) => user.isGuest ? AuthStatus.guest : AuthStatus.authenticated;
 
   Future<void> _restoreSession() async {
     final hasSession = await _repo.hasStoredSession();
@@ -31,27 +41,49 @@ class AuthController extends StateNotifier<AuthState> {
       state = const AuthState(status: AuthStatus.unauthenticated);
       return;
     }
-    // Token varlığı tek başına kullanıcı bilgisini (ad/e-posta) vermiyor —
-    // önceden burada user hep null kalıyordu, profil ekranı boş görünürdü.
+    // Token varlığı tek başına kullanıcı bilgisini (ad/e-posta/isGuest)
+    // vermiyor — önceden burada user hep null kalıyordu, profil ekranı boş
+    // görünürdü.
     try {
       final user = await _repo.fetchCurrentUser();
-      state = AuthState(status: AuthStatus.authenticated, user: user);
+      state = AuthState(status: _statusFor(user), user: user);
     } catch (_) {
       // Token geçersizse ApiClient zaten 401 -> forceUnauthenticated akışını
       // tetikler; burada en azından authenticated'a düşüp uygulamanın
-      // açılmasını engellememek yeterli.
+      // açılmasını engellememek yeterli. isGuest bilinmiyor — normal
+      // authenticated varsayılır, 401 zaten unauthenticated'a düşürecek.
       state = const AuthState(status: AuthStatus.authenticated);
     }
   }
 
   Future<void> login({required String email, required String password}) async {
     final user = await _repo.login(email: email, password: password);
-    state = AuthState(status: AuthStatus.authenticated, user: user);
+    state = AuthState(status: _statusFor(user), user: user);
   }
 
   Future<void> register({required String email, required String password, required String displayName}) async {
     await _repo.register(email: email, password: password, displayName: displayName);
     await login(email: email, password: password);
+  }
+
+  /// Kayıt duvarı olmadan uygulamayı kullanmaya başlar — aynı cihazda
+  /// tekrar çağrılırsa (uygulama kapatılıp açıldı) AYNI misafir hesabına
+  /// döner, veri kaybetmez.
+  Future<void> continueAsGuest() async {
+    final deviceId = await _deviceIdStorage.getOrCreate();
+    final user = await _repo.createGuest(deviceId);
+    state = AuthState(status: AuthStatus.guest, user: user);
+  }
+
+  /// Misafir hesabını kalıcı hesaba yükseltir — oturum ve tüm veriler
+  /// (alan/envanter/fiş) korunur, sadece durum authenticated'a geçer.
+  Future<void> upgradeAccount({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    final user = await _repo.upgradeAccount(email: email, password: password, displayName: displayName);
+    state = AuthState(status: AuthStatus.authenticated, user: user);
   }
 
   Future<void> logout() async {
@@ -98,8 +130,10 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(ref.watch(apiClientProvider));
 });
 
+final deviceIdStorageProvider = Provider<DeviceIdStorage>((ref) => DeviceIdStorage());
+
 final authControllerProvider = StateNotifierProvider<AuthController, AuthState>((ref) {
-  final controller = AuthController(ref.watch(authRepositoryProvider));
+  final controller = AuthController(ref.watch(authRepositoryProvider), ref.watch(deviceIdStorageProvider));
   void listener() => controller.forceUnauthenticated();
   _unauthorizedNotifier.addListener(listener);
   ref.onDispose(() => _unauthorizedNotifier.removeListener(listener));

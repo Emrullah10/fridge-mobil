@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../product/application/product_providers.dart';
 import '../application/insights_providers.dart';
@@ -43,10 +42,6 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Para & İsraf')),
-      bottomNavigationBar: AppBottomNav(
-        currentTab: AppBottomTab.insights,
-        householdId: widget.householdId,
-      ),
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(householdInsightsProvider(period)),
         child: ListView(
