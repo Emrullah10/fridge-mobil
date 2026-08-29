@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/validation/validators.dart';
 import '../../../core/widgets/button_progress.dart';
 import '../../../core/widgets/form_error_text.dart';
 import '../../../core/widgets/responsive.dart';
@@ -76,15 +77,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(labelText: 'Ad Soyad', prefixIcon: Icon(Icons.person_outline)),
-                  validator: (value) => (value == null || value.trim().isEmpty) ? 'Ad gerekli' : null,
+                  validator: (value) => Validators.required(value, 'Ad'),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(labelText: 'E-posta', prefixIcon: Icon(Icons.mail_outline)),
-                  validator: (value) =>
-                      (value == null || !value.contains('@')) ? 'Geçerli bir e-posta girin' : null,
+                  validator: Validators.email,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
@@ -99,8 +99,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                     ),
                   ),
-                  validator: (value) =>
-                      (value == null || value.length < 8) ? 'En az 8 karakter' : null,
+                  validator: Validators.newPassword,
                 ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: AppSpacing.sm),

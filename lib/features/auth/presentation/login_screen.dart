@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/validation/validators.dart';
 import '../../../core/widgets/button_progress.dart';
 import '../../../core/widgets/form_error_text.dart';
 import '../../../core/widgets/responsive.dart';
 import '../application/auth_providers.dart';
+import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 import 'widgets/auth_hero_header.dart';
 
@@ -71,8 +73,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(labelText: 'E-posta', prefixIcon: Icon(Icons.mail_outline)),
-                    validator: (value) =>
-                        (value == null || !value.contains('@')) ? 'Geçerli bir e-posta girin' : null,
+                    validator: Validators.email,
                   ),
                   const SizedBox(height: AppSpacing.md),
                   TextFormField(
@@ -87,7 +88,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
                     ),
-                    validator: (value) => (value == null || value.length < 6) ? 'En az 6 karakter' : null,
+                    validator: Validators.requiredPassword,
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ForgotPasswordScreen(initialEmail: _emailController.text.trim()),
+                        ),
+                      ),
+                      child: const Text('Şifremi unuttum'),
+                    ),
                   ),
                   if (_errorMessage != null) ...[
                     const SizedBox(height: AppSpacing.sm),

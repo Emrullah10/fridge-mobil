@@ -165,4 +165,24 @@ class AuthRepository {
     await _client.dio.delete('/auth/me', data: {'password': password});
     await _client.tokenStorage.clear();
   }
+
+  /// Backend her koşulda (kayıtlı e-posta olsun olmasın) 204 döner —
+  /// enumeration sızdırmamak için. Oturum durumunu değiştirmez.
+  Future<void> requestPasswordReset({required String email}) async {
+    await _client.dio.post('/auth/forgot-password', data: {'email': email});
+  }
+
+  /// Başarılı olursa şifre değişir ve sunucudaki tüm oturumlar düşer —
+  /// kullanıcı bu ekrandan sonra tekrar login olmalı, otomatik giriş yapılmaz.
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    await _client.dio.post('/auth/reset-password', data: {
+      'email': email,
+      'code': code,
+      'newPassword': newPassword,
+    });
+  }
 }
