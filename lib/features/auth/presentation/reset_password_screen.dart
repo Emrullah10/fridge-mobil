@@ -129,6 +129,34 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
+                    const SizedBox(height: AppSpacing.md),
+                    // Mail altyapısı yeni — bazı sağlayıcılar ilk günlerde
+                    // gönderen domain'ini tanımadığı için mesajı gereksiz/
+                    // spam klasörüne düşürebiliyor. DMARC kaydı eklendikçe
+                    // bu azalır ama kullanıcıyı şimdiden uyarmak, "kod hiç
+                    // gelmedi" şikayetini "spam'e bakmadım"a çevirir.
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(AppRadius.card),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline, size: 20, color: Theme.of(context).colorScheme.onSecondaryContainer),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              'Kod gelmediyse gereksiz/spam klasörünü de kontrol et.',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSecondaryContainer,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: AppSpacing.xl),
                     TextFormField(
                       controller: _codeController,
