@@ -6,6 +6,7 @@ import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../application/entitlements_providers.dart';
 import '../domain/entitlements.dart';
+import 'paywall_screen.dart';
 
 /// Abonelik yönetim ekranı — Play'in 2026 zorunluluğu: uygulama içinden
 /// iptal, en fazla 2 dokunuş (plan §Faz 5). Buraya gelmek 1. dokunuş,
@@ -101,16 +102,10 @@ class _UpgradeCta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // RevenueCat entegrasyonu (plan §Faz 5) henüz bağlanmadı — bu buton
-    // paywall_screen.dart'ı açar, oradaki satın alma butonu "Yakında"
-    // durumunda kalır. purchases_flutter kurulduğunda burası ve
-    // paywall_screen.dart aynı satın alma akışına bağlanacak.
     return FilledButton(
-      onPressed: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Abonelik satın alma yakında açılıyor.')),
-        );
-      },
+      onPressed: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      ),
       child: const Text('Premium\'a Geç'),
     );
   }

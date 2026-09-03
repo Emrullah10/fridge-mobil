@@ -2,7 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/application/auth_providers.dart';
 import '../data/entitlements_repository.dart';
+import '../data/purchase_repository.dart';
 import '../domain/entitlements.dart';
+
+final purchaseRepositoryProvider = Provider<PurchaseRepository>((ref) => PurchaseRepository());
 
 final entitlementsRepositoryProvider = Provider<EntitlementsRepository>((ref) {
   return EntitlementsRepository(ref.watch(apiClientProvider));

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/error/api_error.dart';
 import '../../../core/storage/device_id_storage.dart';
+import '../../billing/data/purchase_repository.dart';
 import '../data/auth_repository.dart';
 
 /// `guest`, `authenticated`in bir alt durumu DEĞİL, ayrı bir dal —
@@ -48,6 +51,10 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       final user = await _repo.fetchCurrentUser();
       state = AuthState(status: _statusFor(user), user: user);
+      // Uygulama yeniden açıldığında da RC'nin app_user_id'si bizimkiyle
+      // aynı kalmalı — misafirde de sabitliyoruz (satın alma yapamaz ama
+      // upgrade sonrası aynı id devam etsin diye tutarlı davranış).
+      unawaited(PurchaseRepository.logIn(user.id));
     } catch (_) {
       // Token geçersizse ApiClient zaten 401 -> forceUnauthenticated akışını
       // tetikler; burada en azından authenticated'a düşüp uygulamanın
@@ -60,6 +67,9 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> login({required String email, required String password}) async {
     final user = await _repo.login(email: email, password: password);
     state = AuthState(status: _statusFor(user), user: user);
+    // RC app_user_id == bizim user.id (plan §Faz 5 kritik not) — webhook'un
+    // bizim kullanıcımızı bulabilmesi için satın alma öncesi sabitlenmeli.
+    unawaited(PurchaseRepository.logIn(user.id));
   }
 
   Future<void> register({required String email, required String password, required String displayName}) async {
@@ -96,11 +106,13 @@ class AuthController extends StateNotifier<AuthState> {
       deviceId: deviceId,
     );
     state = AuthState(status: AuthStatus.authenticated, user: user);
+    unawaited(PurchaseRepository.logIn(user.id));
   }
 
   Future<void> logout() async {
     await _repo.logout();
     state = const AuthState(status: AuthStatus.unauthenticated);
+    unawaited(PurchaseRepository.logOut());
   }
 
   Future<void> updateProfile({required String displayName, Object? dietProfile = _keepDiet}) async {

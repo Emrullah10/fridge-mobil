@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/error/api_error.dart';
+import '../presentation/paywall_screen.dart';
 import '../presentation/paywall_sheet.dart';
 
 /// Paywall'ın NE ZAMAN gösterileceğini yöneten frekans kuralları (plan
@@ -82,7 +83,17 @@ class PaywallController {
   }) async {
     if (_isFrequencyLimited(trigger)) return;
     _recordShown(trigger);
-    await showPaywallSheet(context, info: info, onUpgrade: onUpgrade);
+    // onUpgrade verilmezse varsayılan: tam ekran PaywallScreen'i aç —
+    // her çağrı sitesinin aynı Navigator.push'u tekrar etmesine gerek
+    // kalmasın diye (plan §Faz 4 "Yükselt" butonu).
+    await showPaywallSheet(
+      context,
+      info: info,
+      onUpgrade: onUpgrade ??
+          () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PaywallScreen()),
+              ),
+    );
     // showPaywallSheet kapanınca (kullanıcı "Şimdi değil" veya dışarı
     // dokunarak kapattıysa) 14 günlük susturma başlar. "Yükselt"e bastıysa
     // zaten pop olup onUpgrade tetiklendiği için bu kayıt zararsız (kullanıcı
