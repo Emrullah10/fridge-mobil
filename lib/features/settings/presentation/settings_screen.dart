@@ -8,6 +8,7 @@ import '../../../core/theme/theme_providers.dart';
 import '../../../core/widgets/single_field_dialog.dart';
 import '../../auth/application/auth_providers.dart';
 import '../../auth/presentation/upgrade_account_screen.dart';
+import '../../billing/presentation/subscription_screen.dart';
 import '../../notification/application/notification_providers.dart';
 import '../../onboarding/application/onboarding_providers.dart';
 import 'diet_profile_screen.dart';
@@ -332,6 +333,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const Divider(height: 1),
                 ],
                 if (!(user?.isGuest ?? false)) ...[
+                  ListTile(
+                    leading: const Icon(Icons.workspace_premium_outlined),
+                    title: const Text('Abonelik'),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SubscriptionScreen()),
+                    ),
+                  ),
+                  const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.lock_outline_rounded),
                     title: const Text('Şifreyi değiştir'),

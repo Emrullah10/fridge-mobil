@@ -65,11 +65,15 @@ class AuthRepository {
     required String email,
     required String password,
     required String displayName,
+    String? deviceId,
   }) async {
     final response = await _client.dio.post('/auth/register', data: {
       'email': email,
       'password': password,
       'displayName': displayName,
+      // 14 günlük ters deneme aynı cihazdan ikinci kez alınmasın diye —
+      // backend zaten bilmiyorsa (eski sürüm) sessizce yok sayar.
+      if (deviceId != null) 'deviceId': deviceId,
     });
     return AppUser.fromJson(response.data['user'] as Map<String, dynamic>);
   }
@@ -105,11 +109,13 @@ class AuthRepository {
     required String email,
     required String password,
     required String displayName,
+    String? deviceId,
   }) async {
     final response = await _client.dio.post('/auth/upgrade', data: {
       'email': email,
       'password': password,
       'displayName': displayName,
+      if (deviceId != null) 'deviceId': deviceId,
     });
     return AppUser.fromJson(response.data['user'] as Map<String, dynamic>);
   }

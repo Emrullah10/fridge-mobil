@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/error/api_error.dart';
 import '../../../core/storage/device_id_storage.dart';
 import '../data/auth_repository.dart';
 
@@ -62,7 +63,12 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> register({required String email, required String password, required String displayName}) async {
-    await _repo.register(email: email, password: password, displayName: displayName);
+    // deviceId (varsa) 14 günlük ters denemenin cihaz-bazlı suistimal
+    // korumasını besler — deviceIdStorage zaten misafir modu için var,
+    // register'da yeniden kullanılır (kayıt duvarı olmadan denenmiş bir
+    // misafir cihazı, hesap değiştirse bile ikinci deneme almasın).
+    final deviceId = await _deviceIdStorage.getOrCreate();
+    await _repo.register(email: email, password: password, displayName: displayName, deviceId: deviceId);
     await login(email: email, password: password);
   }
 
@@ -82,7 +88,13 @@ class AuthController extends StateNotifier<AuthState> {
     required String password,
     required String displayName,
   }) async {
-    final user = await _repo.upgradeAccount(email: email, password: password, displayName: displayName);
+    final deviceId = await _deviceIdStorage.getOrCreate();
+    final user = await _repo.upgradeAccount(
+      email: email,
+      password: password,
+      displayName: displayName,
+      deviceId: deviceId,
+    );
     state = AuthState(status: AuthStatus.authenticated, user: user);
   }
 
@@ -120,10 +132,21 @@ class AuthController extends StateNotifier<AuthState> {
 // çağrısı doğrudan bu callback üzerinden, provider grafiğine girmeden yapılır.
 final _unauthorizedNotifier = ValueNotifier<int>(0);
 
+/// 402 (plan/kota yetersizliği) — aynı çapraz-katman haberleşme deseni.
+/// entitlements_providers.dart bunu dinleyip cache'i invalidate eder,
+/// paywall_controller.dart bunu dinleyip tetikleyici gösterir. ApiClient
+/// billing katmanını hiç import etmez.
+final planLimitNotifier = ValueNotifier<PlanLimitInfo?>(null);
+
 final apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient(onUnauthorized: () async {
-    _unauthorizedNotifier.value++;
-  });
+  return ApiClient(
+    onUnauthorized: () async {
+      _unauthorizedNotifier.value++;
+    },
+    onPlanLimitReached: (info) {
+      planLimitNotifier.value = info;
+    },
+  );
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
+import '../../../core/haptics.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/voice_input_button.dart';
 import '../../../core/widgets/unit_label.dart';
+import '../../billing/application/paywall_controller.dart';
 import '../../inventory/application/inventory_providers.dart';
 import '../../onboarding/application/onboarding_providers.dart';
 import '../../onboarding/presentation/spotlight/coach_tour.dart';
@@ -35,21 +37,24 @@ class ShoppingListScreen extends ConsumerWidget {
       CoachStep(
         targetKey: shoppingAddFabKey,
         title: 'Listene ekle',
-        body: 'Ürün seç, miktarı yaz. Yukarıdaki çiplerden azalanları tek dokunuşla da atabilirsin.',
+        body:
+            'Ürün seç, miktarı yaz. Yukarıdaki çiplerden azalanları tek dokunuşla da atabilirsin.',
         accent: scheme.primary,
       ),
       CoachStep(
         targetKey: shoppingFirstItemKey,
         optional: true,
         title: 'Markette işaretle',
-        body: 'Aldıklarını kutucuktan işaretle; sola kaydırırsan listeden siler.',
+        body:
+            'Aldıklarını kutucuktan işaretle; sola kaydırırsan listeden siler.',
         accent: appColors.storageFreezer,
       ),
       CoachStep(
         targetKey: shoppingTransferKey,
         optional: true,
         title: 'Dönüşte dolaba aktar',
-        body: 'İşaretlediklerin tek dokunuşla envantere geçsin — bölümü ve son kullanma tarihini sen seçersin.',
+        body:
+            'İşaretlediklerin tek dokunuşla envantere geçsin — bölümü ve son kullanma tarihini sen seçersin.',
         accent: appColors.storageFridge,
       ),
     ];
@@ -63,7 +68,9 @@ class ShoppingListScreen extends ConsumerWidget {
     if (edit == null) return;
 
     try {
-      await ref.read(shoppingRepositoryProvider).addItem(
+      await ref
+          .read(shoppingRepositoryProvider)
+          .addItem(
             householdId,
             productId: product.id,
             quantity: edit.quantity,
@@ -73,14 +80,22 @@ class ShoppingListScreen extends ConsumerWidget {
       ref.invalidate(shoppingListProvider(householdId));
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
 
-  Future<void> _addSuggestion(BuildContext context, WidgetRef ref, ShoppingSuggestion suggestion) async {
+  Future<void> _addSuggestion(
+    BuildContext context,
+    WidgetRef ref,
+    ShoppingSuggestion suggestion,
+  ) async {
     try {
-      await ref.read(shoppingRepositoryProvider).addItem(
+      await ref
+          .read(shoppingRepositoryProvider)
+          .addItem(
             householdId,
             productId: suggestion.productId,
             customName: suggestion.productId == null ? suggestion.name : null,
@@ -92,7 +107,9 @@ class ShoppingListScreen extends ConsumerWidget {
       ref.invalidate(shoppingSuggestionsProvider(householdId));
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
@@ -100,9 +117,15 @@ class ShoppingListScreen extends ConsumerWidget {
   // Tüketim ritmi + serbest metin önerileri buradan eklenir. AI önerisinin
   // productId'si sunucu tarafında doğrulanmıştır (bkz. suggest-ai-shopping-items
   // use-case) ama null olabilir — bu durumda customName ile eklenir.
-  Future<void> _addAiSuggestion(BuildContext context, WidgetRef ref, ShoppingSuggestion suggestion) async {
+  Future<void> _addAiSuggestion(
+    BuildContext context,
+    WidgetRef ref,
+    ShoppingSuggestion suggestion,
+  ) async {
     try {
-      await ref.read(shoppingRepositoryProvider).addItem(
+      await ref
+          .read(shoppingRepositoryProvider)
+          .addItem(
             householdId,
             productId: suggestion.productId,
             customName: suggestion.productId == null ? suggestion.name : null,
@@ -113,12 +136,17 @@ class ShoppingListScreen extends ConsumerWidget {
       ref.invalidate(shoppingListProvider(householdId));
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
 
-  Future<void> _promptFreeTextRequest(BuildContext context, WidgetRef ref) async {
+  Future<void> _promptFreeTextRequest(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final controller = TextEditingController();
     final text = await showDialog<String>(
       context: context,
@@ -134,9 +162,13 @@ class ShoppingListScreen extends ConsumerWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('İptal')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('İptal'),
+          ),
           FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
             child: const Text('Öner'),
           ),
         ],
@@ -144,25 +176,47 @@ class ShoppingListScreen extends ConsumerWidget {
     );
     if (text == null || text.isEmpty || !context.mounted) return;
 
-    await ref.read(textShoppingSuggestionsProvider(householdId).notifier).generate(text);
+    await ref
+        .read(textShoppingSuggestionsProvider(householdId).notifier)
+        .generate(text);
     if (!context.mounted) return;
 
     final result = ref.read(textShoppingSuggestionsProvider(householdId));
     result.whenOrNull(
-      error: (error, _) =>
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error)))),
+      error: (error, _) {
+        final info = PlanLimitInfo.tryParse(error);
+        if (info != null) {
+          final controllerAsync = ref.read(paywallControllerProvider);
+          controllerAsync.whenData((controller) {
+            controller.maybeShow(context, trigger: PaywallTrigger.quotaExceeded, info: info);
+          });
+          return;
+        }
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      },
     );
   }
 
   Future<void> _toggleChecked(WidgetRef ref, ShoppingItem item) async {
-    await ref.read(shoppingRepositoryProvider).updateItem(householdId, item.id, isChecked: !item.isChecked);
+    AppHaptics.selection();
+    await ref
+        .read(shoppingRepositoryProvider)
+        .updateItem(householdId, item.id, isChecked: !item.isChecked);
     ref.invalidate(shoppingListProvider(householdId));
   }
 
-  Future<void> _editItem(BuildContext context, WidgetRef ref, ShoppingItem item) async {
+  Future<void> _editItem(
+    BuildContext context,
+    WidgetRef ref,
+    ShoppingItem item,
+  ) async {
     final edit = await showShoppingItemSheet(context, existing: item);
     if (edit == null) return;
-    await ref.read(shoppingRepositoryProvider).updateItem(
+    await ref
+        .read(shoppingRepositoryProvider)
+        .updateItem(
           householdId,
           item.id,
           quantity: edit.quantity,
@@ -172,9 +226,37 @@ class ShoppingListScreen extends ConsumerWidget {
     ref.invalidate(shoppingListProvider(householdId));
   }
 
-  Future<void> _removeItem(WidgetRef ref, ShoppingItem item) async {
+  Future<void> _removeItem(
+    BuildContext context,
+    WidgetRef ref,
+    ShoppingItem item,
+  ) async {
+    AppHaptics.destructive();
     await ref.read(shoppingRepositoryProvider).removeItem(householdId, item.id);
     ref.invalidate(shoppingListProvider(householdId));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('"${item.name}" silindi'),
+        action: SnackBarAction(
+          label: 'Geri al',
+          onPressed: () async {
+            await ref
+                .read(shoppingRepositoryProvider)
+                .addItem(
+                  householdId,
+                  productId: item.productId,
+                  customName: item.productId == null ? item.name : null,
+                  quantity: item.quantity,
+                  unit: item.unit,
+                  note: item.note,
+                  source: item.source,
+                );
+            ref.invalidate(shoppingListProvider(householdId));
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _transfer(BuildContext context, WidgetRef ref) async {
@@ -182,7 +264,9 @@ class ShoppingListScreen extends ConsumerWidget {
     if (result == null) return;
 
     try {
-      final count = await ref.read(shoppingRepositoryProvider).transferToInventory(
+      final count = await ref
+          .read(shoppingRepositoryProvider)
+          .transferToInventory(
             householdId,
             storageLocationId: result.storageLocationId,
             expiresAt: result.expiresAt,
@@ -193,11 +277,15 @@ class ShoppingListScreen extends ConsumerWidget {
       // (family parametreli), parametresiz invalidate tüm varyantları düşürür.
       ref.invalidate(inventoryItemsProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$count ürün dolaba eklendi')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$count ürün dolaba eklendi')));
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
@@ -210,48 +298,64 @@ class ShoppingListScreen extends ConsumerWidget {
 
   Widget _buildSourceBadge(ShoppingItem item) {
     return switch (item.source) {
-      'recipe' => AppBadge(label: item.note ?? 'Tarif', variant: AppBadgeVariant.quantity),
-      'low_stock' => const AppBadge(label: 'Azalıyor', variant: AppBadgeVariant.warning),
+      'recipe' => AppBadge(
+        label: item.note ?? 'Tarif',
+        variant: AppBadgeVariant.quantity,
+      ),
+      'low_stock' => const AppBadge(
+        label: 'Azalıyor',
+        variant: AppBadgeVariant.warning,
+      ),
       _ => const SizedBox.shrink(),
     };
   }
 
-  Widget _buildItemTile(BuildContext context, WidgetRef ref, ShoppingItem item, {Key? tileKey}) {
+  Widget _buildItemTile(
+    BuildContext context,
+    WidgetRef ref,
+    ShoppingItem item, {
+    Key? tileKey,
+  }) {
     return KeyedSubtree(
       key: tileKey,
       child: Dismissible(
-      key: ValueKey(item.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        color: Theme.of(context).colorScheme.errorContainer,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        child: Icon(Icons.delete_outline_rounded, color: Theme.of(context).colorScheme.onErrorContainer),
-      ),
-      onDismissed: (_) => _removeItem(ref, item),
-      child: GestureDetector(
-        onLongPress: () => _editItem(context, ref, item),
-        child: CheckboxListTile(
-          value: item.isChecked,
-          onChanged: (_) => _toggleChecked(ref, item),
-          controlAffinity: ListTileControlAffinity.leading,
-          title: Text(
-            item.name,
-            style: item.isChecked
-                ? const TextStyle(decoration: TextDecoration.lineThrough)
-                : null,
-          ),
-          subtitle: Row(
-            children: [
-              Text('${item.quantity.toStringAsFixed(item.quantity % 1 == 0 ? 0 : 1)} ${unitShortLabel(item.unit)}'),
-              if (item.source != 'manual') ...[
-                const SizedBox(width: AppSpacing.xs),
-                _buildSourceBadge(item),
-              ],
-            ],
+        key: ValueKey(item.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          color: Theme.of(context).colorScheme.errorContainer,
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Icon(
+            Icons.delete_outline_rounded,
+            color: Theme.of(context).colorScheme.onErrorContainer,
           ),
         ),
-      ),
+        onDismissed: (_) => _removeItem(context, ref, item),
+        child: GestureDetector(
+          onLongPress: () => _editItem(context, ref, item),
+          child: CheckboxListTile(
+            value: item.isChecked,
+            onChanged: (_) => _toggleChecked(ref, item),
+            controlAffinity: ListTileControlAffinity.leading,
+            title: Text(
+              item.name,
+              style: item.isChecked
+                  ? const TextStyle(decoration: TextDecoration.lineThrough)
+                  : null,
+            ),
+            subtitle: Row(
+              children: [
+                Text(
+                  '${item.quantity.toStringAsFixed(item.quantity % 1 == 0 ? 0 : 1)} ${unitShortLabel(item.unit)}',
+                ),
+                if (item.source != 'manual') ...[
+                  const SizedBox(width: AppSpacing.xs),
+                  _buildSourceBadge(item),
+                ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -259,10 +363,32 @@ class ShoppingListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final listAsync = ref.watch(shoppingListProvider(householdId));
-    final suggestionsAsync = ref.watch(shoppingSuggestionsProvider(householdId));
-    final aiSuggestionsAsync = ref.watch(aiShoppingSuggestionsProvider(householdId));
+    final suggestionsAsync = ref.watch(
+      shoppingSuggestionsProvider(householdId),
+    );
+    final aiSuggestionsAsync = ref.watch(
+      aiShoppingSuggestionsProvider(householdId),
+    );
 
-    maybeStartCoachTour(context, ref, id: CoachTourId.shopping, buildSteps: () => _coachSteps(context));
+    // 402 (misafir/kota dolu) -> AsyncValue.guard hatayı state.error'a
+    // sarıyor, buradan yakalayıp metin hatası yerine paywall gösteriyoruz.
+    ref.listen(aiShoppingSuggestionsProvider(householdId), (previous, next) {
+      next.whenOrNull(error: (error, _) {
+        final info = PlanLimitInfo.tryParse(error);
+        if (info == null) return;
+        final controllerAsync = ref.read(paywallControllerProvider);
+        controllerAsync.whenData((controller) {
+          controller.maybeShow(context, trigger: PaywallTrigger.quotaExceeded, info: info);
+        });
+      });
+    });
+
+    maybeStartCoachTour(
+      context,
+      ref,
+      id: CoachTourId.shopping,
+      buildSteps: () => _coachSteps(context),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -284,11 +410,21 @@ class ShoppingListScreen extends ConsumerWidget {
           final checked = grouped['checked']!;
           final total = listData.items.length;
 
+          Future<void> onRefresh() async {
+            ref.invalidate(shoppingListProvider(householdId));
+            await ref.read(shoppingListProvider(householdId).future);
+          }
+
           return Column(
             children: [
               if (total > 0)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.sm,
+                    AppSpacing.md,
+                    0,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -299,42 +435,57 @@ class ShoppingListScreen extends ConsumerWidget {
                       const SizedBox(height: AppSpacing.xs),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(AppRadius.pill),
-                        child: LinearProgressIndicator(value: total == 0 ? 0 : checked.length / total),
+                        child: LinearProgressIndicator(
+                          value: total == 0 ? 0 : checked.length / total,
+                        ),
                       ),
                     ],
                   ),
                 ),
               suggestionsAsync.maybeWhen(
-                data: (suggestions) => (suggestions.isEmpty && aiSuggestionsAsync.valueOrNull?.isEmpty != false)
+                data: (suggestions) =>
+                    (suggestions.isEmpty &&
+                        aiSuggestionsAsync.valueOrNull?.isEmpty != false)
                     ? const SizedBox.shrink()
                     : SizedBox(
                         height: 44,
                         child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.sm,
+                          ),
                           scrollDirection: Axis.horizontal,
-                          itemCount: suggestions.length
-                              + (aiSuggestionsAsync.valueOrNull?.length ?? 0)
-                              + 1, // "Akıllı öneriler" tetikleme çipi
-                          separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.xs),
+                          itemCount:
+                              suggestions.length +
+                              (aiSuggestionsAsync.valueOrNull?.length ?? 0) +
+                              1, // "Akıllı öneriler" tetikleme çipi
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: AppSpacing.xs),
                           itemBuilder: (context, index) {
                             if (index < suggestions.length) {
                               final suggestion = suggestions[index];
                               return ActionChip(
                                 avatar: const Icon(Icons.add_rounded, size: 16),
                                 label: Text(suggestion.name),
-                                onPressed: () => _addSuggestion(context, ref, suggestion),
+                                onPressed: () =>
+                                    _addSuggestion(context, ref, suggestion),
                               );
                             }
 
                             final aiIndex = index - suggestions.length;
-                            final aiSuggestions = aiSuggestionsAsync.valueOrNull ?? [];
+                            final aiSuggestions =
+                                aiSuggestionsAsync.valueOrNull ?? [];
                             if (aiIndex < aiSuggestions.length) {
                               final suggestion = aiSuggestions[aiIndex];
                               return ActionChip(
-                                avatar: const Icon(Icons.auto_awesome_rounded, size: 16),
+                                avatar: const Icon(
+                                  Icons.auto_awesome_rounded,
+                                  size: 16,
+                                ),
                                 label: Text(suggestion.name),
                                 tooltip: suggestion.reasonText,
-                                onPressed: () => _addAiSuggestion(context, ref, suggestion),
+                                onPressed: () =>
+                                    _addAiSuggestion(context, ref, suggestion),
                               );
                             }
 
@@ -344,13 +495,24 @@ class ShoppingListScreen extends ConsumerWidget {
                                   ? const SizedBox(
                                       width: 14,
                                       height: 14,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
                                     )
-                                  : const Icon(Icons.auto_awesome_rounded, size: 16),
+                                  : const Icon(
+                                      Icons.auto_awesome_rounded,
+                                      size: 16,
+                                    ),
                               label: const Text('Akıllı öneriler'),
                               onPressed: aiSuggestionsAsync.isLoading
                                   ? null
-                                  : () => ref.read(aiShoppingSuggestionsProvider(householdId).notifier).generate(),
+                                  : () => ref
+                                        .read(
+                                          aiShoppingSuggestionsProvider(
+                                            householdId,
+                                          ).notifier,
+                                        )
+                                        .generate(),
                             );
                           },
                         ),
@@ -358,26 +520,54 @@ class ShoppingListScreen extends ConsumerWidget {
                 orElse: () => const SizedBox.shrink(),
               ),
               Expanded(
-                child: total == 0
-                    ? const EmptyState(
-                        icon: Icons.shopping_cart_outlined,
-                        message: 'Alışveriş listen boş.\nSağ alttaki + ile ürün ekleyebilirsin.',
-                      )
-                    : ListView(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.fabBottomPadding),
-                        children: [
-                          for (var i = 0; i < unchecked.length; i++)
-                            _buildItemTile(context, ref, unchecked[i],
-                                tileKey: i == 0 ? shoppingFirstItemKey : null),
-                          if (checked.isNotEmpty) ...[
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xs),
-                              child: Text('Alınanlar', style: Theme.of(context).textTheme.labelSmall),
+                child: RefreshIndicator(
+                  onRefresh: onRefresh,
+                  child: total == 0
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(
+                              height: MediaQuery.sizeOf(context).height * 0.5,
+                              child: const EmptyState(
+                                icon: Icons.shopping_cart_outlined,
+                                message:
+                                    'Alışveriş listen boş.\nSağ alttaki + ile ürün ekleyebilirsin.',
+                              ),
                             ),
-                            for (final item in checked) _buildItemTile(context, ref, item),
                           ],
-                        ],
-                      ),
+                        )
+                      : ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.only(
+                            bottom: AppSpacing.fabBottomPadding,
+                          ),
+                          children: [
+                            for (var i = 0; i < unchecked.length; i++)
+                              _buildItemTile(
+                                context,
+                                ref,
+                                unchecked[i],
+                                tileKey: i == 0 ? shoppingFirstItemKey : null,
+                              ),
+                            if (checked.isNotEmpty) ...[
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  AppSpacing.md,
+                                  AppSpacing.md,
+                                  AppSpacing.md,
+                                  AppSpacing.xs,
+                                ),
+                                child: Text(
+                                  'Alınanlar',
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                              ),
+                              for (final item in checked)
+                                _buildItemTile(context, ref, item),
+                            ],
+                          ],
+                        ),
+                ),
               ),
               if (checked.isNotEmpty)
                 SafeArea(

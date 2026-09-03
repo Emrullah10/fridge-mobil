@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/scan_progress.dart';
+import '../../billing/application/paywall_controller.dart';
 import '../../chef/presentation/chef_chat_screen.dart';
 import '../../onboarding/application/onboarding_providers.dart';
 import '../../onboarding/presentation/spotlight/coach_tour.dart';
@@ -22,7 +23,8 @@ final recipesTabsKey = GlobalKey();
 
 /// Bir tarif kartı çizici — `first: true` yalnızca Önerilenler sekmesinin ilk
 /// kartında verilir (coach tour eşleşme halkası adımı oraya nişan alır).
-typedef RecipeCardBuilder = Widget Function(BuildContext context, Recipe recipe, {bool first});
+typedef RecipeCardBuilder =
+    Widget Function(BuildContext context, Recipe recipe, {bool first});
 
 class RecipesScreen extends ConsumerStatefulWidget {
   const RecipesScreen({super.key, required this.householdId});
@@ -33,7 +35,8 @@ class RecipesScreen extends ConsumerStatefulWidget {
   ConsumerState<RecipesScreen> createState() => _RecipesScreenState();
 }
 
-class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTickerProviderStateMixin {
+class _RecipesScreenState extends ConsumerState<RecipesScreen>
+    with SingleTickerProviderStateMixin {
   late final _tabController = TabController(length: 3, vsync: this);
   bool _isGenerating = false;
 
@@ -46,16 +49,28 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
   Future<void> _generateAiRecipes() async {
     setState(() => _isGenerating = true);
     try {
-      await ref.read(recipeRepositoryProvider).generateAiRecipes(widget.householdId);
+      await ref
+          .read(recipeRepositoryProvider)
+          .generateAiRecipes(widget.householdId);
       ref.invalidate(recipeSuggestionsProvider(widget.householdId));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Yeni tarifler hazır!')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Yeni tarifler hazır!')));
       }
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      // 402 (misafir/kota dolu) -> paywall; diğer hatalar eskisi gibi
+      // SnackBar'da metin olarak gösterilir.
+      final planLimitInfo = PlanLimitInfo.tryParse(error);
+      if (planLimitInfo != null && mounted) {
+        final controllerAsync = ref.read(paywallControllerProvider);
+        controllerAsync.whenData((controller) {
+          controller.maybeShow(context, trigger: PaywallTrigger.quotaExceeded, info: planLimitInfo);
+        });
+      } else if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     } finally {
       if (mounted) setState(() => _isGenerating = false);
@@ -76,13 +91,15 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
         targetKey: recipesMatchRingKey,
         optional: true,
         title: 'Kaç malzemen var?',
-        body: 'Halka, tarifin malzemelerinden kaçının dolabında olduğunu gösterir.',
+        body:
+            'Halka, tarifin malzemelerinden kaçının dolabında olduğunu gösterir.',
         accent: appColors.storagePantry,
       ),
       CoachStep(
         targetKey: recipesTabsKey,
         title: 'Kaydet, favorile',
-        body: 'Beğendiğin tarif Kayıtlı’ya düşer, kalbe bastıkların Favoriler’de birikir.',
+        body:
+            'Beğendiğin tarif Kayıtlı’ya düşer, kalbe bastıkların Favoriler’de birikir.',
         accent: scheme.tertiary,
       ),
     ];
@@ -91,7 +108,10 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
   void _openDetail(Recipe recipe) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => RecipeDetailScreen(householdId: widget.householdId, recipeId: recipe.id),
+        builder: (_) => RecipeDetailScreen(
+          householdId: widget.householdId,
+          recipeId: recipe.id,
+        ),
       ),
     );
   }
@@ -104,9 +124,11 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
     // onPrimary (#00301A, neredeyse siyah) yazınca gradyanın koyu ucunda metin
     // kayboluyordu. Dark'ta iki koyu yeşil arası gradyan + açık metin kullan.
     final gradientColors = isDark
-        ? [colorScheme.primaryContainer, const Color(0xFF00301A)]
+        ? [colorScheme.primaryContainer, colorScheme.onPrimary]
         : [colorScheme.primary, colorScheme.primaryContainer];
-    final onGradient = isDark ? colorScheme.onPrimaryContainer : colorScheme.onPrimary;
+    final onGradient = isDark
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onPrimary;
     return Container(
       margin: const EdgeInsets.all(AppSpacing.md),
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -120,7 +142,11 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
       ),
       child: _isGenerating
           ? ScanProgress(
-              steps: const ['Dolabın okunuyor...', 'Tarifler hazırlanıyor...', 'Malzemeler eşleştiriliyor...'],
+              steps: const [
+                'Dolabın okunuyor...',
+                'Tarifler hazırlanıyor...',
+                'Malzemeler eşleştiriliyor...',
+              ],
               currentStep: 1,
             )
           : Column(
@@ -128,20 +154,28 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
               children: [
                 Text(
                   'Dolabındakilerle ne pişirebilirsin?',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(color: onGradient),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleMedium?.copyWith(color: onGradient),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   'Yapay zeka dolabına özel tarifler önersin.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: onGradient.withValues(alpha: 0.9)),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: onGradient.withValues(alpha: 0.9),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 FilledButton.icon(
                   key: recipesGenerateKey,
                   onPressed: _generateAiRecipes,
                   style: FilledButton.styleFrom(
-                    backgroundColor: isDark ? colorScheme.primary : colorScheme.surface,
-                    foregroundColor: isDark ? colorScheme.onPrimary : colorScheme.primary,
+                    backgroundColor: isDark
+                        ? colorScheme.primary
+                        : colorScheme.surface,
+                    foregroundColor: isDark
+                        ? colorScheme.onPrimary
+                        : colorScheme.primary,
                   ),
                   icon: const Icon(Icons.auto_awesome_rounded),
                   label: const Text('AI ile Tarif Üret'),
@@ -151,12 +185,19 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
     );
   }
 
-  Widget _buildRecipeCard(BuildContext context, Recipe recipe, {bool first = false}) {
+  Widget _buildRecipeCard(
+    BuildContext context,
+    Recipe recipe, {
+    bool first = false,
+  }) {
     final total = recipe.totalIngredients ?? 0;
     final available = recipe.availableIngredients ?? 0;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.card),
         onTap: () => _openDetail(recipe),
@@ -176,7 +217,10 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(recipe.title, style: Theme.of(context).textTheme.titleSmall),
+                    Text(
+                      recipe.title,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
                     if (recipe.description != null) ...[
                       const SizedBox(height: AppSpacing.xs),
                       Text(
@@ -190,9 +234,12 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
                     Wrap(
                       spacing: AppSpacing.xs,
                       children: [
-                        if (recipe.prepMinutes != null || recipe.cookMinutes != null)
+                        if (recipe.prepMinutes != null ||
+                            recipe.cookMinutes != null)
                           Chip(
-                            label: Text('${(recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0)} dk'),
+                            label: Text(
+                              '${(recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0)} dk',
+                            ),
                             visualDensity: VisualDensity.compact,
                           ),
                         if (recipe.generatedBy == 'ai')
@@ -215,7 +262,12 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
-    maybeStartCoachTour(context, ref, id: CoachTourId.recipes, buildSteps: _coachSteps);
+    maybeStartCoachTour(
+      context,
+      ref,
+      id: CoachTourId.recipes,
+      buildSteps: _coachSteps,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -238,14 +290,23 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
             heroCard: _buildHeroCard(context),
             buildCard: _buildRecipeCard,
           ),
-          _AllRecipesTab(householdId: widget.householdId, buildCard: _buildRecipeCard),
-          _FavoritesTab(householdId: widget.householdId, buildCard: _buildRecipeCard, onOpen: _openDetail),
+          _AllRecipesTab(
+            householdId: widget.householdId,
+            buildCard: _buildRecipeCard,
+          ),
+          _FavoritesTab(
+            householdId: widget.householdId,
+            buildCard: _buildRecipeCard,
+            onOpen: _openDetail,
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'ai_chef_fab',
         onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => ChefChatScreen(householdId: widget.householdId)),
+          MaterialPageRoute(
+            builder: (_) => ChefChatScreen(householdId: widget.householdId),
+          ),
         ),
         icon: const Icon(Icons.auto_awesome_rounded),
         label: const Text('AI Chef'),
@@ -255,7 +316,11 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen> with SingleTicker
 }
 
 class _SuggestionsTab extends ConsumerWidget {
-  const _SuggestionsTab({required this.householdId, required this.heroCard, required this.buildCard});
+  const _SuggestionsTab({
+    required this.householdId,
+    required this.heroCard,
+    required this.buildCard,
+  });
 
   final String householdId;
   final Widget heroCard;
@@ -268,21 +333,30 @@ class _SuggestionsTab extends ConsumerWidget {
     return AsyncView(
       value: suggestionsAsync,
       onRetry: () => ref.invalidate(recipeSuggestionsProvider(householdId)),
-      data: (suggestions) => ListView(
-        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-        children: [
-          heroCard,
-          if (suggestions.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(AppSpacing.lg),
-              child: EmptyState(
-                icon: Icons.restaurant_menu_rounded,
-                message: 'Henüz bir tarifin yok.\nYukarıdan AI ile tarif üretebilirsin.',
-              ),
-            )
-          else
-            for (var i = 0; i < suggestions.length; i++) buildCard(context, suggestions[i], first: i == 0),
-        ],
+      data: (suggestions) => RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(recipeSuggestionsProvider(householdId));
+          await ref.read(recipeSuggestionsProvider(householdId).future);
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+          children: [
+            heroCard,
+            if (suggestions.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(AppSpacing.lg),
+                child: EmptyState(
+                  icon: Icons.restaurant_menu_rounded,
+                  message:
+                      'Henüz bir tarifin yok.\nYukarıdan AI ile tarif üretebilirsin.',
+                ),
+              )
+            else
+              for (var i = 0; i < suggestions.length; i++)
+                buildCard(context, suggestions[i], first: i == 0),
+          ],
+        ),
       ),
     );
   }
@@ -298,21 +372,47 @@ class _AllRecipesTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final recipesAsync = ref.watch(recipeListProvider(householdId));
 
+    Future<void> onRefresh() async {
+      ref.invalidate(recipeListProvider(householdId));
+      await ref.read(recipeListProvider(householdId).future);
+    }
+
     return AsyncView(
       value: recipesAsync,
       onRetry: () => ref.invalidate(recipeListProvider(householdId)),
-      data: (recipes) => recipes.isEmpty
-          ? const EmptyState(icon: Icons.menu_book_rounded, message: 'Henüz kayıtlı tarif yok.')
-          : ListView(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-              children: [for (final recipe in recipes) buildCard(context, recipe)],
-            ),
+      data: (recipes) => RefreshIndicator(
+        onRefresh: onRefresh,
+        child: recipes.isEmpty
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(
+                    height: MediaQuery.sizeOf(context).height * 0.6,
+                    child: const EmptyState(
+                      icon: Icons.menu_book_rounded,
+                      message: 'Henüz kayıtlı tarif yok.',
+                    ),
+                  ),
+                ],
+              )
+            : ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                children: [
+                  for (final recipe in recipes) buildCard(context, recipe),
+                ],
+              ),
+      ),
     );
   }
 }
 
 class _FavoritesTab extends ConsumerWidget {
-  const _FavoritesTab({required this.householdId, required this.buildCard, required this.onOpen});
+  const _FavoritesTab({
+    required this.householdId,
+    required this.buildCard,
+    required this.onOpen,
+  });
 
   final String householdId;
   final RecipeCardBuilder buildCard;
@@ -329,13 +429,39 @@ class _FavoritesTab extends ConsumerWidget {
       data: (favoriteIds) => AsyncView(
         value: recipesAsync,
         data: (recipes) {
-          final favorites = recipes.where((r) => favoriteIds.contains(r.id)).toList();
-          return favorites.isEmpty
-              ? const EmptyState(icon: Icons.favorite_border_rounded, message: 'Henüz favori tarifin yok.')
-              : ListView(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                  children: [for (final recipe in favorites) buildCard(context, recipe)],
-                );
+          final favorites = recipes
+              .where((r) => favoriteIds.contains(r.id))
+              .toList();
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(favoriteRecipeIdsProvider(householdId));
+              ref.invalidate(recipeListProvider(householdId));
+              await ref.read(recipeListProvider(householdId).future);
+            },
+            child: favorites.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      SizedBox(
+                        height: MediaQuery.sizeOf(context).height * 0.6,
+                        child: const EmptyState(
+                          icon: Icons.favorite_border_rounded,
+                          message: 'Henüz favori tarifin yok.',
+                        ),
+                      ),
+                    ],
+                  )
+                : ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.md,
+                    ),
+                    children: [
+                      for (final recipe in favorites)
+                        buildCard(context, recipe),
+                    ],
+                  ),
+          );
         },
       ),
     );

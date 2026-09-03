@@ -18,6 +18,7 @@ class ChefChatState {
     this.sending = false,
     this.pendingSuggestions = const [],
     this.error,
+    this.planLimitInfo,
   });
 
   final List<ChefMessage> messages;
@@ -26,6 +27,10 @@ class ChefChatState {
   final List<ChefShoppingSuggestion> pendingSuggestions;
   final String? error;
 
+  /// 402 (misafir/kota dolu) geldiğinde dolar — ekran bunu görünce metin
+  /// hatası yerine paywall gösterir (bkz. chef_chat_screen.dart).
+  final PlanLimitInfo? planLimitInfo;
+
   ChefChatState copyWith({
     List<ChefMessage>? messages,
     bool? loading,
@@ -33,6 +38,8 @@ class ChefChatState {
     List<ChefShoppingSuggestion>? pendingSuggestions,
     String? error,
     bool clearError = false,
+    PlanLimitInfo? planLimitInfo,
+    bool clearPlanLimitInfo = false,
   }) {
     return ChefChatState(
       messages: messages ?? this.messages,
@@ -40,6 +47,7 @@ class ChefChatState {
       sending: sending ?? this.sending,
       pendingSuggestions: pendingSuggestions ?? this.pendingSuggestions,
       error: clearError ? null : (error ?? this.error),
+      planLimitInfo: clearPlanLimitInfo ? null : (planLimitInfo ?? this.planLimitInfo),
     );
   }
 }
@@ -86,16 +94,24 @@ class ChefChatNotifier extends StateNotifier<ChefChatState> {
         messages: [...state.messages, reply.message],
         sending: false,
         pendingSuggestions: reply.suggestions,
+        clearPlanLimitInfo: true,
       );
     } catch (e) {
       // Başarısızsa optimistic mesajı geri al.
+      final planLimitInfo = PlanLimitInfo.tryParse(e);
       state = state.copyWith(
         messages: state.messages.where((m) => m.id != optimistic.id).toList(),
         sending: false,
-        error: describeApiError(e),
+        error: planLimitInfo == null ? describeApiError(e) : null,
+        planLimitInfo: planLimitInfo,
       );
     }
   }
+
+  /// Ekran paywall'ı gösterdikten sonra çağırır — aynı hata tekrar
+  /// tetiklenmesin (kullanıcı ekrandan çıkıp geri dönerse eski planLimitInfo
+  /// kalıp yeniden paywall açmasın).
+  void dismissPlanLimitInfo() => state = state.copyWith(clearPlanLimitInfo: true);
 
   void dismissSuggestions() => state = state.copyWith(pendingSuggestions: const []);
 
