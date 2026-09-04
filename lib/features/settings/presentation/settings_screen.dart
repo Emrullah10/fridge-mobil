@@ -8,6 +8,7 @@ import '../../../core/theme/theme_providers.dart';
 import '../../../core/widgets/single_field_dialog.dart';
 import '../../auth/application/auth_providers.dart';
 import '../../auth/presentation/upgrade_account_screen.dart';
+import '../../billing/application/entitlements_providers.dart';
 import '../../billing/presentation/subscription_screen.dart';
 import '../../notification/application/notification_providers.dart';
 import '../../onboarding/application/onboarding_providers.dart';
@@ -155,14 +156,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
+    // Aktif Premium/deneme abonesiyse hesap silmenin aboneliği İPTAL
+    // ETMEDİĞİNİ ayrıca vurgula — aksi halde kullanıcı hesabını silip
+    // Google Play üzerinden ücretlendirilmeye devam edebilir (plan §Faz 6).
+    final entitlements = ref.read(entitlementsProvider);
+    final hasActiveSubscription = entitlements.isPremium || entitlements.isTrial;
+
     final proceed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Hesabını sil'),
-        content: const Text(
-          'Bu işlem geri alınamaz. Hesabın ve yalnızca senin sahibi olduğun '
-          'alanlardaki tüm envanter/fiş verisi kalıcı olarak silinir. '
-          'Paylaşımlı alanlarda sahiplik başka bir üyeye devredilir.',
+        content: Text(
+          hasActiveSubscription
+              ? 'Bu işlem geri alınamaz. Hesabın ve yalnızca senin sahibi olduğun '
+                'alanlardaki tüm envanter/fiş verisi kalıcı olarak silinir. '
+                'Paylaşımlı alanlarda sahiplik başka bir üyeye devredilir.\n\n'
+                'DİKKAT: Aktif bir aboneliğin var. Hesabını silmek aboneliğini '
+                'iptal ETMEZ — Google Play üzerinden ödeme almaya devam edilebilir. '
+                'Önce Ayarlar → Abonelik → Aboneliği Yönet / İptal Et yolundan '
+                'aboneliğini iptal etmeni öneririz.'
+              : 'Bu işlem geri alınamaz. Hesabın ve yalnızca senin sahibi olduğun '
+                'alanlardaki tüm envanter/fiş verisi kalıcı olarak silinir. '
+                'Paylaşımlı alanlarda sahiplik başka bir üyeye devredilir.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('İptal')),
