@@ -158,68 +158,105 @@ class HouseholdListScreen extends ConsumerWidget {
               value: householdsAsync,
               onRetry: () => ref.invalidate(householdsProvider),
               data: (households) {
+                Future<void> onRefresh() async {
+                  ref.invalidate(householdsProvider);
+                  await ref.read(householdsProvider.future);
+                }
+
                 if (households.isEmpty) {
-                  return EmptyState(
-                    icon: Icons.home_outlined,
-                    message:
-                        'Henüz bir alanın yok.\nAşağıdan yeni bir alan oluştur veya davet koduyla katıl.',
-                    action: FilledButton.icon(
-                      onPressed: () => _createHousehold(context, ref),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Alan Oluştur'),
+                  return RefreshIndicator(
+                    onRefresh: onRefresh,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.sizeOf(context).height * 0.6,
+                          child: EmptyState(
+                            icon: Icons.home_outlined,
+                            message:
+                                'Henüz bir alanın yok.\nAşağıdan yeni bir alan oluştur veya davet koduyla katıl.',
+                            action: FilledButton.icon(
+                              onPressed: () => _createHousehold(context, ref),
+                              icon: const Icon(Icons.add),
+                              label: const Text('Alan Oluştur'),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }
-                return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md,
-                    AppSpacing.md,
-                    AppSpacing.md,
-                    AppSpacing.fabBottomPadding,
-                  ),
-                  itemCount: households.length,
-                  itemBuilder: (context, index) {
-                    final household = households[index];
-                    final areaIcon = householdIconFor(iconKey: household.icon, kind: household.kind);
-                    return Card(
-                      child: ListTile(
-                        // Hero: alan ana ekranının AppBar'ındaki eşleşen daireye
-                        // "uçarak" büyüyen bir açılış hissi verir (bkz.
-                        // household_home_screen.dart AppBar.title).
-                        leading: Hero(
-                          tag: 'household-avatar-${household.id}',
-                          flightShuttleBuilder: (context, animation, direction, fromContext, toContext) => Material(
-                            type: MaterialType.transparency,
+                return RefreshIndicator(
+                  onRefresh: onRefresh,
+                  child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      AppSpacing.fabBottomPadding,
+                    ),
+                    itemCount: households.length,
+                    itemBuilder: (context, index) {
+                      final household = households[index];
+                      final areaIcon = householdIconFor(
+                        iconKey: household.icon,
+                        kind: household.kind,
+                      );
+                      return Card(
+                        child: ListTile(
+                          // Hero: alan ana ekranının AppBar'ındaki eşleşen daireye
+                          // "uçarak" büyüyen bir açılış hissi verir (bkz.
+                          // household_home_screen.dart AppBar.title).
+                          leading: Hero(
+                            tag: 'household-avatar-${household.id}',
+                            flightShuttleBuilder:
+                                (
+                                  context,
+                                  animation,
+                                  direction,
+                                  fromContext,
+                                  toContext,
+                                ) => Material(
+                                  type: MaterialType.transparency,
+                                  child: CircleAvatar(
+                                    backgroundColor:
+                                        colorScheme.primaryContainer,
+                                    child: Icon(
+                                      areaIcon,
+                                      color: colorScheme.onPrimaryContainer,
+                                    ),
+                                  ),
+                                ),
                             child: CircleAvatar(
                               backgroundColor: colorScheme.primaryContainer,
-                              child: Icon(areaIcon, color: colorScheme.onPrimaryContainer),
+                              child: Icon(
+                                areaIcon,
+                                color: colorScheme.onPrimaryContainer,
+                              ),
                             ),
                           ),
-                          child: CircleAvatar(
-                            backgroundColor: colorScheme.primaryContainer,
-                            child: Icon(
-                              areaIcon,
-                              color: colorScheme.onPrimaryContainer,
-                            ),
+                          title: Text(
+                            household.name,
+                            style: textTheme.titleSmall,
                           ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () {
+                            ref
+                                    .read(selectedHouseholdIdProvider.notifier)
+                                    .state =
+                                household.id;
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    AppShell.forHousehold(household),
+                              ),
+                            );
+                          },
                         ),
-                        title: Text(
-                          household.name,
-                          style: textTheme.titleSmall,
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () {
-                          ref.read(selectedHouseholdIdProvider.notifier).state =
-                              household.id;
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => AppShell.forHousehold(household),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 );
               },
             ),

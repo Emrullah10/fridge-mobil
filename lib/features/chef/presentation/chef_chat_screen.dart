@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../billing/application/paywall_controller.dart';
 import '../../shopping/application/shopping_providers.dart';
 import '../application/chef_providers.dart';
 import '../data/chef_repository.dart';
@@ -23,6 +24,7 @@ class ChefChatScreen extends ConsumerStatefulWidget {
 class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
+  final _composerFocus = FocusNode();
   bool _seedSent = false;
 
   static const _quickPrompts = [
@@ -35,6 +37,7 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _composerFocus.dispose();
     super.dispose();
   }
 
@@ -54,11 +57,16 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
     _controller.clear();
     await ref.read(chefChatProvider(widget.householdId).notifier).send(text);
     _scrollToBottom();
+    // Mesaj sonrası odağı koru — kullanıcı klavyeyi kapatıp tekrar açmadan
+    // arka arkaya soru sorabilsin.
+    _composerFocus.requestFocus();
   }
 
   Future<void> _acceptSuggestion(ChefShoppingSuggestion s) async {
     try {
-      await ref.read(shoppingRepositoryProvider).addItem(
+      await ref
+          .read(shoppingRepositoryProvider)
+          .addItem(
             widget.householdId,
             customName: s.name,
             quantity: s.quantity ?? 1,
@@ -67,13 +75,15 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
           );
       ref.invalidate(shoppingListProvider(widget.householdId));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${s.name} listene eklendi')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${s.name} listene eklendi')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(e))));
       }
     }
   }
@@ -86,11 +96,28 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
     // seedPrompt: geçmiş yüklendikten sonra bir kez otomatik gönder.
     if (!_seedSent && widget.seedPrompt != null && !state.loading) {
       _seedSent = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _send(widget.seedPrompt!));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _send(widget.seedPrompt!),
+      );
     }
 
     // Yeni mesaj gelince aşağı kaydır.
-    ref.listen(chefChatProvider(widget.householdId), (_, _) => _scrollToBottom());
+    ref.listen(
+      chefChatProvider(widget.householdId),
+      (_, _) => _scrollToBottom(),
+    );
+
+    // 402 (misafir/kota dolu) geldiğinde metin hatası yerine paywall göster.
+    ref.listen(chefChatProvider(widget.householdId), (previous, next) {
+      final info = next.planLimitInfo;
+      if (info == null) return;
+      final notifier = ref.read(chefChatProvider(widget.householdId).notifier);
+      notifier.dismissPlanLimitInfo();
+      final controllerAsync = ref.read(paywallControllerProvider);
+      controllerAsync.whenData((controller) {
+        controller.maybeShow(context, trigger: PaywallTrigger.quotaExceeded, info: info);
+      });
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -107,13 +134,21 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
                     title: const Text('Sohbeti temizle'),
                     content: const Text('Tüm sohbet geçmişi silinsin mi?'),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Vazgeç')),
-                      FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Temizle')),
+                      TextButton(
+                        onPressed: () => Navigator.pop(c, false),
+                        child: const Text('Vazgeç'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(c, true),
+                        child: const Text('Temizle'),
+                      ),
                     ],
                   ),
                 );
                 if (ok == true) {
-                  await ref.read(chefChatProvider(widget.householdId).notifier).clear();
+                  await ref
+                      .read(chefChatProvider(widget.householdId).notifier)
+                      .clear();
                 }
               },
             ),
@@ -126,33 +161,41 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
               width: double.infinity,
               color: cs.errorContainer,
               padding: const EdgeInsets.all(AppSpacing.sm),
-              child: Text(state.error!, style: TextStyle(color: cs.onErrorContainer)),
+              child: Text(
+                state.error!,
+                style: TextStyle(color: cs.onErrorContainer),
+              ),
             ),
           Expanded(
             child: state.loading
                 ? const Center(child: CircularProgressIndicator())
                 : state.messages.isEmpty
-                    ? _EmptyChef(onQuick: _send, prompts: _quickPrompts)
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        itemCount: state.messages.length + (state.sending ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index >= state.messages.length) {
-                            return const _TypingBubble();
-                          }
-                          return _MessageBubble(message: state.messages[index]);
-                        },
-                      ),
+                ? _EmptyChef(onQuick: _send, prompts: _quickPrompts)
+                : ListView.builder(
+                    controller: _scrollController,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    itemCount: state.messages.length + (state.sending ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index >= state.messages.length) {
+                        return const _TypingBubble();
+                      }
+                      return _MessageBubble(message: state.messages[index]);
+                    },
+                  ),
           ),
           if (state.pendingSuggestions.isNotEmpty)
             _SuggestionBar(
               suggestions: state.pendingSuggestions,
               onAccept: _acceptSuggestion,
-              onDismiss: () => ref.read(chefChatProvider(widget.householdId).notifier).dismissSuggestions(),
+              onDismiss: () => ref
+                  .read(chefChatProvider(widget.householdId).notifier)
+                  .dismissSuggestions(),
             ),
           _Composer(
             controller: _controller,
+            focusNode: _composerFocus,
             sending: state.sending,
             onSend: _send,
           ),
@@ -174,8 +217,13 @@ class _MessageBubble extends StatelessWidget {
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.82,
+        ),
         decoration: BoxDecoration(
           color: isUser ? cs.primary : cs.surfaceContainerHighest,
           borderRadius: BorderRadius.only(
@@ -204,7 +252,10 @@ class _TypingBubble extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
         decoration: BoxDecoration(
           color: cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(16),
@@ -219,7 +270,10 @@ class _TypingBubble extends StatelessWidget {
                 width: 8,
                 height: 8,
                 child: DecoratedBox(
-                  decoration: BoxDecoration(color: cs.onSurfaceVariant, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
             ),
@@ -231,7 +285,11 @@ class _TypingBubble extends StatelessWidget {
 }
 
 class _SuggestionBar extends StatelessWidget {
-  const _SuggestionBar({required this.suggestions, required this.onAccept, required this.onDismiss});
+  const _SuggestionBar({
+    required this.suggestions,
+    required this.onAccept,
+    required this.onDismiss,
+  });
 
   final List<ChefShoppingSuggestion> suggestions;
   final void Function(ChefShoppingSuggestion) onAccept;
@@ -242,17 +300,29 @@ class _SuggestionBar extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
       color: cs.secondaryContainer.withValues(alpha: 0.4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.add_shopping_cart_rounded, size: 16, color: cs.onSurfaceVariant),
+              Icon(
+                Icons.add_shopping_cart_rounded,
+                size: 16,
+                color: cs.onSurfaceVariant,
+              ),
               const SizedBox(width: AppSpacing.xs),
               Expanded(
-                child: Text('Listene eklemek ister misin?', style: Theme.of(context).textTheme.bodySmall),
+                child: Text(
+                  'Listene eklemek ister misin?',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
@@ -268,7 +338,12 @@ class _SuggestionBar extends StatelessWidget {
               for (final s in suggestions)
                 ActionChip(
                   avatar: const Icon(Icons.add, size: 16),
-                  label: Text(s.quantity != null ? '${s.name} (${_qty(s.quantity!)} ${s.unit ?? ''})'.trim() : s.name),
+                  label: Text(
+                    s.quantity != null
+                        ? '${s.name} (${_qty(s.quantity!)} ${s.unit ?? ''})'
+                              .trim()
+                        : s.name,
+                  ),
                   onPressed: () => onAccept(s),
                 ),
             ],
@@ -278,13 +353,20 @@ class _SuggestionBar extends StatelessWidget {
     );
   }
 
-  static String _qty(double q) => q == q.roundToDouble() ? q.toInt().toString() : q.toString();
+  static String _qty(double q) =>
+      q == q.roundToDouble() ? q.toInt().toString() : q.toString();
 }
 
 class _Composer extends StatelessWidget {
-  const _Composer({required this.controller, required this.sending, required this.onSend});
+  const _Composer({
+    required this.controller,
+    required this.focusNode,
+    required this.sending,
+    required this.onSend,
+  });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final bool sending;
   final void Function(String) onSend;
 
@@ -298,6 +380,7 @@ class _Composer extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: controller,
+                focusNode: focusNode,
                 minLines: 1,
                 maxLines: 4,
                 textInputAction: TextInputAction.send,
@@ -312,7 +395,11 @@ class _Composer extends StatelessWidget {
             IconButton.filled(
               onPressed: sending ? null : () => onSend(controller.text),
               icon: sending
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.send_rounded),
             ),
           ],

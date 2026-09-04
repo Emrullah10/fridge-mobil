@@ -20,6 +20,7 @@ import 'core/theme/theme_providers.dart';
 import 'core/version/app_config_repository.dart';
 import 'features/auth/application/auth_providers.dart';
 import 'features/auth/presentation/welcome_screen.dart';
+import 'features/billing/data/purchase_repository.dart';
 import 'core/widgets/app_shell.dart';
 import 'features/household/application/household_providers.dart';
 import 'features/notification/application/notification_providers.dart';
@@ -39,25 +40,33 @@ final appConfigRepositoryProvider = Provider<AppConfigRepository>((ref) {
 // konsola/logcat'e düşsün diye framework ve zone hatalarını yakalıyoruz;
 // bu bir crash reporting servisinin yerini tutmaz.
 void main() {
-  runZonedGuarded(() async {
-    WidgetsFlutterBinding.ensureInitialized();
+  runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
 
-    FlutterError.onError = (details) {
-      FlutterError.presentError(details);
-      debugPrint('FlutterError: ${details.exceptionAsString()}');
-    };
-    PlatformDispatcher.instance.onError = (error, stack) {
-      debugPrint('Uncaught error: $error\n$stack');
-      return true;
-    };
+      FlutterError.onError = (details) {
+        FlutterError.presentError(details);
+        debugPrint('FlutterError: ${details.exceptionAsString()}');
+      };
+      PlatformDispatcher.instance.onError = (error, stack) {
+        debugPrint('Uncaught error: $error\n$stack');
+        return true;
+      };
 
-    await dotenv.load(fileName: '.env');
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    runApp(const ProviderScope(child: FridgeApp()));
-  }, (error, stack) {
-    debugPrint('Zone error: $error\n$stack');
-  });
+      await dotenv.load(fileName: '.env');
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      // Anahtar boşsa (henüz RevenueCat hesabı kurulmadı) sessizce no-op —
+      // configure() kendi içinde kontrol ediyor, boot asla çökmez.
+      await PurchaseRepository.configure(apiKey: dotenv.env['REVENUECAT_API_KEY'] ?? '');
+      runApp(const ProviderScope(child: FridgeApp()));
+    },
+    (error, stack) {
+      debugPrint('Zone error: $error\n$stack');
+    },
+  );
 }
 
 /// Bildirimden gelen yönlendirmelerin hedefi olan Navigator — push tıklaması
@@ -95,6 +104,16 @@ class FridgeApp extends ConsumerWidget {
         }
         return const Locale('tr');
       },
+      // Boş bir yere dokununca klavyeyi kapatır — Navigator'ın üstünü
+      // sardığı için tüm ekranları VE dialog/bottom sheet'leri tek noktadan
+      // kapsar (her ekrana ayrı ayrı GestureDetector eklemeye gerek yok).
+      // translucent + en dıştaki algılayıcı olduğu için buton/liste
+      // dokunuşlarını yutmaz (gesture arena içteki algılayıcıyı önceliklendirir).
+      builder: (context, child) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: child,
+      ),
       home: const _AuthGate(),
     );
   }
@@ -116,7 +135,8 @@ void _handleNotificationTap(WidgetRef ref, Map<String, dynamic> data) {
     rootNavigatorKey.currentState
         ?.push<bool>(
           MaterialPageRoute(
-            builder: (_) => ReceiptReviewScreen(householdId: householdId, scanId: scanId),
+            builder: (_) =>
+                ReceiptReviewScreen(householdId: householdId, scanId: scanId),
           ),
         )
         .then((confirmed) {
@@ -172,7 +192,9 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
           _storeUrl = config.storeUrl;
         });
       } else if (compareVersions(currentVersion, config.latestVersion) < 0) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _showUpdateBanner(config.storeUrl));
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _showUpdateBanner(config.storeUrl),
+        );
       }
     } catch (_) {
       // Sürüm kontrolü best-effort — uygulama açılışını asla engellemez.
@@ -189,12 +211,16 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
           TextButton(
             onPressed: () {
               ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
-              launchUrl(Uri.parse(storeUrl), mode: LaunchMode.externalApplication);
+              launchUrl(
+                Uri.parse(storeUrl),
+                mode: LaunchMode.externalApplication,
+              );
             },
             child: const Text('Güncelle'),
           ),
           TextButton(
-            onPressed: () => ScaffoldMessenger.of(context).hideCurrentMaterialBanner(),
+            onPressed: () =>
+                ScaffoldMessenger.of(context).hideCurrentMaterialBanner(),
             child: const Text('Kapat'),
           ),
         ],
@@ -210,7 +236,10 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
       // Uygulama kapalıyken gelen linki okuyamazsak sessizce devam —
       // kullanıcı yine de kodu elle girebilir.
     }
-    _linkSubscription = _appLinks.uriLinkStream.listen(_handleUri, onError: (_) {});
+    _linkSubscription = _appLinks.uriLinkStream.listen(
+      _handleUri,
+      onError: (_) {},
+    );
   }
 
   // https://api-fridge.emrullahbozkurt.com/join/KOD — path'in son parçası kod.
@@ -235,24 +264,38 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Alana katıl'),
-        content: const Text('Bu davet linkiyle bir alana katılmak üzeresin. Devam edilsin mi?'),
+        content: const Text(
+          'Bu davet linkiyle bir alana katılmak üzeresin. Devam edilsin mi?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Katıl')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Katıl'),
+          ),
         ],
       ),
     );
     if (confirmed != true || !context.mounted) return;
 
     try {
-      await ProviderScope.containerOf(context).read(householdRepositoryProvider).acceptInvite(code);
+      await ProviderScope.containerOf(
+        context,
+      ).read(householdRepositoryProvider).acceptInvite(code);
       ProviderScope.containerOf(context).invalidate(householdsProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alana katıldın')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Alana katıldın')));
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
@@ -282,7 +325,10 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
                 ),
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: () => launchUrl(Uri.parse(_storeUrl), mode: LaunchMode.externalApplication),
+                  onPressed: () => launchUrl(
+                    Uri.parse(_storeUrl),
+                    mode: LaunchMode.externalApplication,
+                  ),
                   child: const Text('Şimdi güncelle'),
                 ),
               ],
@@ -299,8 +345,12 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
     // registerDevice/unregisterDevice çağrısı yapılırdı.
     // Misafir de (guest) bildirim alabilmeli — alan bazlı bildirimler
     // (davet, fiş işlendi) kimlik durumundan bağımsız.
-    final isSignedIn = authState.status == AuthStatus.authenticated || authState.status == AuthStatus.guest;
-    final wasSignedIn = _lastStatus == AuthStatus.authenticated || _lastStatus == AuthStatus.guest;
+    final isSignedIn =
+        authState.status == AuthStatus.authenticated ||
+        authState.status == AuthStatus.guest;
+    final wasSignedIn =
+        _lastStatus == AuthStatus.authenticated ||
+        _lastStatus == AuthStatus.guest;
     if (authState.status != _lastStatus) {
       _lastStatus = authState.status;
       // _AuthGate yalnızca MaterialApp.home'u değiştirir; login/register gibi
@@ -317,14 +367,20 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
         });
       }
       if (isSignedIn) {
-        ref.read(pushServiceProvider).registerForCurrentUser(onTap: (data) => _handleNotificationTap(ref, data));
+        ref
+            .read(pushServiceProvider)
+            .registerForCurrentUser(
+              onTap: (data) => _handleNotificationTap(ref, data),
+            );
         final pendingCode = _pendingInviteCode;
         if (pendingCode != null) {
           _pendingInviteCode = null;
           // popUntil ile aynı post-frame turunda çakışmasın diye bir sonraki
           // frame'e ertelenir — davet dialogu temizlenmiş yığının üstünde açılır.
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => _confirmJoin(pendingCode));
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => _confirmJoin(pendingCode),
+            );
           });
         }
       } else if (wasSignedIn) {
@@ -355,5 +411,3 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
     };
   }
 }
-
-

@@ -17,24 +17,23 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.lg),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: formMaxWidth),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: AppSpacing.xl),
-                  const AuthHeroHeader(
-                    subtitle: 'Dolabındaki, depondaki, atölyendeki her şey tek yerde',
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  const AuthCtaBlock(),
-                  const SizedBox(height: AppSpacing.lg),
-                ],
+        child: AppFormScroll(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: AppSpacing.xl),
+              const AuthHeroHeader(
+                subtitle:
+                    'Dolabındaki, depondaki, atölyendeki her şey tek yerde',
               ),
-            ),
+              const SizedBox(height: AppSpacing.xl),
+              const AuthCtaBlock(),
+              const SizedBox(height: AppSpacing.lg),
+            ],
           ),
         ),
       ),

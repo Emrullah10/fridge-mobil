@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/error/api_error.dart';
 import '../../../core/storage/device_id_storage.dart';
+import '../../billing/data/purchase_repository.dart';
 import '../data/auth_repository.dart';
 
 /// `guest`, `authenticated`in bir alt durumu DEĞİL, ayrı bir dal —
@@ -47,6 +51,10 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       final user = await _repo.fetchCurrentUser();
       state = AuthState(status: _statusFor(user), user: user);
+      // Uygulama yeniden açıldığında da RC'nin app_user_id'si bizimkiyle
+      // aynı kalmalı — misafirde de sabitliyoruz (satın alma yapamaz ama
+      // upgrade sonrası aynı id devam etsin diye tutarlı davranış).
+      unawaited(PurchaseRepository.logIn(user.id));
     } catch (_) {
       // Token geçersizse ApiClient zaten 401 -> forceUnauthenticated akışını
       // tetikler; burada en azından authenticated'a düşüp uygulamanın
@@ -59,10 +67,18 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> login({required String email, required String password}) async {
     final user = await _repo.login(email: email, password: password);
     state = AuthState(status: _statusFor(user), user: user);
+    // RC app_user_id == bizim user.id (plan §Faz 5 kritik not) — webhook'un
+    // bizim kullanıcımızı bulabilmesi için satın alma öncesi sabitlenmeli.
+    unawaited(PurchaseRepository.logIn(user.id));
   }
 
   Future<void> register({required String email, required String password, required String displayName}) async {
-    await _repo.register(email: email, password: password, displayName: displayName);
+    // deviceId (varsa) 14 günlük ters denemenin cihaz-bazlı suistimal
+    // korumasını besler — deviceIdStorage zaten misafir modu için var,
+    // register'da yeniden kullanılır (kayıt duvarı olmadan denenmiş bir
+    // misafir cihazı, hesap değiştirse bile ikinci deneme almasın).
+    final deviceId = await _deviceIdStorage.getOrCreate();
+    await _repo.register(email: email, password: password, displayName: displayName, deviceId: deviceId);
     await login(email: email, password: password);
   }
 
@@ -82,13 +98,21 @@ class AuthController extends StateNotifier<AuthState> {
     required String password,
     required String displayName,
   }) async {
-    final user = await _repo.upgradeAccount(email: email, password: password, displayName: displayName);
+    final deviceId = await _deviceIdStorage.getOrCreate();
+    final user = await _repo.upgradeAccount(
+      email: email,
+      password: password,
+      displayName: displayName,
+      deviceId: deviceId,
+    );
     state = AuthState(status: AuthStatus.authenticated, user: user);
+    unawaited(PurchaseRepository.logIn(user.id));
   }
 
   Future<void> logout() async {
     await _repo.logout();
     state = const AuthState(status: AuthStatus.unauthenticated);
+    unawaited(PurchaseRepository.logOut());
   }
 
   Future<void> updateProfile({required String displayName, Object? dietProfile = _keepDiet}) async {
@@ -120,10 +144,21 @@ class AuthController extends StateNotifier<AuthState> {
 // çağrısı doğrudan bu callback üzerinden, provider grafiğine girmeden yapılır.
 final _unauthorizedNotifier = ValueNotifier<int>(0);
 
+/// 402 (plan/kota yetersizliği) — aynı çapraz-katman haberleşme deseni.
+/// entitlements_providers.dart bunu dinleyip cache'i invalidate eder,
+/// paywall_controller.dart bunu dinleyip tetikleyici gösterir. ApiClient
+/// billing katmanını hiç import etmez.
+final planLimitNotifier = ValueNotifier<PlanLimitInfo?>(null);
+
 final apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient(onUnauthorized: () async {
-    _unauthorizedNotifier.value++;
-  });
+  return ApiClient(
+    onUnauthorized: () async {
+      _unauthorizedNotifier.value++;
+    },
+    onPlanLimitReached: (info) {
+      planLimitNotifier.value = info;
+    },
+  );
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

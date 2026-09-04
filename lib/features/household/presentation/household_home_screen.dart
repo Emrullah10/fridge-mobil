@@ -5,6 +5,8 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/application/auth_providers.dart';
+import '../../billing/presentation/demo_receipt_flow.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/household_kind.dart';
@@ -45,23 +47,26 @@ class HouseholdHomeScreen extends ConsumerWidget {
 
   static const _inviteBaseUrl = 'https://api-fridge.emrullahbozkurt.com/join';
 
-  String _formatCode(String code) => code.replaceAllMapped(
-        RegExp(r'.{1,4}'),
-        (match) => '${match.group(0)} ',
-      ).trim();
+  String _formatCode(String code) => code
+      .replaceAllMapped(RegExp(r'.{1,4}'), (match) => '${match.group(0)} ')
+      .trim();
 
   Future<void> _showInviteCode(BuildContext context, WidgetRef ref) async {
     String? code;
     String? loadError;
     try {
-      code = await ref.read(householdRepositoryProvider).createInvite(household.id);
+      code = await ref
+          .read(householdRepositoryProvider)
+          .createInvite(household.id);
     } catch (error) {
       loadError = describeApiError(error);
     }
     if (!context.mounted) return;
 
     if (loadError != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loadError)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loadError)));
       return;
     }
 
@@ -190,7 +195,17 @@ class HouseholdHomeScreen extends ConsumerWidget {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  'Fiş işlenemedi',
+                  // Eskiden sebep hiç gösterilmiyordu — kullanıcı "neden"i
+                  // hiç anlamıyordu. Backend'in markFailed'e yazdığı mesaj
+                  // artık burada (bkz. process-receipt-scan.use-case.js).
+                  pending.errorMessage ?? 'Fiş işlenemedi',
+                  style: TextStyle(color: colorScheme.onErrorContainer),
+                ),
+              ),
+              TextButton(
+                onPressed: () => notifier.retry(pending.scanId),
+                child: Text(
+                  'Tekrar dene',
                   style: TextStyle(color: colorScheme.onErrorContainer),
                 ),
               ),
@@ -211,18 +226,24 @@ class HouseholdHomeScreen extends ConsumerWidget {
     final result = await showHouseholdFormDialog(context, existing: household);
     if (result == null) return;
     try {
-      await ref.read(householdRepositoryProvider).updateHouseholdProfile(
+      await ref
+          .read(householdRepositoryProvider)
+          .updateHouseholdProfile(
             household.id,
             name: result.name,
             icon: result.icon,
           );
       ref.invalidate(householdsProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alan güncellendi')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Alan güncellendi')));
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
@@ -231,7 +252,9 @@ class HouseholdHomeScreen extends ConsumerWidget {
     final result = await showStorageLocationFormDialog(context);
     if (result == null) return;
     try {
-      await ref.read(householdRepositoryProvider).createLocation(
+      await ref
+          .read(householdRepositoryProvider)
+          .createLocation(
             household.id,
             name: result.name,
             kind: result.kind,
@@ -240,16 +263,27 @@ class HouseholdHomeScreen extends ConsumerWidget {
       ref.invalidate(storageLocationsProvider(household.id));
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
 
-  Future<void> _editLocation(BuildContext context, WidgetRef ref, StorageLocation location) async {
-    final result = await showStorageLocationFormDialog(context, existing: location);
+  Future<void> _editLocation(
+    BuildContext context,
+    WidgetRef ref,
+    StorageLocation location,
+  ) async {
+    final result = await showStorageLocationFormDialog(
+      context,
+      existing: location,
+    );
     if (result == null) return;
     try {
-      final response = await ref.read(householdRepositoryProvider).updateLocation(
+      final response = await ref
+          .read(householdRepositoryProvider)
+          .updateLocation(
             household.id,
             location.id,
             name: result.name,
@@ -258,26 +292,44 @@ class HouseholdHomeScreen extends ConsumerWidget {
           );
       ref.invalidate(storageLocationsProvider(household.id));
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${response.name} güncellendi')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${response.name} güncellendi')));
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
 
-  Future<void> _deleteLocation(BuildContext context, WidgetRef ref, StorageLocation location) async {
+  Future<void> _deleteLocation(
+    BuildContext context,
+    WidgetRef ref,
+    StorageLocation location,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Bölümü Sil'),
-        content: Text('"${location.name}" bölümünü silmek istediğine emin misin?'),
+        content: Text(
+          '"${location.name}" bölümünü silmek istediğine emin misin?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Vazgeç'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text('Sil', style: TextStyle(color: Theme.of(dialogContext).colorScheme.error)),
+            child: Text(
+              'Sil',
+              style: TextStyle(
+                color: Theme.of(dialogContext).colorScheme.error,
+              ),
+            ),
           ),
         ],
       ),
@@ -294,7 +346,9 @@ class HouseholdHomeScreen extends ConsumerWidget {
       final extracted = _extractItemCount(error);
       if (extracted == null) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
         }
         return;
       }
@@ -303,7 +357,8 @@ class HouseholdHomeScreen extends ConsumerWidget {
 
     // Bölüm dolu (409) — kullanıcıya hedef bölüm seçtirip taşıma ile sil.
     if (!context.mounted) return;
-    final locations = ref.read(storageLocationsProvider(household.id)).valueOrNull ?? [];
+    final locations =
+        ref.read(storageLocationsProvider(household.id)).valueOrNull ?? [];
     final otherLocations = locations.where((l) => l.id != location.id).toList();
 
     // Taşınacak başka bölüm yok — alanın tek (ve dolu) bölümü. "Zorla sil"
@@ -318,10 +373,18 @@ class HouseholdHomeScreen extends ConsumerWidget {
             'Taşınacak başka bölüm yok. Bölüm, içindeki ürünlerle birlikte silinsin mi?',
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Vazgeç'),
+            ),
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: Text('Yine de sil', style: TextStyle(color: Theme.of(dialogContext).colorScheme.error)),
+              child: Text(
+                'Yine de sil',
+                style: TextStyle(
+                  color: Theme.of(dialogContext).colorScheme.error,
+                ),
+              ),
             ),
           ],
         ),
@@ -332,7 +395,9 @@ class HouseholdHomeScreen extends ConsumerWidget {
         ref.invalidate(storageLocationsProvider(household.id));
       } catch (error) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
         }
       }
       return;
@@ -354,14 +419,23 @@ class HouseholdHomeScreen extends ConsumerWidget {
     if (targetId == null) return;
 
     try {
-      await repo.deleteLocation(household.id, location.id, strategy: 'move', targetLocationId: targetId);
+      await repo.deleteLocation(
+        household.id,
+        location.id,
+        strategy: 'move',
+        targetLocationId: targetId,
+      );
       ref.invalidate(storageLocationsProvider(household.id));
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bölüm silindi, ürünler taşındı')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bölüm silindi, ürünler taşındı')),
+        );
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
@@ -369,7 +443,8 @@ class HouseholdHomeScreen extends ConsumerWidget {
   int? _extractItemCount(Object error) {
     try {
       final data = (error as dynamic).response.data;
-      if (data is Map && data['itemCount'] is int) return data['itemCount'] as int;
+      if (data is Map && data['itemCount'] is int)
+        return data['itemCount'] as int;
     } catch (_) {
       // response yoksa (ağ hatası vb.) itemCount de yok — null dön.
     }
@@ -389,28 +464,37 @@ class HouseholdHomeScreen extends ConsumerWidget {
     // sayısı" matematiği SafeArea alt inset'ini katıp spotlight'ı kaydırıyordu.
     Rect? navTabRect(AppBottomTab tab) {
       final r = householdShellNavKey.currentState?.tabRect(tab);
-      return r == null ? null : Rect.fromCenter(center: r.center, width: r.width * 0.86, height: r.height - 8);
+      return r == null
+          ? null
+          : Rect.fromCenter(
+              center: r.center,
+              width: r.width * 0.86,
+              height: r.height - 8,
+            );
     }
 
     return <CoachStep>[
       CoachStep(
         targetKey: scanFabKey,
         title: 'Fişini buradan tara',
-        body: 'Market fişinin fotoğrafını çek — ürünler fiyatlarıyla envantere düşsün.',
+        body:
+            'Market fişinin fotoğrafını çek — ürünler fiyatlarıyla envantere düşsün.',
         accent: scheme.primary,
       ),
       CoachStep(
         targetKey: firstStorageCardKey,
         optional: true,
         title: 'Bölümlerin burada',
-        body: 'Her bölüme dokunup içindeki ürünleri gör, ekle, tüket. Sağ üstteki + ile yeni bölüm ekle, istemediğini sil.',
+        body:
+            'Her bölüme dokunup içindeki ürünleri gör, ekle, tüket. Sağ üstteki + ile yeni bölüm ekle, istemediğini sil.',
         accent: appColors.storageFridge,
       ),
       CoachStep(
         rectResolver: (_) => navTabRect(AppBottomTab.shopping),
         optional: true,
         title: 'Alışveriş listesi',
-        body: 'Eksikleri buradan yönet, markette işaretle, dönüşte envantere aktar.',
+        body:
+            'Eksikleri buradan yönet, markette işaretle, dönüşte envantere aktar.',
         accent: appColors.storageFreezer,
       ),
       CoachStep(
@@ -423,13 +507,19 @@ class HouseholdHomeScreen extends ConsumerWidget {
       CoachStep(
         targetKey: householdMoreMenuKey,
         title: 'Alanı paylaş',
-        body: 'Üyeleri yönet, davet kodu üret, alan özelliklerini ayarla — hepsi bu menüde.',
+        body:
+            'Üyeleri yönet, davet kodu üret, alan özelliklerini ayarla — hepsi bu menüde.',
         accent: scheme.tertiary,
       ),
     ];
   }
 
-  Widget _buildLocationCard(BuildContext context, WidgetRef ref, StorageLocation location, {Key? cardKey}) {
+  Widget _buildLocationCard(
+    BuildContext context,
+    WidgetRef ref,
+    StorageLocation location, {
+    Key? cardKey,
+  }) {
     final style = storageKindStyle(context, location.kind, icon: location.icon);
     return Card(
       key: cardKey,
@@ -437,7 +527,8 @@ class HouseholdHomeScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(AppRadius.card),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => InventoryScreen(householdId: household.id, location: location),
+            builder: (_) =>
+                InventoryScreen(householdId: household.id, location: location),
           ),
         ),
         onLongPress: () => showModalBottomSheet<void>(
@@ -455,8 +546,16 @@ class HouseholdHomeScreen extends ConsumerWidget {
                   },
                 ),
                 ListTile(
-                  leading: Icon(Icons.delete_outline_rounded, color: Theme.of(sheetContext).colorScheme.error),
-                  title: Text('Sil', style: TextStyle(color: Theme.of(sheetContext).colorScheme.error)),
+                  leading: Icon(
+                    Icons.delete_outline_rounded,
+                    color: Theme.of(sheetContext).colorScheme.error,
+                  ),
+                  title: Text(
+                    'Sil',
+                    style: TextStyle(
+                      color: Theme.of(sheetContext).colorScheme.error,
+                    ),
+                  ),
                   onTap: () {
                     Navigator.pop(sheetContext);
                     _deleteLocation(context, ref, location);
@@ -471,7 +570,12 @@ class HouseholdHomeScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              StorageIconBox(icon: style.icon, color: style.color, size: 48, iconSize: 24),
+              StorageIconBox(
+                icon: style.icon,
+                color: style.color,
+                size: 48,
+                iconSize: 24,
+              ),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 location.name,
@@ -490,15 +594,24 @@ class HouseholdHomeScreen extends ConsumerWidget {
     // updateFoodFeature sonrası households listesi invalidate edilir —
     // ekran hâlâ açıksa güncel foodEnabled'ı burada yansıtır. Liste henüz
     // yenilenmediyse (ör. offline) constructor'dan gelen değere düşülür.
-    final household = ref.watch(householdByIdProvider(this.household.id)) ?? this.household;
+    final household =
+        ref.watch(householdByIdProvider(this.household.id)) ?? this.household;
     final locationsAsync = ref.watch(storageLocationsProvider(household.id));
 
     // İlk kez bir alana giriliyorsa spotlight turunu göster (bkz.
     // coach_tour_launcher — bayrak okuma, settle gecikmesi, çakışma kilidi
     // ve boş-adım durumu orada).
-    maybeStartCoachTour(context, ref, id: CoachTourId.householdHome, buildSteps: () => _coachSteps(context));
+    maybeStartCoachTour(
+      context,
+      ref,
+      id: CoachTourId.householdHome,
+      buildSteps: () => _coachSteps(context),
+    );
 
-    final areaIcon = householdIconFor(iconKey: household.icon, kind: household.kind);
+    final areaIcon = householdIconFor(
+      iconKey: household.icon,
+      kind: household.kind,
+    );
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -512,22 +625,34 @@ class HouseholdHomeScreen extends ConsumerWidget {
             // bkz. household_list_screen.dart. Aynı tag, aynı görünüm.
             Hero(
               tag: 'household-avatar-${household.id}',
-              flightShuttleBuilder: (context, animation, direction, fromContext, toContext) => Material(
-                type: MaterialType.transparency,
-                child: CircleAvatar(
-                  radius: 14,
-                  backgroundColor: colorScheme.primaryContainer,
-                  child: Icon(areaIcon, size: 16, color: colorScheme.onPrimaryContainer),
-                ),
-              ),
+              flightShuttleBuilder:
+                  (context, animation, direction, fromContext, toContext) =>
+                      Material(
+                        type: MaterialType.transparency,
+                        child: CircleAvatar(
+                          radius: 14,
+                          backgroundColor: colorScheme.primaryContainer,
+                          child: Icon(
+                            areaIcon,
+                            size: 16,
+                            color: colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
               child: CircleAvatar(
                 radius: 14,
                 backgroundColor: colorScheme.primaryContainer,
-                child: Icon(areaIcon, size: 16, color: colorScheme.onPrimaryContainer),
+                child: Icon(
+                  areaIcon,
+                  size: 16,
+                  color: colorScheme.onPrimaryContainer,
+                ),
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
-            Flexible(child: Text(household.name, overflow: TextOverflow.ellipsis)),
+            Flexible(
+              child: Text(household.name, overflow: TextOverflow.ellipsis),
+            ),
           ],
         ),
         actions: [
@@ -542,14 +667,20 @@ class HouseholdHomeScreen extends ConsumerWidget {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => ReceiptHistoryScreen(householdId: household.id),
+                  builder: (_) =>
+                      ReceiptHistoryScreen(householdId: household.id),
                 ),
               );
             },
           ),
           Consumer(
             builder: (context, ref, _) {
-              final unreadCount = ref.watch(notificationListProvider).valueOrNull?.unreadCount ?? 0;
+              final unreadCount =
+                  ref
+                      .watch(notificationListProvider)
+                      .valueOrNull
+                      ?.unreadCount ??
+                  0;
               return IconButton(
                 icon: Badge(
                   label: Text('$unreadCount'),
@@ -558,7 +689,9 @@ class HouseholdHomeScreen extends ConsumerWidget {
                 ),
                 tooltip: 'Bildirimler',
                 onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
                 ),
               );
             },
@@ -575,32 +708,50 @@ class HouseholdHomeScreen extends ConsumerWidget {
                   _editHousehold(context, ref);
                 case 'members':
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => HouseholdMembersScreen(household: household)),
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          HouseholdMembersScreen(household: household),
+                    ),
                   );
                 case 'invite':
                   _showInviteCode(context, ref);
                 case 'settings':
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => HouseholdSettingsScreen(household: household)),
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          HouseholdSettingsScreen(household: household),
+                    ),
                   );
               }
             },
             itemBuilder: (context) => const [
               PopupMenuItem(
                 value: 'edit',
-                child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Alanı düzenle')),
+                child: ListTile(
+                  leading: Icon(Icons.edit_outlined),
+                  title: Text('Alanı düzenle'),
+                ),
               ),
               PopupMenuItem(
                 value: 'members',
-                child: ListTile(leading: Icon(Icons.group_outlined), title: Text('Üyeler')),
+                child: ListTile(
+                  leading: Icon(Icons.group_outlined),
+                  title: Text('Üyeler'),
+                ),
               ),
               PopupMenuItem(
                 value: 'invite',
-                child: ListTile(leading: Icon(Icons.person_add_alt_rounded), title: Text('Bu alana davet et')),
+                child: ListTile(
+                  leading: Icon(Icons.person_add_alt_rounded),
+                  title: Text('Bu alana davet et'),
+                ),
               ),
               PopupMenuItem(
                 value: 'settings',
-                child: ListTile(leading: Icon(Icons.tune_rounded), title: Text('Alan özellikleri')),
+                child: ListTile(
+                  leading: Icon(Icons.tune_rounded),
+                  title: Text('Alan özellikleri'),
+                ),
               ),
             ],
           ),
@@ -613,12 +764,30 @@ class HouseholdHomeScreen extends ConsumerWidget {
           Expanded(
             child: AsyncView(
               value: locationsAsync,
-              onRetry: () => ref.invalidate(storageLocationsProvider(household.id)),
+              onRetry: () =>
+                  ref.invalidate(storageLocationsProvider(household.id)),
               data: (locations) {
+                Future<void> onRefresh() async {
+                  ref.invalidate(storageLocationsProvider(household.id));
+                  await ref.read(storageLocationsProvider(household.id).future);
+                }
+
                 if (locations.isEmpty) {
-                  return const EmptyState(
-                    icon: Icons.category_rounded,
-                    message: 'Bu alanda henüz bölüm yok. Sağ üstteki + ile ekleyebilirsin.',
+                  return RefreshIndicator(
+                    onRefresh: onRefresh,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.sizeOf(context).height * 0.6,
+                          child: const EmptyState(
+                            icon: Icons.category_rounded,
+                            message:
+                                'Bu alanda henüz bölüm yok. Sağ üstteki + ile ekleyebilirsin.',
+                          ),
+                        ),
+                      ],
+                    ),
                   );
                 }
                 return LayoutBuilder(
@@ -626,45 +795,72 @@ class HouseholdHomeScreen extends ConsumerWidget {
                     final columns = gridColumnsFor(constraints.maxWidth);
                     // Tek sayıda kart varsa son kart iki sütun genişliğinde
                     // gösterilir (Stitch'in Ev Ana tasarımındaki Kiler kartı).
-                    final hasDanglingLast = locations.length.isOdd && locations.length > 1 && columns == 2;
-                    final gridCount = hasDanglingLast ? locations.length - 1 : locations.length;
+                    final hasDanglingLast =
+                        locations.length.isOdd &&
+                        locations.length > 1 &&
+                        columns == 2;
+                    final gridCount = hasDanglingLast
+                        ? locations.length - 1
+                        : locations.length;
 
-                    return CustomScrollView(
-                      slivers: [
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
-                          sliver: SliverGrid(
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: columns,
-                              mainAxisSpacing: AppSpacing.sm,
-                              crossAxisSpacing: AppSpacing.sm,
-                              childAspectRatio: 1.1,
-                            ),
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) => _buildLocationCard(
-                                context,
-                                ref,
-                                locations[index],
-                                cardKey: index == 0 ? firstStorageCardKey : null,
-                              ),
-                              childCount: gridCount,
-                            ),
-                          ),
-                        ),
-                        if (hasDanglingLast)
+                    return RefreshIndicator(
+                      onRefresh: onRefresh,
+                      child: CustomScrollView(
+                        slivers: [
                           SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
-                            sliver: SliverToBoxAdapter(
-                              child: SizedBox(
-                                height: constraints.maxWidth / columns / 1.1,
-                                child: _buildLocationCard(context, ref, locations.last),
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.md,
+                              AppSpacing.md,
+                              AppSpacing.md,
+                              0,
+                            ),
+                            sliver: SliverGrid(
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: columns,
+                                    mainAxisSpacing: AppSpacing.sm,
+                                    crossAxisSpacing: AppSpacing.sm,
+                                    childAspectRatio: 1.1,
+                                  ),
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) => _buildLocationCard(
+                                  context,
+                                  ref,
+                                  locations[index],
+                                  cardKey: index == 0
+                                      ? firstStorageCardKey
+                                      : null,
+                                ),
+                                childCount: gridCount,
                               ),
                             ),
                           ),
-                        SliverToBoxAdapter(
-                          child: SizedBox(height: AppSpacing.fabBottomPadding),
-                        ),
-                      ],
+                          if (hasDanglingLast)
+                            SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(
+                                AppSpacing.md,
+                                AppSpacing.sm,
+                                AppSpacing.md,
+                                0,
+                              ),
+                              sliver: SliverToBoxAdapter(
+                                child: SizedBox(
+                                  height: constraints.maxWidth / columns / 1.1,
+                                  child: _buildLocationCard(
+                                    context,
+                                    ref,
+                                    locations.last,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          SliverToBoxAdapter(
+                            child: SizedBox(
+                              height: AppSpacing.fabBottomPadding,
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   },
                 );
@@ -678,11 +874,22 @@ class HouseholdHomeScreen extends ConsumerWidget {
         key: scanFabKey,
         icon: const Icon(Icons.document_scanner_rounded),
         label: const Text('Fiş Tara'),
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ReceiptScanScreen(householdId: household.id),
-          ),
-        ),
+        // Misafirde gerçek AI hiç çağrılmaz — sıfır maliyetli demo akışı
+        // (plan §Faz 2). Backend zaten 402 SIGNUP_REQUIRED dönerdi, ama
+        // kamera açılıp OCR çalışıp EN SONDA 402 almak kötü bir deneyim
+        // olurdu — burada baştan yönlendiriyoruz.
+        onPressed: () {
+          final isGuest = ref.read(authControllerProvider).isGuest;
+          if (isGuest) {
+            showDemoReceiptFlow(context);
+            return;
+          }
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ReceiptScanScreen(householdId: household.id),
+            ),
+          );
+        },
       ),
     );
   }
@@ -723,10 +930,18 @@ class _InviteCodeDialogState extends State<_InviteCodeDialog> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Kodu yenile?'),
-        content: const Text('Eski kod artık çalışmaz. Bu kodu daha önce paylaştığın kişiler yeni kodu almadan katılamaz.'),
+        content: const Text(
+          'Eski kod artık çalışmaz. Bu kodu daha önce paylaştığın kişiler yeni kodu almadan katılamaz.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Yenile')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Yenile'),
+          ),
         ],
       ),
     );
@@ -738,7 +953,9 @@ class _InviteCodeDialogState extends State<_InviteCodeDialog> {
       if (mounted) setState(() => _code = newCode);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     } finally {
       if (mounted) setState(() => _rotating = false);
@@ -754,14 +971,18 @@ class _InviteCodeDialogState extends State<_InviteCodeDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Bu kod alan için sabittir — istediğin kadar kişi aynı kodla katılabilir.'),
+          const Text(
+            'Bu kod alan için sabittir — istediğin kadar kişi aynı kodla katılabilir.',
+          ),
           const SizedBox(height: AppSpacing.sm),
           InkWell(
             borderRadius: BorderRadius.circular(AppRadius.input),
             onTap: () async {
               await Clipboard.setData(ClipboardData(text: _code));
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kod kopyalandı')));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Kod kopyalandı')));
               }
             },
             child: Container(
@@ -777,17 +998,28 @@ class _InviteCodeDialogState extends State<_InviteCodeDialog> {
                     child: Text(
                       widget.formatCode(_code),
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(letterSpacing: 1),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleSmall?.copyWith(letterSpacing: 1),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
-                  Icon(Icons.copy_rounded, size: 18, color: colorScheme.onSurfaceVariant),
+                  Icon(
+                    Icons.copy_rounded,
+                    size: 18,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          Text('Kodun süresi', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+          Text(
+            'Kodun süresi',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(height: AppSpacing.xs),
           Wrap(
             spacing: AppSpacing.xs,
@@ -811,7 +1043,11 @@ class _InviteCodeDialogState extends State<_InviteCodeDialog> {
             child: TextButton.icon(
               onPressed: _rotating ? null : _rotate,
               icon: _rotating
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.refresh_rounded, size: 18),
               label: const Text('Kodu yenile'),
             ),

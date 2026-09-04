@@ -26,13 +26,15 @@ class ResetPasswordScreen extends ConsumerStatefulWidget {
   final String email;
 
   @override
-  ConsumerState<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+  ConsumerState<ResetPasswordScreen> createState() =>
+      _ResetPasswordScreenState();
 }
 
 class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _passwordFocus = FocusNode();
   bool _isSubmitting = false;
   bool _isResending = false;
   bool _obscurePassword = true;
@@ -44,6 +46,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   void dispose() {
     _codeController.dispose();
     _passwordController.dispose();
+    _passwordFocus.dispose();
     _cooldownTimer?.cancel();
     super.dispose();
   }
@@ -66,12 +69,14 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   Future<void> _resendCode() async {
     setState(() => _isResending = true);
     try {
-      await ref.read(authRepositoryProvider).requestPasswordReset(email: widget.email);
+      await ref
+          .read(authRepositoryProvider)
+          .requestPasswordReset(email: widget.email);
       if (mounted) {
         _startCooldown();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Kod tekrar gönderildi')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Kod tekrar gönderildi')));
       }
     } catch (error) {
       if (mounted) setState(() => _errorMessage = describeApiError(error));
@@ -87,15 +92,20 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       _errorMessage = null;
     });
     try {
-      await ref.read(authRepositoryProvider).resetPassword(
+      await ref
+          .read(authRepositoryProvider)
+          .resetPassword(
             email: widget.email,
             code: _codeController.text.trim(),
             newPassword: _passwordController.text,
           );
+      TextInput.finishAutofillContext();
       if (!mounted) return;
       Navigator.of(context).popUntil((route) => route.isFirst);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Şifren güncellendi, şimdi giriş yapabilirsin.')),
+        const SnackBar(
+          content: Text('Şifren güncellendi, şimdi giriş yapabilirsin.'),
+        ),
       );
     } catch (error) {
       setState(() => _errorMessage = describeApiError(error));
@@ -109,102 +119,140 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Kodu Doğrula')),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: formMaxWidth),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: AppSpacing.lg),
-                    const AuthHeroHeader(subtitle: 'Kayıtlıysa e-postana bir kod gönderdik'),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      widget.email,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+        child: AppFormScroll(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          child: Form(
+            key: _formKey,
+            child: AutofillGroup(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: AppSpacing.lg),
+                  const AuthHeroHeader(
+                    subtitle: 'Kayıtlıysa e-postana bir kod gönderdik',
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    widget.email,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                    // Mail altyapısı yeni — bazı sağlayıcılar ilk günlerde
-                    // gönderen domain'ini tanımadığı için mesajı gereksiz/
-                    // spam klasörüne düşürebiliyor. DMARC kaydı eklendikçe
-                    // bu azalır ama kullanıcıyı şimdiden uyarmak, "kod hiç
-                    // gelmedi" şikayetini "spam'e bakmadım"a çevirir.
-                    Container(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(AppRadius.card),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(Icons.info_outline, size: 20, color: Theme.of(context).colorScheme.onSecondaryContainer),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: Text(
-                              'Kod gelmediyse gereksiz/spam klasörünü de kontrol et.',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context).colorScheme.onSecondaryContainer,
-                                  ),
-                            ),
-                          ),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  // Mail altyapısı yeni — bazı sağlayıcılar ilk günlerde
+                  // gönderen domain'ini tanımadığı için mesajı gereksiz/
+                  // spam klasörüne düşürebiliyor. DMARC kaydı eklendikçe
+                  // bu azalır ama kullanıcıyı şimdiden uyarmak, "kod hiç
+                  // gelmedi" şikayetini "spam'e bakmadım"a çevirir.
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.secondaryContainer.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(AppRadius.card),
                     ),
-                    const SizedBox(height: AppSpacing.xl),
-                    TextFormField(
-                      controller: _codeController,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      autofocus: true,
-                      style: const TextStyle(fontSize: 24, letterSpacing: 8, fontWeight: FontWeight.w600),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 20,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSecondaryContainer,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            'Kod gelmediyse gereksiz/spam klasörünü de kontrol et.',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSecondaryContainer,
+                                ),
+                          ),
+                        ),
                       ],
-                      decoration: const InputDecoration(labelText: 'Kod', counterText: ''),
-                      validator: Validators.resetCode,
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: 'Yeni Şifre',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                          tooltip: _obscurePassword ? 'Şifreyi göster' : 'Şifreyi gizle',
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  TextFormField(
+                    controller: _codeController,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    autofocus: true,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.oneTimeCode],
+                    onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      letterSpacing: 8,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(6),
+                    ],
+                    decoration: const InputDecoration(
+                      labelText: 'Kod',
+                      counterText: '',
+                    ),
+                    validator: Validators.resetCode,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextFormField(
+                    controller: _passwordController,
+                    focusNode: _passwordFocus,
+                    obscureText: _obscurePassword,
+                    textInputAction: TextInputAction.done,
+                    autofillHints: const [AutofillHints.newPassword],
+                    onFieldSubmitted: (_) => _isSubmitting ? null : _submit(),
+                    decoration: InputDecoration(
+                      labelText: 'Yeni Şifre',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                        ),
+                        tooltip: _obscurePassword
+                            ? 'Şifreyi göster'
+                            : 'Şifreyi gizle',
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
                         ),
                       ),
-                      validator: Validators.newPassword,
                     ),
-                    if (_errorMessage != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      FormErrorText(_errorMessage!),
-                    ],
-                    const SizedBox(height: AppSpacing.lg),
-                    FilledButton(
-                      onPressed: _isSubmitting ? null : _submit,
-                      child: _isSubmitting ? const ButtonProgress() : const Text('Şifreyi Güncelle'),
-                    ),
+                    validator: Validators.newPassword,
+                  ),
+                  if (_errorMessage != null) ...[
                     const SizedBox(height: AppSpacing.sm),
-                    TextButton(
-                      onPressed: (_isResending || _cooldownSeconds > 0) ? null : _resendCode,
-                      child: Text(
-                        _cooldownSeconds > 0 ? 'Tekrar gönder ($_cooldownSeconds sn)' : 'Kodu tekrar gönder',
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
+                    FormErrorText(_errorMessage!),
                   ],
-                ),
+                  const SizedBox(height: AppSpacing.lg),
+                  FilledButton(
+                    onPressed: _isSubmitting ? null : _submit,
+                    child: _isSubmitting
+                        ? const ButtonProgress()
+                        : const Text('Şifreyi Güncelle'),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextButton(
+                    onPressed: (_isResending || _cooldownSeconds > 0)
+                        ? null
+                        : _resendCode,
+                    child: Text(
+                      _cooldownSeconds > 0
+                          ? 'Tekrar gönder ($_cooldownSeconds sn)'
+                          : 'Kodu tekrar gönder',
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                ],
               ),
             ),
           ),

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/responsive.dart';
 import '../../../core/widgets/scan_progress.dart';
@@ -41,7 +42,6 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     _ocr.dispose();
     super.dispose();
   }
-
 
   Future<void> _capturePart(ImageSource source) async {
     setState(() {
@@ -124,7 +124,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     } catch (error) {
       setState(() {
         _step = _ScanStep.idle;
-        _errorMessage = 'Bir şeyler ters gitti: $error';
+        _errorMessage = describeApiError(error);
       });
     }
   }
@@ -161,94 +161,93 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Fiş Tara')),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: formMaxWidth),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (isBusy) ...[
-                    ScanProgress(
-                      steps: const ['Fotoğraf seçiliyor', 'Fiş okunuyor', 'Gönderiliyor'],
-                      currentStep: _step.index - 1,
-                    ),
-                  ] else ...[
-                    Center(
-                      child: Container(
-                        width: 96,
-                        height: 96,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.receipt_long_rounded,
-                          size: 48,
-                          color: colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    Text(
-                      hasParts ? 'Fiş Tara' : 'Fişi Tara',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      hasParts
-                          ? 'Fiş uzunsa bir sonraki parçayı, öncekinin son birkaç satırı görünecek şekilde çek.'
-                          : 'Fişi düz bir zemine koy ve net bir fotoğraf çek.\nÜrünler otomatik olarak okunacak.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: colorScheme.onSurfaceVariant),
-                    ),
-                    if (hasParts) ...[
-                      const SizedBox(height: AppSpacing.lg),
-                      _PartsStrip(parts: _parts, onRemove: _removePart),
-                    ],
-                    const SizedBox(height: AppSpacing.xl),
-                    FilledButton.icon(
-                      onPressed: () => _capturePart(ImageSource.camera),
-                      icon: const Icon(Icons.camera_alt_rounded),
-                      label: Text(hasParts ? 'Parça Ekle' : 'Fotoğraf Çek'),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    OutlinedButton.icon(
-                      onPressed: () => _capturePart(ImageSource.gallery),
-                      icon: const Icon(Icons.photo_library_outlined),
-                      label: const Text('Galeriden Seç'),
-                    ),
-                    if (hasParts) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      FilledButton.tonalIcon(
-                        onPressed: _finish,
-                        icon: const Icon(Icons.check_rounded),
-                        label: Text('Bitti (${_parts.length} parça)'),
-                      ),
-                    ],
+        child: AppFormScroll(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isBusy) ...[
+                ScanProgress(
+                  steps: const [
+                    'Fotoğraf seçiliyor',
+                    'Fiş okunuyor',
+                    'Gönderiliyor',
                   ],
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: AppSpacing.lg),
-                    Container(
-                      padding: const EdgeInsets.all(AppSpacing.sm),
-                      decoration: BoxDecoration(
-                        color: colorScheme.errorContainer,
-                        borderRadius: BorderRadius.circular(AppRadius.input),
-                      ),
-                      child: Text(
-                        _errorMessage!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: colorScheme.onErrorContainer),
-                      ),
+                  currentStep: _step.index - 1,
+                ),
+              ] else ...[
+                Center(
+                  child: Container(
+                    width: 96,
+                    height: 96,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
                     ),
-                  ],
+                    child: Icon(
+                      Icons.receipt_long_rounded,
+                      size: 48,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  hasParts ? 'Fiş Tara' : 'Fişi Tara',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  hasParts
+                      ? 'Fiş uzunsa bir sonraki parçayı, öncekinin son birkaç satırı görünecek şekilde çek.'
+                      : 'Fişi düz bir zemine koy ve net bir fotoğraf çek.\nÜrünler otomatik olarak okunacak.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
+                if (hasParts) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  _PartsStrip(parts: _parts, onRemove: _removePart),
                 ],
-              ),
-            ),
+                const SizedBox(height: AppSpacing.xl),
+                FilledButton.icon(
+                  onPressed: () => _capturePart(ImageSource.camera),
+                  icon: const Icon(Icons.camera_alt_rounded),
+                  label: Text(hasParts ? 'Parça Ekle' : 'Fotoğraf Çek'),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                OutlinedButton.icon(
+                  onPressed: () => _capturePart(ImageSource.gallery),
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: const Text('Galeriden Seç'),
+                ),
+                if (hasParts) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  FilledButton.tonalIcon(
+                    onPressed: _finish,
+                    icon: const Icon(Icons.check_rounded),
+                    label: Text('Bitti (${_parts.length} parça)'),
+                  ),
+                ],
+              ],
+              if (_errorMessage != null) ...[
+                const SizedBox(height: AppSpacing.lg),
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(AppRadius.input),
+                  ),
+                  child: Text(
+                    _errorMessage!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: colorScheme.onErrorContainer),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
@@ -296,7 +295,11 @@ class _PartsStrip extends StatelessWidget {
                       color: colorScheme.error,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.close_rounded, size: 16, color: colorScheme.onError),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: colorScheme.onError,
+                    ),
                   ),
                 ),
               ),

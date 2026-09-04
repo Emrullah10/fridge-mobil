@@ -22,12 +22,15 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
   final String? initialEmail;
 
   @override
-  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
-  late final _emailController = TextEditingController(text: widget.initialEmail);
+  late final _emailController = TextEditingController(
+    text: widget.initialEmail,
+  );
   bool _isSubmitting = false;
   String? _errorMessage;
 
@@ -62,39 +65,49 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Şifremi Unuttum')),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: formMaxWidth),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: AppSpacing.lg),
-                    const AuthHeroHeader(subtitle: 'E-postana 6 haneli bir kod göndereceğiz'),
-                    const SizedBox(height: AppSpacing.xl),
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      autofocus: widget.initialEmail == null || widget.initialEmail!.isEmpty,
-                      decoration: const InputDecoration(labelText: 'E-posta', prefixIcon: Icon(Icons.mail_outline)),
-                      validator: Validators.email,
-                    ),
-                    if (_errorMessage != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      FormErrorText(_errorMessage!),
-                    ],
-                    const SizedBox(height: AppSpacing.lg),
-                    FilledButton(
-                      onPressed: _isSubmitting ? null : _submit,
-                      child: _isSubmitting ? const ButtonProgress() : const Text('Kod Gönder'),
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                  ],
+        child: AppFormScroll(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: AppSpacing.lg),
+                const AuthHeroHeader(
+                  subtitle: 'E-postana 6 haneli bir kod göndereceğiz',
                 ),
-              ),
+                const SizedBox(height: AppSpacing.xl),
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  autofocus:
+                      widget.initialEmail == null ||
+                      widget.initialEmail!.isEmpty,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const [
+                    AutofillHints.username,
+                    AutofillHints.email,
+                  ],
+                  onFieldSubmitted: (_) => _isSubmitting ? null : _submit(),
+                  decoration: const InputDecoration(
+                    labelText: 'E-posta',
+                    prefixIcon: Icon(Icons.mail_outline),
+                  ),
+                  validator: Validators.email,
+                ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  FormErrorText(_errorMessage!),
+                ],
+                const SizedBox(height: AppSpacing.lg),
+                FilledButton(
+                  onPressed: _isSubmitting ? null : _submit,
+                  child: _isSubmitting
+                      ? const ButtonProgress()
+                      : const Text('Kod Gönder'),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+              ],
             ),
           ),
         ),

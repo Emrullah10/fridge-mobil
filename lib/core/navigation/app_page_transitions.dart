@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
-/// Tüm sayfa geçişleri için tek nokta — Material "shared axis Z" deseni:
+/// Yalnızca ANDROID için sayfa geçişi — Material "shared axis Z" deseni:
 /// gelen sayfa küçükten (0.94) büyüyerek + solarak gelir, giden sayfa
 /// hafifçe büyüyüp (1.04) solarak kaybolur. AppTheme._base()'de
 /// pageTransitionsTheme olarak takılır, mevcut 22 çıplak MaterialPageRoute
-/// çağrısının hiçbirine dokunmadan tüm uygulamayı kapsar.
+/// çağrısının hiçbirine dokunmadan tüm Android ekranlarını kapsar.
+/// iOS'ta bunun yerine native [CupertinoPageTransitionsBuilder] kullanılır —
+/// bu builder iOS'a atanırsa kenardan kaydırarak geri gitme (swipe-back)
+/// devre dışı kalır.
 ///
 /// Hero geçişleri (bkz. household_list_screen.dart → household_home_screen.dart)
 /// bu builder'dan bağımsız çalışır — Flutter Hero uçuşunu route transition'ın
@@ -22,19 +25,23 @@ class AppPageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final incomingScale = Tween<double>(begin: 0.94, end: 1.0)
-        .chain(CurveTween(curve: _curve))
-        .animate(animation);
-    final incomingOpacity = Tween<double>(begin: 0.0, end: 1.0)
-        .chain(CurveTween(curve: Curves.easeIn))
-        .animate(animation);
+    final incomingScale = Tween<double>(
+      begin: 0.94,
+      end: 1.0,
+    ).chain(CurveTween(curve: _curve)).animate(animation);
+    final incomingOpacity = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).chain(CurveTween(curve: Curves.easeIn)).animate(animation);
 
-    final outgoingScale = Tween<double>(begin: 1.0, end: 1.04)
-        .chain(CurveTween(curve: _curve))
-        .animate(secondaryAnimation);
-    final outgoingOpacity = Tween<double>(begin: 1.0, end: 0.0)
-        .chain(CurveTween(curve: Curves.easeIn))
-        .animate(secondaryAnimation);
+    final outgoingScale = Tween<double>(
+      begin: 1.0,
+      end: 1.04,
+    ).chain(CurveTween(curve: _curve)).animate(secondaryAnimation);
+    final outgoingOpacity = Tween<double>(
+      begin: 1.0,
+      end: 0.0,
+    ).chain(CurveTween(curve: Curves.easeIn)).animate(secondaryAnimation);
 
     return FadeTransition(
       opacity: outgoingOpacity,
