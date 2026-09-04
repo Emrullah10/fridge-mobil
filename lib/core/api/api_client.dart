@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:dio/dio.dart';
 
 import '../error/api_error.dart';
@@ -23,6 +25,10 @@ class ApiClient {
           // geçtikten sonra (2026-08-17) tek istek ~55sn sürebiliyor
           // (qwen2.5'te ~20-25sn'ydi, eski 45sn limiti buradan kalmaydı).
           receiveTimeout: const Duration(seconds: 90),
+          // Backend platform bazlı limit çözüyor (bkz. plans.js §Faz D) —
+          // Android varsayılan daha cömert, iOS henüz yok ama başlık
+          // şimdiden doğru gönderilsin diye Platform.isIOS kontrol edilir.
+          headers: {'X-Client-Platform': Platform.isIOS ? 'ios' : 'android'},
         )) {
     dio.interceptors.add(AuthInterceptor(tokenStorage: tokenStorage, onUnauthorized: onUnauthorized));
     if (onPlanLimitReached != null) {

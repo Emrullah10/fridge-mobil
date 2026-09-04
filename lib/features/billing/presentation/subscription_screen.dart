@@ -77,10 +77,24 @@ class SubscriptionScreen extends ConsumerWidget {
                       style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                     ),
                   ],
+                  // Aile koltuğunda olan bir üye kendi cebinden ödemiyor —
+                  // bunu açıkça göstermezsek "neden premium'um?" kafa
+                  // karışıklığı olur (bkz. plan §Mobil özet).
+                  if (entitlements.isFamilyMember) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      '${entitlements.familySeat!.sponsorName ?? "Bir kullanıcının"} aile paketindesin',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
+          if (entitlements.isFamilySponsor) ...[
+            const SizedBox(height: AppSpacing.md),
+            _FamilyRosterCard(roster: entitlements.family!),
+          ],
           const SizedBox(height: AppSpacing.lg),
           if (entitlements.isPremium || entitlements.isTrial)
             FilledButton.tonal(
@@ -95,6 +109,49 @@ class SubscriptionScreen extends ConsumerWidget {
   }
 
   String _formatDate(DateTime date) => '${date.day}.${date.month}.${date.year}';
+}
+
+/// SADECE aile aboneliğinin sahibine gösterilir — "Aile üyeleri 3/5" listesi.
+/// Koltuk dolduğunda yeni davet edilen otomatik ücretsiz kalır (sessizce,
+/// davet hiç engellenmez) — bu kart kimin koltuğu olduğunu görünür kılar.
+class _FamilyRosterCard extends StatelessWidget {
+  const _FamilyRosterCard({required this.roster});
+
+  final FamilyRoster roster;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Aile üyeleri ${roster.used}/${roster.seats}', style: theme.textTheme.titleSmall),
+            const SizedBox(height: AppSpacing.sm),
+            for (final member in roster.members)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                child: Row(
+                  children: [
+                    Icon(
+                      member.active ? Icons.check_circle_rounded : Icons.circle_outlined,
+                      size: 18,
+                      color: member.active ? theme.colorScheme.primary : theme.colorScheme.outline,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(child: Text(member.displayName ?? 'Üye', style: theme.textTheme.bodyMedium)),
+                    if (!member.active)
+                      Text('Koltuk dolu', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _UpgradeCta extends StatelessWidget {
