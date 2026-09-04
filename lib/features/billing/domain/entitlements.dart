@@ -48,6 +48,58 @@ class HouseholdLimits {
       );
 }
 
+/// Kullanıcı bir aile koltuğundaysa dolu gelir — abonelik ekranında/paywall'da
+/// "X'in aile paketindesin" rozeti için. source zaten 'family' oluyor ama
+/// sponsor adı/alanı UI metni için ayrıca taşınır (bkz. entitlements.js
+/// backend karşılığı).
+class FamilySeat {
+  const FamilySeat({required this.sponsorUserId, this.sponsorName, required this.householdId});
+
+  final String sponsorUserId;
+  final String? sponsorName;
+  final String householdId;
+
+  factory FamilySeat.fromJson(Map<String, dynamic> json) => FamilySeat(
+        sponsorUserId: json['sponsorUserId'] as String,
+        sponsorName: json['sponsorName'] as String?,
+        householdId: json['householdId'] as String,
+      );
+}
+
+/// Abonelik ekranındaki koltuk roster'ı — SADECE kullanıcı kendisi bir aile
+/// aboneliğinin sahibiyse dolu gelir ("Aile üyeleri 3/5").
+class FamilySeatMember {
+  const FamilySeatMember({required this.userId, this.displayName, required this.householdId, required this.active});
+
+  final String userId;
+  final String? displayName;
+  final String householdId;
+  final bool active;
+
+  factory FamilySeatMember.fromJson(Map<String, dynamic> json) => FamilySeatMember(
+        userId: json['userId'] as String,
+        displayName: json['displayName'] as String?,
+        householdId: json['householdId'] as String,
+        active: json['active'] as bool? ?? false,
+      );
+}
+
+class FamilyRoster {
+  const FamilyRoster({required this.seats, required this.used, required this.members});
+
+  final int seats;
+  final int used;
+  final List<FamilySeatMember> members;
+
+  factory FamilyRoster.fromJson(Map<String, dynamic> json) => FamilyRoster(
+        seats: (json['seats'] as num?)?.toInt() ?? 0,
+        used: (json['used'] as num?)?.toInt() ?? 0,
+        members: (json['members'] as List<dynamic>? ?? const [])
+            .map((m) => FamilySeatMember.fromJson(m as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 /// plan: guest | free | trial | premium
 enum PlanTier { guest, free, trial, premium }
 
@@ -74,6 +126,8 @@ class Entitlements {
     required this.households,
     this.trialEndsAt,
     this.periodEndsAt,
+    this.familySeat,
+    this.family,
   });
 
   final PlanTier plan;
@@ -84,10 +138,14 @@ class Entitlements {
   final Map<String, HouseholdLimits> households;
   final DateTime? trialEndsAt;
   final DateTime? periodEndsAt;
+  final FamilySeat? familySeat;
+  final FamilyRoster? family;
 
   bool get isGuest => plan == PlanTier.guest;
   bool get isPremium => plan == PlanTier.premium;
   bool get isTrial => plan == PlanTier.trial;
+  bool get isFamilySponsor => family != null;
+  bool get isFamilyMember => familySeat != null;
 
   AiQuota? quotaFor(String feature) => quotas[feature];
 
@@ -103,6 +161,8 @@ class Entitlements {
     final quotasJson = json['quotas'] as Map<String, dynamic>? ?? const {};
     final householdsJson = json['households'] as Map<String, dynamic>? ?? const {};
     final featuresJson = json['features'] as Map<String, dynamic>? ?? const {};
+    final familySeatJson = json['familySeat'] as Map<String, dynamic>?;
+    final familyJson = json['family'] as Map<String, dynamic>?;
     return Entitlements(
       plan: _planTierFrom(json['plan'] as String?),
       source: json['source'] as String? ?? 'signup',
@@ -112,6 +172,8 @@ class Entitlements {
       households: householdsJson.map((key, value) => MapEntry(key, HouseholdLimits.fromJson(value as Map<String, dynamic>))),
       trialEndsAt: json['trialEndsAt'] is String ? DateTime.tryParse(json['trialEndsAt'] as String) : null,
       periodEndsAt: json['periodEndsAt'] is String ? DateTime.tryParse(json['periodEndsAt'] as String) : null,
+      familySeat: familySeatJson != null ? FamilySeat.fromJson(familySeatJson) : null,
+      family: familyJson != null ? FamilyRoster.fromJson(familyJson) : null,
     );
   }
 

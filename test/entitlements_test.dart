@@ -103,4 +103,50 @@ void main() {
       expect(entitlements.quotas, isEmpty);
     });
   });
+
+  group('Aile koltuğu — familySeat/family ayrıştırma', () {
+    test('familySeat dolu geldiğinde isFamilyMember true, sponsor bilgisi taşınır', () {
+      final json = {
+        'plan': 'premium',
+        'source': 'family',
+        'familySeat': {'sponsorUserId': 'u1', 'sponsorName': 'Ayşe', 'householdId': 'h1'},
+      };
+      final result = Entitlements.fromJson(json);
+      expect(result.isFamilyMember, isTrue);
+      expect(result.isFamilySponsor, isFalse);
+      expect(result.familySeat!.sponsorName, 'Ayşe');
+      expect(result.isPremium, isTrue);
+    });
+
+    test('family (roster) dolu geldiğinde isFamilySponsor true, üye listesi ayrıştırılır', () {
+      final json = {
+        'plan': 'premium',
+        'source': 'play',
+        'family': {
+          'seats': 5,
+          'used': 2,
+          'members': [
+            {'userId': 'u1', 'displayName': 'Ben', 'householdId': 'h1', 'active': true},
+            {'userId': 'u2', 'displayName': 'Eş', 'householdId': 'h1', 'active': true},
+            {'userId': 'u3', 'displayName': 'Fazla üye', 'householdId': 'h1', 'active': false},
+          ],
+        },
+      };
+      final result = Entitlements.fromJson(json);
+      expect(result.isFamilySponsor, isTrue);
+      expect(result.isFamilyMember, isFalse);
+      expect(result.family!.seats, 5);
+      expect(result.family!.used, 2);
+      expect(result.family!.members.length, 3);
+      expect(result.family!.members.last.active, isFalse);
+    });
+
+    test('familySeat/family hiç yoksa null, ikisi de false', () {
+      final result = Entitlements.fromJson({'plan': 'free'});
+      expect(result.familySeat, isNull);
+      expect(result.family, isNull);
+      expect(result.isFamilyMember, isFalse);
+      expect(result.isFamilySponsor, isFalse);
+    });
+  });
 }
