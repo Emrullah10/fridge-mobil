@@ -15,10 +15,15 @@ class PendingReceiptScan {
     required this.scanId,
     required this.status,
     this.result,
+    this.errorMessage,
   });
   final String scanId;
   final PendingScanStatus status;
   final ReceiptScanResult? result;
+
+  /// status failed olduğunda backend'in kaydettiği sebep — "Fiş işlenemedi"
+  /// banner'ı eskiden bunu göstermiyordu, kullanıcı ne olduğunu anlayamıyordu.
+  final String? errorMessage;
 }
 
 String _prefsKey(String householdId) => 'pending_scan_id:$householdId';
@@ -86,6 +91,7 @@ class PendingReceiptScanNotifier extends StateNotifier<PendingReceiptScan?> {
           state = PendingReceiptScan(
             scanId: scanId,
             status: PendingScanStatus.failed,
+            errorMessage: result.errorMessage,
           );
           await _forgetPersisted();
           _polling = false;
@@ -115,6 +121,21 @@ class PendingReceiptScanNotifier extends StateNotifier<PendingReceiptScan?> {
   // Kullanıcı hazır bildirimini görüp ekrandan çıktığında (henüz tamamlamadan)
   // state'i canlı tutar ama persisted kaydı silmez.
   void dismissWithoutClearing() => state = null;
+
+  /// "Fiş işlenemedi" banner'ındaki Tekrar Dene — backend'de zaten var olan
+  /// POST /:scanId/retry ucunu tetikler (bkz. receipt.routes.js) ve polling'i
+  /// aynı scanId ile yeniden başlatır. Gemini geçici bir 429/503 verdiyse
+  /// (bkz. AiQuotaError/AiBusyError) kullanıcı fişi yeniden taramak zorunda
+  /// kalmadan aynı ham metni tekrar denetebilir.
+  Future<void> retry(String scanId) async {
+    try {
+      await _repo.retry(_householdId, scanId);
+    } catch (_) {
+      // retry isteği başarısız olsa bile polling'i başlatmak zararsız —
+      // ilk getScan çağrısı hâlâ 'failed' dönerse banner aynı kalır.
+    }
+    await start(scanId);
+  }
 }
 
 final pendingReceiptScanProvider =

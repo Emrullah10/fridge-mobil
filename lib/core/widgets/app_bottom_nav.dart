@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../haptics.dart';
+
 import '../theme/app_theme.dart';
 
 /// Alt navigasyon. Alışveriş/Tarifler/Para bir household bağlamı gerektiriyor —
@@ -19,7 +21,12 @@ enum AppBottomTab { areas, shopping, recipes, insights, settings }
 
 /// Her sekme dolu (seçili) ve çizgi (seçili değil) ikon çiftiyle tanımlanır —
 /// seçim animasyonu ikisi arasında geçiş yapar.
-typedef AppBottomTabItem = ({AppBottomTab tab, IconData icon, IconData outlinedIcon, String label});
+typedef AppBottomTabItem = ({
+  AppBottomTab tab,
+  IconData icon,
+  IconData outlinedIcon,
+  String label,
+});
 
 const _allTabItems = <AppBottomTabItem>[
   (
@@ -74,12 +81,19 @@ const _foodOnlyTabs = {AppBottomTab.recipes};
 /// yüklenmedi — mevcut davranış korunur: Tarifler gösterilir, veri gelince
 /// gerekirse kaybolur (titreme riski, "özellik aniden kayboldu" yerine
 /// "kısa süre fazladan görünüyor" olarak tercih edildi).
-List<AppBottomTabItem> visibleTabsFor({String? householdId, bool? foodEnabled}) {
+List<AppBottomTabItem> visibleTabsFor({
+  String? householdId,
+  bool? foodEnabled,
+}) {
   if (householdId == null) {
-    return _allTabItems.where((item) => !_householdOnlyTabs.contains(item.tab)).toList();
+    return _allTabItems
+        .where((item) => !_householdOnlyTabs.contains(item.tab))
+        .toList();
   }
   if (foodEnabled == false) {
-    return _allTabItems.where((item) => !_foodOnlyTabs.contains(item.tab)).toList();
+    return _allTabItems
+        .where((item) => !_foodOnlyTabs.contains(item.tab))
+        .toList();
   }
   return _allTabItems;
 }
@@ -112,7 +126,12 @@ const _indicatorAnimDuration = Duration(milliseconds: 420);
 /// ölçülür (aşağıdaki `_tabKeys`); eski "genişlik / sekme sayısı" matematiği
 /// SafeArea alt inset'ini işin içine katıp spotlight'ı kaydırıyordu.
 class AppBottomNav extends StatefulWidget {
-  const AppBottomNav({super.key, required this.items, required this.selectedIndex, required this.onSelected});
+  const AppBottomNav({
+    super.key,
+    required this.items,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
 
   final List<AppBottomTabItem> items;
   final int selectedIndex;
@@ -122,13 +141,15 @@ class AppBottomNav extends StatefulWidget {
   State<AppBottomNav> createState() => AppBottomNavState();
 }
 
-class AppBottomNavState extends State<AppBottomNav> with SingleTickerProviderStateMixin {
+class AppBottomNavState extends State<AppBottomNav>
+    with SingleTickerProviderStateMixin {
   // Sekme başına kalıcı key — coach tour'un spotlight dikdörtgeni buradan
   // ölçülür. Key'ler State'in İÇİNDE üretilir: kök shell ve household shell
   // aynı anda canlı olsa bile iki ayrı State, iki ayrı harita → "Duplicate
   // GlobalKey" imkânsız.
   final Map<AppBottomTab, GlobalKey> _tabKeys = {};
-  GlobalKey _tabKey(AppBottomTab tab) => _tabKeys.putIfAbsent(tab, GlobalKey.new);
+  GlobalKey _tabKey(AppBottomTab tab) =>
+      _tabKeys.putIfAbsent(tab, GlobalKey.new);
 
   /// Sekmenin ekran uzayındaki dikdörtgeni; sekme görünür değilse (ör.
   /// foodEnabled=false iken Tarifler) ya da henüz yerleşmediyse null.
@@ -137,19 +158,25 @@ class AppBottomNavState extends State<AppBottomNav> with SingleTickerProviderSta
     if (box == null || !box.hasSize || !box.attached) return null;
     return box.localToGlobal(Offset.zero) & box.size;
   }
+
   late final AnimationController _controller;
   late int _fromIndex;
   late int _toIndex;
 
   int get _safeIndex =>
-      widget.selectedIndex < 0 || widget.selectedIndex >= widget.items.length ? 0 : widget.selectedIndex;
+      widget.selectedIndex < 0 || widget.selectedIndex >= widget.items.length
+      ? 0
+      : widget.selectedIndex;
 
   @override
   void initState() {
     super.initState();
     _fromIndex = _safeIndex;
     _toIndex = _safeIndex;
-    _controller = AnimationController(vsync: this, duration: _indicatorAnimDuration)..value = 1;
+    _controller = AnimationController(
+      vsync: this,
+      duration: _indicatorAnimDuration,
+    )..value = 1;
   }
 
   @override
@@ -195,7 +222,9 @@ class AppBottomNavState extends State<AppBottomNav> with SingleTickerProviderSta
                       // Tek bir yumuşak eğriden (easeInOutCubic) hem konum hem
                       // esneme türetilir — konum ayrı, esneme ayrı eğriyle
                       // gidince hareket "senkronsuz/keskin" hissettiriyordu.
-                      final t = Curves.easeInOutCubic.transform(_controller.value);
+                      final t = Curves.easeInOutCubic.transform(
+                        _controller.value,
+                      );
                       final fromCenter = tabWidth * _fromIndex + tabWidth / 2;
                       final toCenter = tabWidth * _toIndex + tabWidth / 2;
                       final center = fromCenter + (toCenter - fromCenter) * t;
@@ -203,7 +232,10 @@ class AppBottomNavState extends State<AppBottomNav> with SingleTickerProviderSta
                       // Uçuşun ortasında (tepe noktası t=0.5'te) hap uzar ve
                       // incelir; mesafe arttıkça biraz daha belirgin ama
                       // sınırlı (4+ sekme atlasa bile absürt uzamaz).
-                      final distance = (_toIndex - _fromIndex).abs().clamp(0, 2);
+                      final distance = (_toIndex - _fromIndex).abs().clamp(
+                        0,
+                        2,
+                      );
                       final flight = math.sin(math.pi * t);
                       final stretch = flight * (10 + distance * 6);
                       final width = _indicatorWidth + stretch;
@@ -247,7 +279,12 @@ class AppBottomNavState extends State<AppBottomNav> with SingleTickerProviderSta
 }
 
 class _NavTab extends StatelessWidget {
-  const _NavTab({super.key, required this.item, required this.selected, required this.onTap});
+  const _NavTab({
+    super.key,
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
 
   final AppBottomTabItem item;
   final bool selected;
@@ -257,14 +294,19 @@ class _NavTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final color = selected ? colorScheme.onSecondaryContainer : colorScheme.onSurfaceVariant;
+    final color = selected
+        ? colorScheme.onSecondaryContainer
+        : colorScheme.onSurfaceVariant;
 
     return Semantics(
       selected: selected,
       button: true,
       label: item.label,
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          AppHaptics.selection();
+          onTap();
+        },
         borderRadius: BorderRadius.circular(AppRadius.pill),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -297,7 +339,11 @@ class _NavTab extends StatelessWidget {
                 color: color,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
-              child: Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+              child: Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),

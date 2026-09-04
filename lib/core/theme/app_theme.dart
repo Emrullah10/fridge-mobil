@@ -148,20 +148,26 @@ class AppTheme {
       cardTheme: CardThemeData(
         elevation: 0,
         color: colorScheme.surfaceContainerLow,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.card)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.card),
+        ),
         margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(52),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.button)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.button),
+          ),
           textStyle: textTheme.labelLarge,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(52),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.button)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.button),
+          ),
           side: BorderSide(color: colorScheme.outlineVariant),
           textStyle: textTheme.labelLarge,
         ),
@@ -175,7 +181,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
         // GoogleFonts.interTextTheme() argümansız çağrıldığında her zaman
         // ThemeData.light()'ın (siyaha yakın) renklerinden başlıyor — bu
         // alanlar açıkça set edilmezse Flutter dahili olarak bodyLarge'a
@@ -201,22 +210,33 @@ class AppTheme {
         ),
       ),
       listTileTheme: ListTileThemeData(
-        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.card)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.card),
+        ),
       ),
       dialogTheme: DialogThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.dialog)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.dialog),
+        ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: colorScheme.surface,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.dialog)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadius.dialog),
+          ),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.button)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.button),
+        ),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: colorScheme.surface,
@@ -226,23 +246,39 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: colorScheme.secondaryContainer,
-        labelStyle: textTheme.labelSmall?.copyWith(color: colorScheme.onSecondaryContainer),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.pill)),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+        labelStyle: textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSecondaryContainer,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
       ),
-      dividerTheme: DividerThemeData(color: colorScheme.outlineVariant, thickness: 1),
+      dividerTheme: DividerThemeData(
+        color: colorScheme.outlineVariant,
+        thickness: 1,
+      ),
       iconTheme: IconThemeData(color: colorScheme.onSurface),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.snackbar)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.snackbar),
+        ),
       ),
-      // Tüm push/pop geçişleri tek noktadan — bkz. app_page_transitions.dart.
-      // Mevcut çıplak MaterialPageRoute çağrılarının hiçbirine dokunmadan
-      // uygulanır (platform builder'ı override eder).
+      // Android'de tüm push/pop geçişleri tek noktadan — bkz.
+      // app_page_transitions.dart. Mevcut çıplak MaterialPageRoute
+      // çağrılarının hiçbirine dokunmadan uygulanır (platform builder'ı
+      // override eder). iOS'ta İSE native CupertinoPageTransitionsBuilder
+      // kullanılır — AppPageTransitionsBuilder iOS'a da atanırsa Cupertino'nun
+      // kenardan kaydırarak geri gitme (swipe-back) algılayıcısını
+      // devre dışı bırakıyor, bu iOS'ta kabul edilemez bir davranış kaybı.
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: AppPageTransitionsBuilder(),
-          TargetPlatform.iOS: AppPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
         },
       ),
     );

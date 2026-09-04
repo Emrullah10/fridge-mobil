@@ -6,7 +6,11 @@ import '../data/household_repository.dart';
 
 /// "Yeni Bölüm" / "Bölümü Düzenle" dialogunun sonucu: isim + tür + ikon.
 class StorageLocationFormResult {
-  const StorageLocationFormResult({required this.name, required this.kind, this.icon});
+  const StorageLocationFormResult({
+    required this.name,
+    required this.kind,
+    this.icon,
+  });
 
   final String name;
   final String kind;
@@ -26,84 +30,99 @@ Future<StorageLocationFormResult?> showStorageLocationFormDialog(
   return showDialog<StorageLocationFormResult>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setDialogState) => AlertDialog(
-        title: Text(existing == null ? 'Yeni Bölüm' : 'Bölümü Düzenle'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: controller,
-                decoration: const InputDecoration(hintText: 'Örn. Mutfak Dolabı, Depo, Kutu 1'),
-                autofocus: existing == null,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Tür', style: Theme.of(dialogContext).textTheme.bodySmall),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  for (final option in storageKindOptions)
-                    ChoiceChip(
-                      selected: selectedKind == option.kind,
-                      onSelected: (_) => setDialogState(() => selectedKind = option.kind),
-                      avatar: Icon(option.icon, size: 18),
-                      label: Text(option.label),
-                    ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'İkon (opsiyonel — boş bırakılırsa türün ikonu kullanılır)',
-                  style: Theme.of(dialogContext).textTheme.bodySmall,
+      builder: (dialogContext, setDialogState) {
+        void confirm() {
+          if (controller.text.trim().isEmpty) return;
+          Navigator.pop(
+            dialogContext,
+            StorageLocationFormResult(
+              name: controller.text.trim(),
+              kind: selectedKind,
+              icon: selectedIcon,
+            ),
+          );
+        }
+
+        return AlertDialog(
+          title: Text(existing == null ? 'Yeni Bölüm' : 'Bölümü Düzenle'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    hintText: 'Örn. Mutfak Dolabı, Depo, Kutu 1',
+                  ),
+                  autofocus: existing == null,
+                  textCapitalization: TextCapitalization.sentences,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => confirm(),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  for (final iconData in storageIconChoices)
-                    ChoiceChip(
-                      selected: iconKeyForIcon(iconData) == selectedIcon,
-                      onSelected: (selected) => setDialogState(
-                        () => selectedIcon = selected ? iconKeyForIcon(iconData) : null,
+                const SizedBox(height: AppSpacing.md),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Tür',
+                    style: Theme.of(dialogContext).textTheme.bodySmall,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    for (final option in storageKindOptions)
+                      ChoiceChip(
+                        selected: selectedKind == option.kind,
+                        onSelected: (_) =>
+                            setDialogState(() => selectedKind = option.kind),
+                        avatar: Icon(option.icon, size: 18),
+                        label: Text(option.label),
                       ),
-                      label: Icon(iconData, size: 18),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('İptal'),
-          ),
-          FilledButton(
-            onPressed: controller.text.trim().isEmpty
-                ? null
-                : () => Navigator.pop(
-                      dialogContext,
-                      StorageLocationFormResult(
-                        name: controller.text.trim(),
-                        kind: selectedKind,
-                        icon: selectedIcon,
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'İkon (opsiyonel — boş bırakılırsa türün ikonu kullanılır)',
+                    style: Theme.of(dialogContext).textTheme.bodySmall,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    for (final iconData in storageIconChoices)
+                      ChoiceChip(
+                        selected: iconKeyForIcon(iconData) == selectedIcon,
+                        onSelected: (selected) => setDialogState(
+                          () => selectedIcon = selected
+                              ? iconKeyForIcon(iconData)
+                              : null,
+                        ),
+                        label: Icon(iconData, size: 18),
                       ),
-                    ),
-            child: Text(existing == null ? 'Oluştur' : 'Kaydet'),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('İptal'),
+            ),
+            FilledButton(
+              onPressed: controller.text.trim().isEmpty ? null : confirm,
+              child: Text(existing == null ? 'Oluştur' : 'Kaydet'),
+            ),
+          ],
+        );
+      },
     ),
   );
 }

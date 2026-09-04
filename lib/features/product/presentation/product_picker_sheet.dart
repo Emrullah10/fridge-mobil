@@ -13,7 +13,10 @@ const _units = unitOptions;
 /// Ürün arama/seçme/oluşturma bottom sheet'i. Fiş düzeltme ve manuel
 /// envanter ekleme ekranlarının ikisi de bunu kullanır — tek bir yerden
 /// ürün seçtirme mantığı, tutarlı davranış.
-Future<Product?> showProductPicker(BuildContext context, {required String householdId}) {
+Future<Product?> showProductPicker(
+  BuildContext context, {
+  required String householdId,
+}) {
   return showModalBottomSheet<Product>(
     context: context,
     isScrollControlled: true,
@@ -26,7 +29,8 @@ class _ProductPickerSheet extends ConsumerStatefulWidget {
   final String householdId;
 
   @override
-  ConsumerState<_ProductPickerSheet> createState() => _ProductPickerSheetState();
+  ConsumerState<_ProductPickerSheet> createState() =>
+      _ProductPickerSheetState();
 }
 
 class _ProductPickerSheetState extends ConsumerState<_ProductPickerSheet> {
@@ -51,7 +55,9 @@ class _ProductPickerSheetState extends ConsumerState<_ProductPickerSheet> {
   Future<void> _search(String query) async {
     setState(() => _isLoading = true);
     try {
-      final results = await ref.read(productRepositoryProvider).search(widget.householdId, query: query);
+      final results = await ref
+          .read(productRepositoryProvider)
+          .search(widget.householdId, query: query);
       if (mounted) setState(() => _results = results);
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -76,12 +82,22 @@ class _ProductPickerSheetState extends ConsumerState<_ProductPickerSheet> {
           content: DropdownButtonFormField<String>(
             initialValue: selectedUnit,
             decoration: const InputDecoration(labelText: 'Birim'),
-            items: [for (final u in _units) DropdownMenuItem(value: u, child: Text(unitLabel(u)))],
-            onChanged: (value) => setDialogState(() => selectedUnit = value ?? 'piece'),
+            items: [
+              for (final u in _units)
+                DropdownMenuItem(value: u, child: Text(unitLabel(u))),
+            ],
+            onChanged: (value) =>
+                setDialogState(() => selectedUnit = value ?? 'piece'),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('İptal')),
-            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Oluştur')),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('İptal'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Oluştur'),
+            ),
           ],
         ),
       ),
@@ -91,7 +107,11 @@ class _ProductPickerSheetState extends ConsumerState<_ProductPickerSheet> {
 
     final product = await ref
         .read(productRepositoryProvider)
-        .create(widget.householdId, canonicalName: query, defaultUnit: selectedUnit);
+        .create(
+          widget.householdId,
+          canonicalName: query,
+          defaultUnit: selectedUnit,
+        );
     if (mounted) Navigator.of(context).pop(product);
   }
 
@@ -103,34 +123,60 @@ class _ProductPickerSheetState extends ConsumerState<_ProductPickerSheet> {
       maxChildSize: 0.9,
       expand: false,
       builder: (context, scrollController) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
-              child: TextField(
-                controller: _searchController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Ürün ara',
-                  prefixIcon: Icon(Icons.search_rounded),
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _searchController,
+                builder: (_, value, _) => TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: _onQueryChanged,
+                  decoration: InputDecoration(
+                    labelText: 'Ürün ara',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: value.text.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.close_rounded),
+                            tooltip: 'Temizle',
+                            onPressed: () {
+                              _searchController.clear();
+                              _onQueryChanged('');
+                            },
+                          ),
+                  ),
+                  onChanged: _onQueryChanged,
                 ),
-                onChanged: _onQueryChanged,
               ),
             ),
             if (_isLoading) const LinearProgressIndicator(),
             Expanded(
-              child: _results.isEmpty && !_isLoading && _searchController.text.trim().isEmpty
+              child:
+                  _results.isEmpty &&
+                      !_isLoading &&
+                      _searchController.text.trim().isEmpty
                   ? Center(
                       child: Text(
                         'Aramaya başla',
-                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     )
                   : ListView(
                       controller: scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                      ),
                       children: [
                         for (final product in _results)
                           ListTile(
@@ -140,8 +186,12 @@ class _ProductPickerSheetState extends ConsumerState<_ProductPickerSheet> {
                           ),
                         if (_searchController.text.trim().isNotEmpty)
                           ListTile(
-                            leading: const Icon(Icons.add_circle_outline_rounded),
-                            title: Text('"${_searchController.text.trim()}" olarak yeni ürün ekle'),
+                            leading: const Icon(
+                              Icons.add_circle_outline_rounded,
+                            ),
+                            title: Text(
+                              '"${_searchController.text.trim()}" olarak yeni ürün ekle',
+                            ),
                             onTap: _createNew,
                           ),
                         const SizedBox(height: AppSpacing.lg),

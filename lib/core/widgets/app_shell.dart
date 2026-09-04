@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../haptics.dart';
+
 import '../../features/household/application/household_providers.dart';
 import '../../features/household/data/household_repository.dart';
 import '../../features/household/presentation/household_home_screen.dart';
@@ -49,9 +51,27 @@ class AppShell extends ConsumerStatefulWidget {
 class AppShellState extends ConsumerState<AppShell> {
   int _index = 0;
   final Set<int> _built = {0};
+  // Sekme başına ScrollController — her sekme gövdesi kendi
+  // PrimaryScrollController'ı olarak bunu görür (ekran dosyalarındaki
+  // controller verilmemiş ListView/CustomScrollView'lar otomatik bağlanır).
+  // Aktif sekmeye tekrar dokununca listeyi en üste kaydırmak için kullanılır.
+  final Map<int, ScrollController> _scrollControllers = {};
 
-  List<AppBottomTabItem> _items(bool? foodEnabled) =>
-      visibleTabsFor(householdId: widget.household?.id, foodEnabled: foodEnabled);
+  ScrollController _scrollControllerFor(int index) =>
+      _scrollControllers.putIfAbsent(index, ScrollController.new);
+
+  @override
+  void dispose() {
+    for (final controller in _scrollControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  List<AppBottomTabItem> _items(bool? foodEnabled) => visibleTabsFor(
+    householdId: widget.household?.id,
+    foodEnabled: foodEnabled,
+  );
 
   void selectTab(AppBottomTab tab, {required bool? foodEnabled}) {
     final items = _items(foodEnabled);
@@ -63,10 +83,31 @@ class AppShellState extends ConsumerState<AppShell> {
     });
   }
 
+  // iOS'ta standart davranış: aktif sekmeye tekrar dokunmak listeyi en üste
+  // kaydırır. positions.length == 1 koruması şart — TabBarView gibi iç içe
+  // birden fazla Scrollable aynı anda aynı PrimaryScrollController'a
+  // bağlanabiliyor (recipes_screen.dart), o durumda animateTo istisna
+  // fırlatır; böyle bir belirsizlikte sessizce atlanır.
+  void _scrollSelectedTabToTop(int index) {
+    final controller = _scrollControllers[index];
+    if (controller == null || !controller.hasClients) return;
+    if (controller.positions.length != 1) return;
+    if (controller.offset <= 0) return;
+    AppHaptics.selection();
+    controller.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   Widget _bodyFor(AppBottomTabItem item) {
     final household = widget.household;
     return switch (item.tab) {
-      AppBottomTab.areas => household == null ? const HouseholdListScreen() : HouseholdHomeScreen(household: household),
+      AppBottomTab.areas =>
+        household == null
+            ? const HouseholdListScreen()
+            : HouseholdHomeScreen(household: household),
       AppBottomTab.shopping => ShoppingListScreen(householdId: household!.id),
       AppBottomTab.recipes => RecipesScreen(householdId: household!.id),
       AppBottomTab.insights => InsightsScreen(householdId: household!.id),
@@ -80,7 +121,9 @@ class AppShellState extends ConsumerState<AppShell> {
     // household prop'u ile gelen alan bilgisi, o an eski (stale) olabilir —
     // canlı foodEnabled durumu households listesinden okunur (AppBottomNav'ın
     // eski davranışıyla aynı kaynak).
-    final liveHousehold = household == null ? null : ref.watch(householdByIdProvider(household.id));
+    final liveHousehold = household == null
+        ? null
+        : ref.watch(householdByIdProvider(household.id));
     final foodEnabled = liveHousehold?.foodEnabled ?? household?.foodEnabled;
     final items = _items(foodEnabled);
     final selectedIndex = _index >= items.length ? 0 : _index;
@@ -97,7 +140,13 @@ class AppShellState extends ConsumerState<AppShell> {
             // TickerMode: gizli sekmelerin animasyonları uyusun; ayrıca
             // coach_tour_launcher görünürlüğü buradan okur — arkadaki bir
             // sekme (provider değişimiyle) rebuild olduğunda turunu açmasın.
-            TickerMode(enabled: i == selectedIndex, child: _bodyFor(items[i]))
+            TickerMode(
+              enabled: i == selectedIndex,
+              child: PrimaryScrollController(
+                controller: _scrollControllerFor(i),
+                child: _bodyFor(items[i]),
+              ),
+            )
           else
             const SizedBox.shrink(),
       ],
@@ -110,7 +159,8 @@ class AppShellState extends ConsumerState<AppShell> {
         : PopScope(
             canPop: selectedIndex == 0,
             onPopInvokedWithResult: (didPop, _) {
-              if (!didPop) selectTab(AppBottomTab.areas, foodEnabled: foodEnabled);
+              if (!didPop)
+                selectTab(AppBottomTab.areas, foodEnabled: foodEnabled);
             },
             child: content,
           );
@@ -123,9 +173,11 @@ class AppShellState extends ConsumerState<AppShell> {
         selectedIndex: selectedIndex,
         onSelected: (index) {
           if (index == selectedIndex) {
-            // Aynı sekmeye tekrar dokunma: Alan/Alanlarım sekmesindeyken o
-            // ekranın kendi iç yığınını köküne döndür (ör. Envanter detayından
-            // çıkar). Diğer sekmelerde zaten görünür durumda, hiçbir şey yapma.
+            // Aynı sekmeye tekrar dokunma: listesi varsa en üste kaydır
+            // (iOS standart davranışı). Alan/Alanlarım sekmesinde ayrıca o
+            // ekranın kendi iç yığınını köküne döndürmek gerekebilir — bu,
+            // ilgili ekranların kendi navigasyon mantığında ele alınıyor.
+            _scrollSelectedTabToTop(index);
             return;
           }
           setState(() {

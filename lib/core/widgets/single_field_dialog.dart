@@ -30,11 +30,16 @@ Future<String?> showSingleFieldDialog(
             decoration: InputDecoration(hintText: hintText),
             autofocus: true,
             obscureText: obscureText,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (value) => Navigator.pop(dialogContext, value.trim()),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('İptal')),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('İptal'),
+        ),
         FilledButton(
           onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
           child: Text(confirmLabel),

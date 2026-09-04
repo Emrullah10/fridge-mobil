@@ -14,18 +14,25 @@ import '../application/inventory_providers.dart';
 import 'barcode_scan_screen.dart';
 
 class AddInventoryItemScreen extends ConsumerStatefulWidget {
-  const AddInventoryItemScreen({super.key, required this.householdId, required this.storageLocationId});
+  const AddInventoryItemScreen({
+    super.key,
+    required this.householdId,
+    required this.storageLocationId,
+  });
 
   final String householdId;
   final String storageLocationId;
 
   @override
-  ConsumerState<AddInventoryItemScreen> createState() => _AddInventoryItemScreenState();
+  ConsumerState<AddInventoryItemScreen> createState() =>
+      _AddInventoryItemScreenState();
 }
 
-class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen> {
+class _AddInventoryItemScreenState
+    extends ConsumerState<AddInventoryItemScreen> {
   final _quantityController = TextEditingController(text: '1');
   final _unitPriceController = TextEditingController();
+  final _unitPriceFocus = FocusNode();
   Product? _selectedProduct;
   DateTime? _expiresAt;
   bool _isSaving = false;
@@ -35,11 +42,15 @@ class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen>
   void dispose() {
     _quantityController.dispose();
     _unitPriceController.dispose();
+    _unitPriceFocus.dispose();
     super.dispose();
   }
 
   Future<void> _pickProduct() async {
-    final product = await showProductPicker(context, householdId: widget.householdId);
+    final product = await showProductPicker(
+      context,
+      householdId: widget.householdId,
+    );
     if (product != null) setState(() => _selectedProduct = product);
   }
 
@@ -54,7 +65,9 @@ class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen>
       _errorMessage = null;
     });
     try {
-      final result = await ref.read(productRepositoryProvider).lookupBarcode(widget.householdId, code);
+      final result = await ref
+          .read(productRepositoryProvider)
+          .lookupBarcode(widget.householdId, code);
       if (!mounted) return;
       if (result.found && result.product != null) {
         setState(() => _selectedProduct = result.product);
@@ -62,7 +75,10 @@ class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen>
           SnackBar(content: Text('${result.product!.canonicalName} seçildi')),
         );
       } else {
-        setState(() => _errorMessage = 'Barkod tanınmadı ($code). Ürünü elle seçebilirsin.');
+        setState(
+          () => _errorMessage =
+              'Barkod tanınmadı ($code). Ürünü elle seçebilirsin.',
+        );
       }
     } catch (error) {
       if (mounted) setState(() => _errorMessage = describeApiError(error));
@@ -102,7 +118,9 @@ class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen>
     final unitPrice = priceText.isEmpty ? null : double.tryParse(priceText);
 
     try {
-      await ref.read(inventoryRepositoryProvider).addItem(
+      await ref
+          .read(inventoryRepositoryProvider)
+          .addItem(
             widget.householdId,
             storageLocationId: widget.storageLocationId,
             productId: product.id,
@@ -111,7 +129,10 @@ class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen>
             expiresAt: _expiresAt,
             unitPrice: unitPrice,
           );
-      final params = InventoryParams(householdId: widget.householdId, storageLocationId: widget.storageLocationId);
+      final params = InventoryParams(
+        householdId: widget.householdId,
+        storageLocationId: widget.storageLocationId,
+      );
       ref.invalidate(inventoryItemsProvider(params));
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
@@ -131,75 +152,80 @@ class _AddInventoryItemScreenState extends ConsumerState<AddInventoryItemScreen>
       // içine alınır (önceden Column doğrudan Padding altındaydı ve
       // klavye açılınca RenderFlex overflow veriyordu).
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: formMaxWidth),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: AppFormScroll(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.search_rounded),
-                          label: Text(
-                            _selectedProduct?.canonicalName ?? 'Ürün seç',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          onPressed: _isSaving ? null : _pickProduct,
-                        ),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.search_rounded),
+                      label: Text(
+                        _selectedProduct?.canonicalName ?? 'Ürün seç',
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: AppSpacing.sm),
-                      IconButton.outlined(
-                        tooltip: 'Barkod okut',
-                        icon: const Icon(Icons.qr_code_scanner_rounded),
-                        onPressed: _isSaving ? null : _scanBarcode,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  TextField(
-                    controller: _quantityController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: 'Miktar',
-                      suffixText: _selectedProduct?.defaultUnit,
+                      onPressed: _isSaving ? null : _pickProduct,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  TextField(
-                    controller: _unitPriceController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Birim fiyat (opsiyonel)',
-                      prefixText: '₺ ',
-                      helperText: 'Para & israf panelinde harcamayı görebilmek için',
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.event_rounded),
-                    label: Text(
-                      _expiresAt != null
-                          ? 'SKT: ${dateFormat.format(_expiresAt!)}'
-                          : 'Son kullanma tarihi ekle (opsiyonel)',
-                    ),
-                    onPressed: _pickExpiryDate,
-                  ),
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    FormErrorText(_errorMessage!),
-                  ],
-                  const SizedBox(height: AppSpacing.lg),
-                  FilledButton(
-                    onPressed: _isSaving ? null : _save,
-                    child: _isSaving ? const ButtonProgress() : const Text('Ekle'),
+                  const SizedBox(width: AppSpacing.sm),
+                  IconButton.outlined(
+                    tooltip: 'Barkod okut',
+                    icon: const Icon(Icons.qr_code_scanner_rounded),
+                    onPressed: _isSaving ? null : _scanBarcode,
                   ),
                 ],
               ),
-            ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: _quantityController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                textInputAction: TextInputAction.next,
+                onSubmitted: (_) => _unitPriceFocus.requestFocus(),
+                decoration: InputDecoration(
+                  labelText: 'Miktar',
+                  suffixText: _selectedProduct?.defaultUnit,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: _unitPriceController,
+                focusNode: _unitPriceFocus,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _isSaving ? null : _save(),
+                decoration: const InputDecoration(
+                  labelText: 'Birim fiyat (opsiyonel)',
+                  prefixText: '₺ ',
+                  helperText:
+                      'Para & israf panelinde harcamayı görebilmek için',
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.event_rounded),
+                label: Text(
+                  _expiresAt != null
+                      ? 'SKT: ${dateFormat.format(_expiresAt!)}'
+                      : 'Son kullanma tarihi ekle (opsiyonel)',
+                ),
+                onPressed: _pickExpiryDate,
+              ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                FormErrorText(_errorMessage!),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton(
+                onPressed: _isSaving ? null : _save,
+                child: _isSaving ? const ButtonProgress() : const Text('Ekle'),
+              ),
+            ],
           ),
         ),
       ),

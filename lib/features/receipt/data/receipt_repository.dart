@@ -69,7 +69,7 @@ class ReceiptLineItem {
 }
 
 class ReceiptScanResult {
-  const ReceiptScanResult({required this.status, required this.lineItems, this.totalAmount});
+  const ReceiptScanResult({required this.status, required this.lineItems, this.totalAmount, this.errorMessage});
   final String status;
   final List<ReceiptLineItem> lineItems;
 
@@ -77,6 +77,11 @@ class ReceiptScanResult {
   /// (receipt_scan.total_amount) — satır fiyatları toplamıyla karşılaştırıp
   /// kullanıcıya "kaç kalemin fiyatı eksik" sinyali vermek için.
   final double? totalAmount;
+
+  /// status 'failed' olduğunda backend'in kaydettiği sebep (bkz.
+  /// process-receipt-scan.use-case.js markFailed) — ev ekranındaki "Fiş
+  /// işlenemedi" banner'ı eskiden bunu hiç göstermiyordu.
+  final String? errorMessage;
 }
 
 class ReceiptScanSummary {
@@ -140,6 +145,7 @@ class ReceiptRepository {
       status: scan['status'] as String,
       lineItems: items.map((i) => ReceiptLineItem.fromJson(i as Map<String, dynamic>)).toList(),
       totalAmount: (scan['totalAmount'] as num?)?.toDouble(),
+      errorMessage: scan['errorMessage'] as String?,
     );
   }
 
