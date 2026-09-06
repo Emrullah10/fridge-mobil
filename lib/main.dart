@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -60,9 +61,14 @@ void main() {
         options: DefaultFirebaseOptions.currentPlatform,
       );
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-      // Anahtar boşsa (henüz RevenueCat hesabı kurulmadı) sessizce no-op —
-      // configure() kendi içinde kontrol ediyor, boot asla çökmez.
-      await PurchaseRepository.configure(apiKey: dotenv.env['REVENUECAT_API_KEY'] ?? '');
+      // RevenueCat platform başına AYRI API anahtarı ister: iOS = App Store
+      // anahtarı (appl_...), Android = Google Play anahtarı (goog_...).
+      // Anahtar boşsa (o platform için henüz kurulmadı) configure() sessizce
+      // no-op yapar — boot asla çökmez, paywall kapanır.
+      final revenueCatApiKey = !kIsWeb && Platform.isIOS
+          ? (dotenv.env['REVENUECAT_API_KEY_IOS'] ?? '')
+          : (dotenv.env['REVENUECAT_API_KEY'] ?? '');
+      await PurchaseRepository.configure(apiKey: revenueCatApiKey);
       runApp(const ProviderScope(child: FridgeApp()));
     },
     (error, stack) {
