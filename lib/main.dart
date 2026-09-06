@@ -18,9 +18,11 @@ import 'core/error/api_error.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_providers.dart';
 import 'core/version/app_config_repository.dart';
+import 'core/version/version_prefs.dart';
 import 'features/auth/application/auth_providers.dart';
 import 'features/auth/presentation/welcome_screen.dart';
 import 'features/billing/data/purchase_repository.dart';
+import 'features/billing/presentation/premium_intro_screen.dart';
 import 'core/widgets/app_shell.dart';
 import 'features/household/application/household_providers.dart';
 import 'features/notification/application/notification_providers.dart';
@@ -192,8 +194,11 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
           _storeUrl = config.storeUrl;
         });
       } else if (compareVersions(currentVersion, config.latestVersion) < 0) {
+        final dismissed = await dismissedUpdateVersion();
+        if (dismissed == config.latestVersion) return;
+        if (!mounted) return;
         WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _showUpdateBanner(config.storeUrl),
+          (_) => _showUpdateBanner(config.storeUrl, config.latestVersion),
         );
       }
     } catch (_) {
@@ -201,7 +206,7 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
     }
   }
 
-  void _showUpdateBanner(String storeUrl) {
+  void _showUpdateBanner(String storeUrl, String latestVersion) {
     final context = rootNavigatorKey.currentContext;
     if (context == null || !context.mounted) return;
     ScaffoldMessenger.of(context).showMaterialBanner(
@@ -211,6 +216,7 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
           TextButton(
             onPressed: () {
               ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              setDismissedUpdateVersion(latestVersion);
               launchUrl(
                 Uri.parse(storeUrl),
                 mode: LaunchMode.externalApplication,
@@ -219,8 +225,10 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
             child: const Text('Güncelle'),
           ),
           TextButton(
-            onPressed: () =>
-                ScaffoldMessenger.of(context).hideCurrentMaterialBanner(),
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              setDismissedUpdateVersion(latestVersion);
+            },
             child: const Text('Kapat'),
           ),
         ],
@@ -306,6 +314,23 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
     super.dispose();
   }
 
+  /// Kullanıcı ilk kez AppShell'e girdiğinde (guest ya da authenticated,
+  /// tanıtım/giriş akışı bittikten sonra) bir kez PremiumIntroScreen'i push
+  /// eder — bkz. onboarding_providers.dart premiumIntroSeenProvider.
+  /// IntroScreen'den (henüz hesabı olmayan kullanıcı) SONRA, hesap
+  /// oluştuktan hemen sonra tetiklenir; her oturum açılışında değil, sadece
+  /// bayrak hiç set edilmemişse.
+  Future<void> _maybeShowPremiumIntro() async {
+    final seen = ref.read(premiumIntroSeenProvider);
+    if (seen != false) return; // null (henüz okunmadı) veya true ise atla
+    final context = rootNavigatorKey.currentContext;
+    if (context == null || !context.mounted) return;
+    ref.read(premiumIntroSeenProvider.notifier).markSeen();
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PremiumIntroScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_forceUpdateRequired) {
@@ -381,6 +406,13 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
             WidgetsBinding.instance.addPostFrameCallback(
               (_) => _confirmJoin(pendingCode),
             );
+          });
+        } else {
+          // Davet dialogu yoksa aynı boş frame turunu premium tanıtımı için
+          // kullan — ikisi aynı anda push edilmeye çalışılırsa çakışır, bu
+          // yüzden birbirini dışlar (davet önceliklidir).
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowPremiumIntro());
           });
         }
       } else if (wasSignedIn) {

@@ -9,7 +9,7 @@ import '../../../core/widgets/single_field_dialog.dart';
 import '../../auth/application/auth_providers.dart';
 import '../../auth/presentation/upgrade_account_screen.dart';
 import '../../billing/application/entitlements_providers.dart';
-import '../../billing/presentation/subscription_screen.dart';
+import '../../billing/presentation/widgets/premium_status_card.dart';
 import '../../notification/application/notification_providers.dart';
 import '../../onboarding/application/onboarding_providers.dart';
 import 'diet_profile_screen.dart';
@@ -244,6 +244,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
+            // Misafire de gösterilir (bkz. premium_status_card.dart) — eski
+            // "Abonelik" satırı HESAP bölümünde sadece kayıtlı kullanıcıya
+            // görünüyordu, misafir modunda premium hiç görünmüyordu.
+            const PremiumStatusCard(),
+            const SizedBox(height: AppSpacing.sm),
             Card(
               child: ListTile(
                 leading: const Icon(Icons.restaurant_menu_rounded),
@@ -349,14 +354,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
                 if (!(user?.isGuest ?? false)) ...[
                   ListTile(
-                    leading: const Icon(Icons.workspace_premium_outlined),
-                    title: const Text('Abonelik'),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const SubscriptionScreen()),
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
                     leading: const Icon(Icons.lock_outline_rounded),
                     title: const Text('Şifreyi değiştir'),
                     onTap: () => _changePassword(context, ref),
@@ -386,6 +383,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: const Text('Tanıtımı tekrar göster'),
               onTap: () {
                 ref.read(onboardingSeenProvider.notifier).reset();
+                ref.read(premiumIntroSeenProvider.notifier).reset();
                 for (final id in CoachTourId.values) {
                   ref.read(tourSeenProvider(id).notifier).reset();
                 }

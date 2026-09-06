@@ -40,6 +40,34 @@ class PurchaseResult {
   final String? errorMessage;
 }
 
+/// fetchOfferings()'in üç ayrı "boş" durumu — eskiden hepsi tek bir
+/// `const []` altında birleşiyordu, UI hangi sebeple boş olduğunu asla
+/// bilemiyordu (bkz. buglog: "abonelik ekranı boş geliyor").
+enum OfferingsFailure {
+  /// REVENUECAT_API_KEY boş/gömülmemiş — configure() hiç çağrılmadı.
+  notConfigured,
+
+  /// RC yapılandırıldı ama Dashboard'da "current" işaretli bir offering
+  /// yok / ürünler attach edilmemiş / Play'de ürün henüz aktif değil.
+  noOffering,
+
+  /// Purchases.getOfferings() exception fırlattı (ağ hatası, Play Billing
+  /// yok, sideload edilmiş debug build vb.) — eskiden hiç yakalanmıyordu.
+  storeError,
+}
+
+class OfferingsResult {
+  const OfferingsResult.success(this.products) : failure = null, debugMessage = null;
+  const OfferingsResult.failed(this.failure, {this.debugMessage}) : products = const [];
+
+  final List<PurchaseProduct> products;
+  final OfferingsFailure? failure;
+
+  /// Sadece hata ayıklama için — kullanıcıya ham gösterilmez (paywall'da
+  /// yalnızca kDebugMode'da küçük gri metin olarak eklenir).
+  final String? debugMessage;
+}
+
 class PurchaseRepository {
   static bool _configured = false;
 
@@ -82,20 +110,31 @@ class PurchaseRepository {
 
   /// Play Console'da tanımlı paketleri (aylık/yıllık) döner — paywall
   /// ekranı bunları listeler. RC'de bir "offering" (varsayılan: "default")
-  /// altında toplanır.
-  Future<List<PurchaseProduct>> fetchOfferings() async {
-    if (!_configured) return const [];
-    final offerings = await Purchases.getOfferings();
-    final current = offerings.current;
-    if (current == null) return const [];
-    return current.availablePackages
-        .map((pkg) => PurchaseProduct(
-              identifier: pkg.storeProduct.identifier,
-              priceString: pkg.storeProduct.priceString,
-              title: pkg.storeProduct.title,
-              description: pkg.storeProduct.description,
-            ))
-        .toList();
+  /// altında toplanır. Üç ayrı "boş" durumu ayırt eder (bkz.
+  /// OfferingsFailure) — eskiden hepsi sessizce `[]` dönüyordu ve
+  /// getOfferings() bir exception fırlatırsa hiç yakalanmıyordu, bu da
+  /// paywall'da sonsuz spinner'a sebep oluyordu.
+  Future<OfferingsResult> fetchOfferings() async {
+    if (!_configured) return const OfferingsResult.failed(OfferingsFailure.notConfigured);
+    try {
+      final offerings = await Purchases.getOfferings();
+      final current = offerings.current;
+      if (current == null || current.availablePackages.isEmpty) {
+        return const OfferingsResult.failed(OfferingsFailure.noOffering);
+      }
+      return OfferingsResult.success(
+        current.availablePackages
+            .map((pkg) => PurchaseProduct(
+                  identifier: pkg.storeProduct.identifier,
+                  priceString: pkg.storeProduct.priceString,
+                  title: pkg.storeProduct.title,
+                  description: pkg.storeProduct.description,
+                ))
+            .toList(),
+      );
+    } catch (e) {
+      return OfferingsResult.failed(OfferingsFailure.storeError, debugMessage: e.toString());
+    }
   }
 
   /// Satın alma başlatır. Sonucu backend'e HİÇ bildirmez — RevenueCat

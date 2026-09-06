@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../application/entitlements_providers.dart';
 import '../data/purchase_repository.dart';
+import 'widgets/premium_benefits_card.dart';
 
 /// Tam ekran paywall — deneme bitişinde (plan §Faz 4 tetikleyici #3) veya
 /// "Premium'a Geç" ile açılır. Bağlamsal alt sayfadan (paywall_sheet.dart)
@@ -20,9 +22,12 @@ class PaywallScreen extends ConsumerStatefulWidget {
 
 class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   List<PurchaseProduct> _products = const [];
+  OfferingsFailure? _failure;
+  String? _debugMessage;
   bool _loading = true;
   String? _selectedId;
   bool _purchasing = false;
+  bool _restoring = false;
   // Aile paketi 4 ürünle geldiği için (bireysel aylık/yıllık + aile aylık/
   // yıllık) artık tek bir 'annual' araması yetmiyor — ürün kimliğinde
   // 'family' geçenler ayrı bir sekmede gösterilir (bkz. plan §Mobil özet).
@@ -40,19 +45,32 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       _products.where((p) => p.identifier.contains('family')).toList();
   List<PurchaseProduct> get _visibleProducts => _familyTab ? _familyProducts : _individualProducts;
 
+  /// try/catch/finally ile sarılı — eskiden fetchOfferings() bir exception
+  /// fırlatırsa hiç yakalanmıyordu, bu da _loading hiç false olmadığı için
+  /// ekranın sonsuza kadar spinner'da donmasına sebep oluyordu (buglog:
+  /// "abonelik ekranı boş geliyor").
   Future<void> _loadProducts() async {
-    final products = await ref.read(purchaseRepositoryProvider).fetchOfferings();
-    if (!mounted) return;
     setState(() {
-      _products = products;
-      _loading = false;
-      // Yıllık varsayılan seçili (plan §Faz 4 "Paywall içeriği") — ürün
-      // kimlikleri Play Console'da 'fridge_premium_annual'/'_monthly'
-      // olarak tanımlanacak (plan §Faz 5 Ürünler tablosu); burada isim
-      // içinde 'annual' geçeni ararız, yoksa ilk ürün seçilir.
-      _selectedId = _individualProducts.where((p) => p.identifier.contains('annual')).firstOrNull?.identifier
-          ?? _individualProducts.firstOrNull?.identifier;
+      _loading = true;
+      _failure = null;
     });
+    try {
+      final result = await ref.read(purchaseRepositoryProvider).fetchOfferings();
+      if (!mounted) return;
+      setState(() {
+        _products = result.products;
+        _failure = result.failure;
+        _debugMessage = result.debugMessage;
+        // Yıllık varsayılan seçili (plan §Faz 4 "Paywall içeriği") — ürün
+        // kimlikleri Play Console'da 'fridge_premium_annual'/'_monthly'
+        // olarak tanımlanacak (plan §Faz 5 Ürünler tablosu); burada isim
+        // içinde 'annual' geçeni ararız, yoksa ilk ürün seçilir.
+        _selectedId = _individualProducts.where((p) => p.identifier.contains('annual')).firstOrNull?.identifier
+            ?? _individualProducts.firstOrNull?.identifier;
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   void _selectTab(bool family) {
@@ -86,6 +104,24 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     }
   }
 
+  /// Play politikası: satın alma "geri yükle" seçeneği sunulmalı — webhook
+  /// kaçarsa (nadiren) kullanıcının tek kurtarma yolu. Önceden tanımlıydı
+  /// ama hiçbir ekrandan çağrılmıyordu.
+  Future<void> _restore() async {
+    setState(() => _restoring = true);
+    final restored = await ref.read(purchaseRepositoryProvider).restorePurchases();
+    if (!mounted) return;
+    setState(() => _restoring = false);
+    if (restored) {
+      ref.read(entitlementsControllerProvider.notifier).invalidate();
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(restored ? 'Satın alımların geri yüklendi.' : 'Geri yüklenecek bir satın alma bulunamadı.'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -98,64 +134,75 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
+        child: ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Icon(Icons.workspace_premium_rounded, size: 56, color: theme.colorScheme.primary),
-              const SizedBox(height: AppSpacing.md),
-              Text('Fridge Premium', style: theme.textTheme.headlineSmall, textAlign: TextAlign.center),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Sınırsız fiş tarama, tarif üretimi ve AI Chef',
-                style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              if (_loading)
-                const Center(child: CircularProgressIndicator())
-              else if (_products.isEmpty)
-                _NotConfiguredNotice(theme: theme)
-              else ...[
-                if (_familyProducts.isNotEmpty) ...[
-                  _PlanTabSelector(
-                    familySelected: _familyTab,
-                    onSelect: _selectTab,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  if (_familyTab)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: Text(
-                        '5 kişiye kadar ev halkın tam premium olur.',
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                ],
-                for (final product in _visibleProducts)
-                  _ProductTile(
-                    product: product,
-                    selected: product.identifier == _selectedId,
-                    onTap: () => setState(() => _selectedId = product.identifier),
-                  ),
-                const SizedBox(height: AppSpacing.lg),
-                FilledButton(
-                  onPressed: _purchasing ? null : _purchase,
-                  child: _purchasing
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Devam Et'),
+          children: [
+            Icon(Icons.workspace_premium_rounded, size: 56, color: theme.colorScheme.primary),
+            const SizedBox(height: AppSpacing.md),
+            Text('Fridge Premium', style: theme.textTheme.headlineSmall, textAlign: TextAlign.center),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Sınırsız fiş tarama, tarif üretimi ve AI Chef',
+              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            const PremiumBenefitsCard(),
+            const SizedBox(height: AppSpacing.lg),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_failure != null)
+              _OfferingsProblemNotice(failure: _failure!, debugMessage: _debugMessage, onRetry: _loadProducts)
+            else ...[
+              if (_familyProducts.isNotEmpty) ...[
+                _PlanTabSelector(
+                  familySelected: _familyTab,
+                  onSelect: _selectTab,
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                Text(
-                  'Otomatik yenilenir · İstediğin zaman iptal edebilirsin',
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                  textAlign: TextAlign.center,
-                ),
+                if (_familyTab)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: Text(
+                      'Ev halkın tam premium olur.',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
               ],
+              for (final product in _visibleProducts)
+                _ProductTile(
+                  product: product,
+                  selected: product.identifier == _selectedId,
+                  onTap: () => setState(() => _selectedId = product.identifier),
+                ),
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton(
+                onPressed: _purchasing ? null : _purchase,
+                child: _purchasing
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Devam Et'),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Otomatik yenilenir · İstediğin zaman iptal edebilirsin',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Center(
+                child: TextButton(
+                  onPressed: _restoring ? null : _restore,
+                  child: _restoring
+                      ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Satın alımları geri yükle'),
+                ),
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );
@@ -273,18 +320,47 @@ class _ProductTile extends StatelessWidget {
   }
 }
 
-class _NotConfiguredNotice extends StatelessWidget {
-  const _NotConfiguredNotice({required this.theme});
-  final ThemeData theme;
+/// fetchOfferings()'in üç OfferingsFailure durumunu kullanıcıya ayrı ayrı,
+/// suçlayıcı olmayan bir dille anlatır + "Tekrar dene" butonu — eskiden
+/// tek bir "yakında açılıyor" metni vardı, sorunun sebebi hiç görünmüyordu.
+class _OfferingsProblemNotice extends StatelessWidget {
+  const _OfferingsProblemNotice({required this.failure, required this.debugMessage, required this.onRetry});
+
+  final OfferingsFailure failure;
+  final String? debugMessage;
+  final VoidCallback onRetry;
+
+  String get _message => switch (failure) {
+        OfferingsFailure.notConfigured => 'Abonelik satın alma şu an bu sürümde kapalı.',
+        OfferingsFailure.noOffering => 'Paketler şu anda yüklenemedi, birazdan tekrar dene.',
+        OfferingsFailure.storeError => 'Mağazaya ulaşılamadı — internet bağlantını kontrol edip tekrar dene.',
+      };
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-      child: Text(
-        'Abonelik satın alma yakında açılıyor.',
-        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-        textAlign: TextAlign.center,
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+      child: Column(
+        children: [
+          Icon(Icons.cloud_off_rounded, size: 40, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            _message,
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          if (kDebugMode && debugMessage != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '${failure.name}: $debugMessage',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+              textAlign: TextAlign.center,
+            ),
+          ],
+          const SizedBox(height: AppSpacing.md),
+          OutlinedButton(onPressed: onRetry, child: const Text('Tekrar dene')),
+        ],
       ),
     );
   }

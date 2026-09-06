@@ -7,6 +7,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// tek satır değişiklikle tüm kullanıcılara tekrar gösterilebilsin diye.
 const _prefsKey = 'onboarding_seen_v1';
 
+/// Onboarding sonrası (AppShell'e ilk giriş) bir kez gösterilen premium
+/// tanıtımı görüldü mü — aynı _FlagController deseni, "v1" aynı sebeple.
+const _premiumIntroPrefsKey = 'premium_intro_seen_v1';
+
 /// Ekran başına spotlight turları. Her ana ekran ilk kez açıldığında kendi
 /// mini turu çalışır; her turun kendi kalıcı bayrağı var. `householdHome`'un
 /// anahtarı ESKİ isimde (`coach_tour_seen_v1`) bırakıldı — mevcut kullanıcılar
@@ -63,3 +67,10 @@ final onboardingSeenProvider = StateNotifierProvider<_FlagController, bool?>((re
 final tourSeenProvider = StateNotifierProvider.family<_FlagController, bool?, CoachTourId>(
   (ref, id) => _FlagController(id.prefsKey),
 );
+
+/// null = henüz okunmadı, false = ilk kez AppShell'e girildiğinde
+/// PremiumIntroScreen gösterilmeli, true = bir daha gösterilmez. Ayarlar'daki
+/// "Tanıtımı tekrar göster" bunu da sıfırlar (bkz. settings_screen.dart).
+final premiumIntroSeenProvider = StateNotifierProvider<_FlagController, bool?>((ref) {
+  return _FlagController(_premiumIntroPrefsKey);
+});

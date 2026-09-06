@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../application/entitlements_providers.dart';
 import '../domain/entitlements.dart';
 import 'paywall_screen.dart';
+import 'widgets/premium_benefits_card.dart';
 
 /// Abonelik yönetim ekranı — Play'in 2026 zorunluluğu: uygulama içinden
 /// iptal, en fazla 2 dokunuş (plan §Faz 5). Buraya gelmek 1. dokunuş,
@@ -95,6 +96,8 @@ class SubscriptionScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.md),
             _FamilyRosterCard(roster: entitlements.family!),
           ],
+          const SizedBox(height: AppSpacing.md),
+          const PremiumBenefitsCard(),
           const SizedBox(height: AppSpacing.lg),
           if (entitlements.isPremium || entitlements.isTrial)
             FilledButton.tonal(
