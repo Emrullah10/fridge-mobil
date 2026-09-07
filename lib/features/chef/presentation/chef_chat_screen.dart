@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../billing/application/paywall_controller.dart';
+import '../../billing/presentation/widgets/quota_upsell_banner.dart';
 import '../../shopping/application/shopping_providers.dart';
 import '../application/chef_providers.dart';
 import '../data/chef_repository.dart';
@@ -156,6 +157,10 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
       ),
       body: Column(
         children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+            child: QuotaUpsellBanner(feature: 'chef'),
+          ),
           if (state.error != null)
             Container(
               width: double.infinity,

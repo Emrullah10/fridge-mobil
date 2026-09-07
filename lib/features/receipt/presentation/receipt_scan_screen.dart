@@ -9,6 +9,8 @@ import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/responsive.dart';
 import '../../../core/widgets/scan_progress.dart';
+import '../../billing/application/paywall_controller.dart';
+import '../../billing/presentation/widgets/quota_upsell_banner.dart';
 import '../application/receipt_providers.dart';
 import '../data/on_device_ocr.dart';
 import '../data/receipt_stitcher.dart';
@@ -122,10 +124,20 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
           .start(scanId);
       Navigator.of(context).pop();
     } catch (error) {
-      setState(() {
-        _step = _ScanStep.idle;
-        _errorMessage = describeApiError(error);
-      });
+      setState(() => _step = _ScanStep.idle);
+      // 402 (misafir/kota dolu) -> paywall; eskiden ham sunucu mesajı düz
+      // yazı olarak gösteriliyordu, hiçbir yükseltme yolu sunulmuyordu —
+      // uygulamanın amiral özelliği (fiş tarama) yükseltme akışı hiç
+      // açmıyordu.
+      final planLimitInfo = PlanLimitInfo.tryParse(error);
+      if (planLimitInfo != null && mounted) {
+        final controllerAsync = ref.read(paywallControllerProvider);
+        controllerAsync.whenData((controller) {
+          controller.maybeShow(context, trigger: PaywallTrigger.quotaExceeded, info: planLimitInfo);
+        });
+      } else {
+        setState(() => _errorMessage = describeApiError(error));
+      }
     }
   }
 
@@ -167,6 +179,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const QuotaUpsellBanner(feature: 'receipt'),
               if (isBusy) ...[
                 ScanProgress(
                   steps: const [

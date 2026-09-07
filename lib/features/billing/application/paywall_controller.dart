@@ -31,17 +31,26 @@ class PaywallController {
   static const _dismissedPrefix = 'paywall_dismissed_until_';
   static const _lastShownPrefix = 'paywall_last_shown_';
 
-  /// Test edilebilirlik için dışa açık — showPaywallSheet'in gerçek bir
-  /// BuildContext/widget ağacı kurmadan frekans mantığını doğrudan test
-  /// etmeyi sağlar (bkz. paywall_controller_test.dart).
-  @visibleForTesting
+  /// Dışa açık — banner'lar (ör. QuotaUpsellBanner) `maybeShow`'un modal
+  /// akışını kullanmadan "şu an göstermeli miyim?" diye sorar; ayrıca
+  /// showPaywallSheet'in gerçek bir BuildContext/widget ağacı kurmadan
+  /// frekans mantığını doğrudan test etmeyi sağlar (bkz.
+  /// paywall_controller_test.dart).
   bool isFrequencyLimited(PaywallTrigger trigger) => _isFrequencyLimited(trigger);
+
+  /// Tetikleyici başına minimum tekrar aralığı. `usageWarning80` bir banner
+  /// (modal değil) — dokümantasyondaki "24 saatte 1" kuralı burada
+  /// gerçekleşir. Diğerleri 7 gün.
+  Duration _minInterval(PaywallTrigger trigger) =>
+      trigger == PaywallTrigger.usageWarning80 ? const Duration(hours: 24) : const Duration(days: 7);
 
   bool _isFrequencyLimited(PaywallTrigger trigger) {
     if (trigger == PaywallTrigger.quotaExceeded || trigger == PaywallTrigger.lockedFeatureTap) {
       return false; // kullanıcının doğrudan aksiyonu — her zaman gösterilir
     }
-    if (_shownThisSession) return true;
+    // Banner tetikleyicileri (usageWarning80) modal değil — "oturumda en
+    // fazla 1" kısıtı sadece modal/tam ekran tetikleyicilere uygulanır.
+    if (_shownThisSession && trigger != PaywallTrigger.usageWarning80) return true;
 
     final dismissedUntil = _prefs.getInt('$_dismissedPrefix${trigger.name}');
     if (dismissedUntil != null && DateTime.now().millisecondsSinceEpoch < dismissedUntil) {
@@ -50,15 +59,15 @@ class PaywallController {
 
     final lastShown = _prefs.getInt('$_lastShownPrefix${trigger.name}');
     if (lastShown != null) {
-      final daysSince = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(lastShown)).inDays;
-      if (daysSince < 7) return true;
+      final sinceLastShown = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(lastShown));
+      if (sinceLastShown < _minInterval(trigger)) return true;
     }
 
     return false;
   }
 
-  /// Test edilebilirlik için dışa açık.
-  @visibleForTesting
+  /// Dışa açık — banner'lar bunu "göründü" VE "kapatıldı" anlarının ikisinde
+  /// de çağırır (ikisi de aynı 24s/7g susturma penceresini başlatır).
   void recordShown(PaywallTrigger trigger) => _recordShown(trigger);
 
   void _recordShown(PaywallTrigger trigger) {

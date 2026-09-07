@@ -10,6 +10,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/voice_input_button.dart';
 import '../../../core/widgets/unit_label.dart';
 import '../../billing/application/paywall_controller.dart';
+import '../../billing/presentation/widgets/quota_upsell_banner.dart';
 import '../../inventory/application/inventory_providers.dart';
 import '../../onboarding/application/onboarding_providers.dart';
 import '../../onboarding/presentation/spotlight/coach_tour.dart';
@@ -375,11 +376,18 @@ class ShoppingListScreen extends ConsumerWidget {
     ref.listen(aiShoppingSuggestionsProvider(householdId), (previous, next) {
       next.whenOrNull(error: (error, _) {
         final info = PlanLimitInfo.tryParse(error);
-        if (info == null) return;
-        final controllerAsync = ref.read(paywallControllerProvider);
-        controllerAsync.whenData((controller) {
-          controller.maybeShow(context, trigger: PaywallTrigger.quotaExceeded, info: info);
-        });
+        if (info != null) {
+          final controllerAsync = ref.read(paywallControllerProvider);
+          controllerAsync.whenData((controller) {
+            controller.maybeShow(context, trigger: PaywallTrigger.quotaExceeded, info: info);
+          });
+          return;
+        }
+        // 402 dışı hatalar eskiden sessizce yutuluyordu — kullanıcı AI
+        // önerisinin neden gelmediğini hiç göremiyordu.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(describeApiError(error))),
+        );
       });
     });
 
@@ -417,6 +425,10 @@ class ShoppingListScreen extends ConsumerWidget {
 
           return Column(
             children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+                child: QuotaUpsellBanner(feature: 'shopping'),
+              ),
               if (total > 0)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(

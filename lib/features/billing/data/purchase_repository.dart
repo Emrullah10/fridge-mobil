@@ -22,6 +22,13 @@ class PurchaseProduct {
     required this.priceString,
     required this.title,
     required this.description,
+    this.packageType,
+    this.price,
+    this.pricePerMonthString,
+    this.freePhase,
+    this.introPhase,
+    this.fullPricePhase,
+    this.introductoryPrice,
   });
 
   final String identifier;
@@ -31,6 +38,79 @@ class PurchaseProduct {
   final String priceString;
   final String title;
   final String description;
+
+  /// RC'nin paket türü (monthly/annual/…) — aylık/yıllık ayrımı artık
+  /// `identifier.contains('annual')` string tahminiyle değil bununla
+  /// yapılır (paywall_screen.dart).
+  final PackageType? packageType;
+
+  /// Fiyatın sayısal hâli — yıllık/aylık kıyaslamasında yüzde hesabı için.
+  final double? price;
+
+  /// Yıllık paketin aylığa bölünmüş karşılığı (ör. "₺49,99/ay") — RC
+  /// tarafından yerelleştirilmiş, sabit kodlanmaz.
+  final String? pricePerMonthString;
+
+  /// `storeProduct.defaultOption`'dan gelen üç faz — Android'de ücretsiz
+  /// deneme ve indirimli teklif (Play Console'da tanımlı "indirimli
+  /// teklif") buradan okunur. Satın alma zaten defaultOption'ı otomatik
+  /// uyguluyor (bkz. purchase()); bunlar SADECE görüntüleme içindir.
+  final PricingPhase? freePhase;
+  final PricingPhase? introPhase;
+  final PricingPhase? fullPricePhase;
+
+  /// iOS fallback'i — `defaultOption` iOS'ta null olabilir, giriş fiyatı
+  /// bilgisi bu alanda gelir.
+  final IntroductoryPrice? introductoryPrice;
+
+  /// Ücretsiz deneme sunuluyor mu (Android defaultOption ya da iOS
+  /// introductoryPrice üzerinden).
+  bool get hasFreeTrial =>
+      freePhase != null ||
+      introPhase?.offerPaymentMode == OfferPaymentMode.freeTrial ||
+      (introductoryPrice != null && introductoryPrice!.price == 0);
+
+  /// İndirimli giriş fiyatı sunuluyor mu (ücretsiz deneme HARİÇ).
+  bool get hasIntroDiscount =>
+      (introPhase != null && introPhase!.offerPaymentMode != OfferPaymentMode.freeTrial) ||
+      (introductoryPrice != null && introductoryPrice!.price > 0);
+
+  /// İndirimli/deneme fiyatının yerelleştirilmiş metni.
+  String? get introPriceString => introPhase?.price.formatted ?? introductoryPrice?.priceString;
+
+  /// İndirimli/deneme fiyatının kaç faturalama döngüsü sürdüğü.
+  int? get introCycles => introPhase?.billingCycleCount ?? introductoryPrice?.cycles;
+
+  /// Deneme/giriş fiyatı süresinin TR etiketi (ör. "7 gün", "1 ay").
+  String? get trialPeriodLabel {
+    final period = freePhase?.billingPeriod ?? introPhase?.billingPeriod;
+    if (period != null) return _periodLabel(period.unit, period.value);
+    if (introductoryPrice != null) {
+      return _periodLabel(introductoryPrice!.periodUnit, introductoryPrice!.periodNumberOfUnits);
+    }
+    return null;
+  }
+
+  static String _periodLabel(PeriodUnit unit, int value) {
+    final unitLabel = switch (unit) {
+      PeriodUnit.day => 'gün',
+      PeriodUnit.week => 'hafta',
+      PeriodUnit.month => 'ay',
+      PeriodUnit.year => 'yıl',
+      PeriodUnit.unknown => '',
+    };
+    return '$value $unitLabel'.trim();
+  }
+
+  /// Bu paket (yıllık) karşısındaki aylık pakete göre kaç yüzde tasarruf
+  /// sağlıyor — ikisi de `price` taşımıyorsa (mağazadan gelmediyse) null.
+  int? discountPercentAgainst(PurchaseProduct? monthly) {
+    if (price == null || monthly?.price == null || monthly!.price == 0) return null;
+    final yearlyEquivalentOfMonthly = monthly.price! * 12;
+    if (yearlyEquivalentOfMonthly <= 0) return null;
+    final percent = (1 - (price! / yearlyEquivalentOfMonthly)) * 100;
+    return percent.round();
+  }
 }
 
 class PurchaseResult {
@@ -123,14 +203,22 @@ class PurchaseRepository {
         return const OfferingsResult.failed(OfferingsFailure.noOffering);
       }
       return OfferingsResult.success(
-        current.availablePackages
-            .map((pkg) => PurchaseProduct(
-                  identifier: pkg.storeProduct.identifier,
-                  priceString: pkg.storeProduct.priceString,
-                  title: pkg.storeProduct.title,
-                  description: pkg.storeProduct.description,
-                ))
-            .toList(),
+        current.availablePackages.map((pkg) {
+          final defaultOption = pkg.storeProduct.defaultOption;
+          return PurchaseProduct(
+            identifier: pkg.storeProduct.identifier,
+            priceString: pkg.storeProduct.priceString,
+            title: pkg.storeProduct.title,
+            description: pkg.storeProduct.description,
+            packageType: pkg.packageType,
+            price: pkg.storeProduct.price,
+            pricePerMonthString: pkg.storeProduct.pricePerMonthString,
+            freePhase: defaultOption?.freePhase,
+            introPhase: defaultOption?.introPhase,
+            fullPricePhase: defaultOption?.fullPricePhase,
+            introductoryPrice: pkg.storeProduct.introductoryPrice,
+          );
+        }).toList(),
       );
     } catch (e) {
       return OfferingsResult.failed(OfferingsFailure.storeError, debugMessage: e.toString());

@@ -7,6 +7,7 @@ import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/scan_progress.dart';
 import '../../billing/application/paywall_controller.dart';
+import '../../billing/presentation/widgets/quota_upsell_banner.dart';
 import '../../chef/presentation/chef_chat_screen.dart';
 import '../../onboarding/application/onboarding_providers.dart';
 import '../../onboarding/presentation/spotlight/coach_tour.dart';
@@ -282,22 +283,32 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          _SuggestionsTab(
-            householdId: widget.householdId,
-            heroCard: _buildHeroCard(context),
-            buildCard: _buildRecipeCard,
+          const Padding(
+            padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+            child: QuotaUpsellBanner(feature: 'recipe'),
           ),
-          _AllRecipesTab(
-            householdId: widget.householdId,
-            buildCard: _buildRecipeCard,
-          ),
-          _FavoritesTab(
-            householdId: widget.householdId,
-            buildCard: _buildRecipeCard,
-            onOpen: _openDetail,
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _SuggestionsTab(
+                  householdId: widget.householdId,
+                  heroCard: _buildHeroCard(context),
+                  buildCard: _buildRecipeCard,
+                ),
+                _AllRecipesTab(
+                  householdId: widget.householdId,
+                  buildCard: _buildRecipeCard,
+                ),
+                _FavoritesTab(
+                  householdId: widget.householdId,
+                  buildCard: _buildRecipeCard,
+                  onOpen: _openDetail,
+                ),
+              ],
+            ),
           ),
         ],
       ),

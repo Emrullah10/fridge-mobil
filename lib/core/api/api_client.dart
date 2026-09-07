@@ -13,10 +13,15 @@ import 'auth_interceptor.dart';
 /// provider'ına ve paywall tetikleyicisine iletir — ApiClient billing
 /// katmanını hiç bilmez (auth_providers.dart'taki onUnauthorized ile aynı
 /// çapraz-katman haberleşme deseni, dairesel import riski yok).
+/// `/households/<id>/...` yollarındaki id'yi ayıklar — 404 interceptor'ı
+/// hangi alanın artık erişilemez olduğunu bulmak için kullanır.
+final _householdIdInPath = RegExp(r'/households/([^/]+)');
+
 class ApiClient {
   ApiClient({
     required Future<void> Function() onUnauthorized,
     void Function(PlanLimitInfo info)? onPlanLimitReached,
+    void Function(String householdId)? onHouseholdNotFound,
   })  : tokenStorage = TokenStorage(),
         dio = Dio(BaseOptions(
           baseUrl: ApiConfig.baseUrl,
@@ -36,6 +41,23 @@ class ApiClient {
         onError: (error, handler) {
           final info = PlanLimitInfo.tryParse(error);
           if (info != null) onPlanLimitReached(info);
+          return handler.next(error);
+        },
+      ));
+    }
+    if (onHouseholdNotFound != null) {
+      // Ekranda bayat bir alan id'si kalmışsa (silinmiş alan, ya da
+      // misafirken kayıt olup kimlik değiştikten sonra eski alanın id'si
+      // taşınmaya devam ediyorsa) backend her istekte 404 döner ve kullanıcı
+      // hatayı görüp takılı kalırdı — bkz. .wolf/buglog.json, 2026-09-06.
+      // Bu, o durumda alan listesini tazeleyip kullanıcıyı geri çıkarmak
+      // için sinyal verir.
+      dio.interceptors.add(InterceptorsWrapper(
+        onError: (error, handler) {
+          if (error.response?.statusCode == 404) {
+            final match = _householdIdInPath.firstMatch(error.requestOptions.path);
+            if (match != null) onHouseholdNotFound(match.group(1)!);
+          }
           return handler.next(error);
         },
       ));

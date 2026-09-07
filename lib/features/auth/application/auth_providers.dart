@@ -73,6 +73,17 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> register({required String email, required String password, required String displayName}) async {
+    // KRİTİK: hâlâ misafir oturumundaysak register() YENİ bir kullanıcı
+    // yaratır — misafirin alanı/envanteri/fişleri eski (artık erişilemeyen)
+    // kullanıcıda kalır, ekran o alanın id'sini taşımaya devam ettiği için
+    // ilk fiş taramasında backend "Household not found" döner (bkz.
+    // .wolf/buglog.json — 2026-09-06 teşhisi). upgradeAccount() AYNI
+    // kullanıcı satırını günceller, veri kaybı olmaz — misafirken kayıt
+    // olmak her zaman bu yoldan gitmeli.
+    if (state.isGuest) {
+      await upgradeAccount(email: email, password: password, displayName: displayName);
+      return;
+    }
     // deviceId (varsa) 14 günlük ters denemenin cihaz-bazlı suistimal
     // korumasını besler — deviceIdStorage zaten misafir modu için var,
     // register'da yeniden kullanılır (kayıt duvarı olmadan denenmiş bir
@@ -107,6 +118,10 @@ class AuthController extends StateNotifier<AuthState> {
     );
     state = AuthState(status: AuthStatus.authenticated, user: user);
     unawaited(PurchaseRepository.logIn(user.id));
+    // upgradeAccount aynı kullanıcı satırını (ve dolayısıyla aynı alanı)
+    // koruduğu için burada household state'ini bozmaya gerek YOK — ama
+    // householdsProvider'ı yine de tazelemek zararsız ve tutarlı (features/
+    // plan bilgisi güncel olsun diye).
   }
 
   Future<void> logout() async {
@@ -150,6 +165,12 @@ final _unauthorizedNotifier = ValueNotifier<int>(0);
 /// billing katmanını hiç import etmez.
 final planLimitNotifier = ValueNotifier<PlanLimitInfo?>(null);
 
+/// Bir istek `/households/<id>/...` yoluna 404 alınca yayınlanır — aynı
+/// çapraz-katman deseni. household_providers.dart bunu dinleyip alan
+/// listesini tazeler (bkz. .wolf/buglog.json, 2026-09-06 "Household not
+/// found" teşhisi). ApiClient household katmanını hiç import etmez.
+final householdNotFoundNotifier = ValueNotifier<String?>(null);
+
 final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(
     onUnauthorized: () async {
@@ -157,6 +178,9 @@ final apiClientProvider = Provider<ApiClient>((ref) {
     },
     onPlanLimitReached: (info) {
       planLimitNotifier.value = info;
+    },
+    onHouseholdNotFound: (householdId) {
+      householdNotFoundNotifier.value = householdId;
     },
   );
 });

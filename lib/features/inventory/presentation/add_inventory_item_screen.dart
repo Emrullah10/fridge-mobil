@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/button_progress.dart';
 import '../../../core/widgets/form_error_text.dart';
 import '../../../core/widgets/responsive.dart';
+import '../../billing/application/paywall_controller.dart';
 import '../../product/application/product_providers.dart';
 import '../../product/data/product_repository.dart';
 import '../../product/presentation/product_picker_sheet.dart';
@@ -81,7 +82,19 @@ class _AddInventoryItemScreenState
         );
       }
     } catch (error) {
-      if (mounted) setState(() => _errorMessage = describeApiError(error));
+      if (!mounted) return;
+      // Barkod, ücretsiz planda kapalı bir özellik (plans.js features.barcode)
+      // — 402 PLAN_FEATURE_LOCKED gelir. Eskiden ham sunucu mesajı düz yazı
+      // olarak gösteriliyordu, hiç yükseltme yolu sunulmuyordu.
+      final planLimitInfo = PlanLimitInfo.tryParse(error);
+      if (planLimitInfo != null) {
+        final controllerAsync = ref.read(paywallControllerProvider);
+        controllerAsync.whenData((controller) {
+          controller.maybeShow(context, trigger: PaywallTrigger.lockedFeatureTap, info: planLimitInfo);
+        });
+      } else {
+        setState(() => _errorMessage = describeApiError(error));
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

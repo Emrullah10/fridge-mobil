@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:purchases_flutter/purchases_flutter.dart' show PackageType;
 
 import '../../../core/theme/app_theme.dart';
 import '../application/entitlements_providers.dart';
 import '../data/purchase_repository.dart';
 import 'widgets/premium_benefits_card.dart';
+import 'widgets/product_tile.dart';
 
 /// Tam ekran paywall — deneme bitişinde (plan §Faz 4 tetikleyici #3) veya
 /// "Premium'a Geç" ile açılır. Bağlamsal alt sayfadan (paywall_sheet.dart)
@@ -45,6 +47,17 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       _products.where((p) => p.identifier.contains('family')).toList();
   List<PurchaseProduct> get _visibleProducts => _familyTab ? _familyProducts : _individualProducts;
 
+  /// Aylık/yıllık ayrımı artık RC'nin `packageType`'ıyla yapılır —
+  /// `identifier.contains('annual')` string tahmini yalnızca `packageType`
+  /// gelmediyse (unknown/custom) yedek olarak kalır.
+  PurchaseProduct? _annualOf(List<PurchaseProduct> list) =>
+      list.where((p) => p.packageType == PackageType.annual).firstOrNull ??
+      list.where((p) => p.packageType == null && p.identifier.contains('annual')).firstOrNull;
+
+  PurchaseProduct? _monthlyOf(List<PurchaseProduct> list) =>
+      list.where((p) => p.packageType == PackageType.monthly).firstOrNull ??
+      list.where((p) => p.packageType == null && p.identifier.contains('monthly')).firstOrNull;
+
   /// try/catch/finally ile sarılı — eskiden fetchOfferings() bir exception
   /// fırlatırsa hiç yakalanmıyordu, bu da _loading hiç false olmadığı için
   /// ekranın sonsuza kadar spinner'da donmasına sebep oluyordu (buglog:
@@ -61,12 +74,8 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         _products = result.products;
         _failure = result.failure;
         _debugMessage = result.debugMessage;
-        // Yıllık varsayılan seçili (plan §Faz 4 "Paywall içeriği") — ürün
-        // kimlikleri Play Console'da 'fridge_premium_annual'/'_monthly'
-        // olarak tanımlanacak (plan §Faz 5 Ürünler tablosu); burada isim
-        // içinde 'annual' geçeni ararız, yoksa ilk ürün seçilir.
-        _selectedId = _individualProducts.where((p) => p.identifier.contains('annual')).firstOrNull?.identifier
-            ?? _individualProducts.firstOrNull?.identifier;
+        // Yıllık varsayılan seçili (plan §Faz 4 "Paywall içeriği").
+        _selectedId = _annualOf(_individualProducts)?.identifier ?? _individualProducts.firstOrNull?.identifier;
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -77,8 +86,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     setState(() {
       _familyTab = family;
       final list = family ? _familyProducts : _individualProducts;
-      _selectedId = list.where((p) => p.identifier.contains('annual')).firstOrNull?.identifier
-          ?? list.firstOrNull?.identifier;
+      _selectedId = _annualOf(list)?.identifier ?? list.firstOrNull?.identifier;
     });
   }
 
@@ -120,6 +128,22 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         content: Text(restored ? 'Satın alımların geri yüklendi.' : 'Geri yüklenecek bir satın alma bulunamadı.'),
       ),
     );
+  }
+
+  /// Politika gereği (Play/App Store) otomatik yenileme bildirimi seçili
+  /// ürün deneme/indirim içeriyorsa süre ve sonraki fiyatı da anmalı —
+  /// bildirimsiz deneme sürüm reddi sebebi olabilir.
+  String _renewalDisclosure() {
+    final selected = _visibleProducts.where((p) => p.identifier == _selectedId).firstOrNull;
+    if (selected == null) return 'Otomatik yenilenir · İstediğin zaman iptal edebilirsin';
+    final period = selected.trialPeriodLabel;
+    if (selected.hasFreeTrial && period != null) {
+      return 'İlk $period ücretsiz, sonra ${selected.priceString} · İstediğin zaman iptal edebilirsin';
+    }
+    if (selected.hasIntroDiscount && selected.introPriceString != null) {
+      return '${selected.introPriceString} ile başlar, sonra ${selected.priceString} · İstediğin zaman iptal edebilirsin';
+    }
+    return 'Otomatik yenilenir · İstediğin zaman iptal edebilirsin';
   }
 
   @override
@@ -174,10 +198,11 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                   ),
               ],
               for (final product in _visibleProducts)
-                _ProductTile(
+                ProductTile(
                   product: product,
                   selected: product.identifier == _selectedId,
                   onTap: () => setState(() => _selectedId = product.identifier),
+                  monthlyForComparison: product.packageType == PackageType.annual ? _monthlyOf(_visibleProducts) : null,
                 ),
               const SizedBox(height: AppSpacing.lg),
               FilledButton(
@@ -188,7 +213,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Otomatik yenilenir · İstediğin zaman iptal edebilirsin',
+                _renewalDisclosure(),
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 textAlign: TextAlign.center,
               ),
@@ -259,60 +284,6 @@ class _TabButton extends StatelessWidget {
           style: theme.textTheme.labelLarge?.copyWith(
             color: selected ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
             fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProductTile extends StatelessWidget {
-  const _ProductTile({required this.product, required this.selected, required this.onTap});
-
-  final PurchaseProduct product;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.card),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.card),
-            border: Border.all(
-              color: selected ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
-                color: selected ? theme.colorScheme.primary : theme.colorScheme.outline,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(product.title, style: theme.textTheme.titleSmall),
-                    Text(
-                      product.description,
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              ),
-              // Fiyat MAĞAZADAN gelen yerelleştirilmiş string — asla sabit
-              // kodlanmaz (plan §Faz 4 Play politikası notu).
-              Text(product.priceString, style: theme.textTheme.titleMedium),
-            ],
           ),
         ),
       ),

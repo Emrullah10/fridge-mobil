@@ -22,7 +22,11 @@ import 'core/version/app_config_repository.dart';
 import 'core/version/version_prefs.dart';
 import 'features/auth/application/auth_providers.dart';
 import 'features/auth/presentation/welcome_screen.dart';
+import 'features/billing/application/entitlements_providers.dart';
+import 'features/billing/application/paywall_controller.dart';
 import 'features/billing/data/purchase_repository.dart';
+import 'features/billing/domain/entitlements.dart';
+import 'features/billing/presentation/paywall_screen.dart';
 import 'features/billing/presentation/premium_intro_screen.dart';
 import 'core/widgets/app_shell.dart';
 import 'features/household/application/household_providers.dart';
@@ -337,6 +341,64 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
     );
   }
 
+  /// Deneme bitmiş (free'ye düşmüş) kullanıcıya bir kez tam ekran paywall,
+  /// ya da abonelik iptal edilip ≥7 gün geçmişse ölçülü bir win-back
+  /// hatırlatması. PremiumIntroScreen'den SONRA kontrol edilir — ikisi aynı
+  /// anda push edilmeye çalışılmasın diye (bkz. build() çağrı sırası).
+  /// `PaywallTrigger.trialEnded`/`winBack`'in TEK gösterim yeri — enum'da
+  /// tanımlıydı ama hiç çağrılmıyordu.
+  Future<void> _maybeShowTrialEndedOrWinBack() async {
+    final context = rootNavigatorKey.currentContext;
+    if (context == null || !context.mounted) return;
+
+    // entitlementsProvider henüz taze veri çekmemiş olabilir (ilk açılış) —
+    // Entitlements.empty ile yanlış tetikleme olmasın diye kontrollüce okur.
+    final entitlementsAsync = ref.read(entitlementsControllerProvider);
+    final entitlements = entitlementsAsync.value;
+    if (entitlements == null) return;
+
+    final controllerAsync = ref.read(paywallControllerProvider);
+    final controller = controllerAsync.value;
+    if (controller == null) return;
+
+    // Deneme bitmiş, ücretsiz kademeye düşmüş: bir kez tam ekran paywall.
+    final trialJustEnded = entitlements.plan == PlanTier.free &&
+        entitlements.trialEndsAt != null &&
+        entitlements.trialEndsAt!.isBefore(DateTime.now());
+    if (trialJustEnded && !controller.isFrequencyLimited(PaywallTrigger.trialEnded)) {
+      controller.recordShown(PaywallTrigger.trialEnded);
+      if (!context.mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      );
+      return;
+    }
+
+    // İptal edilmiş abonelik, dönem bitiminden ≥7 gün geçmiş: ölçülü
+    // win-back banner'ı — tam ekran değil, eski aboneyi modal'la
+    // karşılamak agresif olur.
+    final periodEndsAt = entitlements.periodEndsAt;
+    final canceledLongAgo = entitlements.status == 'canceled' &&
+        periodEndsAt != null &&
+        DateTime.now().difference(periodEndsAt) >= const Duration(days: 7);
+    if (canceledLongAgo && !controller.isFrequencyLimited(PaywallTrigger.winBack)) {
+      controller.recordShown(PaywallTrigger.winBack);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Premium özelliklerini özledin mi?'),
+          action: SnackBarAction(
+            label: 'Görüntüle',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PaywallScreen()),
+            ),
+          ),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_forceUpdateRequired) {
@@ -418,7 +480,13 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
           // kullan — ikisi aynı anda push edilmeye çalışılırsa çakışır, bu
           // yüzden birbirini dışlar (davet önceliklidir).
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowPremiumIntro());
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              await _maybeShowPremiumIntro();
+              // Premium tanıtımı göstermediyse (zaten görülmüş) hemen
+              // ardından deneme bitişi/win-back kontrolü yapılır — ikisi
+              // aynı anda push edilmeye çalışılmasın diye sıralı.
+              await _maybeShowTrialEndedOrWinBack();
+            });
           });
         }
       } else if (wasSignedIn) {

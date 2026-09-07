@@ -90,5 +90,38 @@ void main() {
 
       expect(controller.isFrequencyLimited(PaywallTrigger.usageWarning80), isFalse);
     });
+
+    test('usageWarning80: 23 saat önce gösterilmişse hâlâ limitli (24 saat kuralı)', () async {
+      final prefs = await freshPrefs();
+      await prefs.setInt(
+        'paywall_last_shown_usageWarning80',
+        DateTime.now().subtract(const Duration(hours: 23)).millisecondsSinceEpoch,
+      );
+      final controller = PaywallController(prefs);
+
+      expect(controller.isFrequencyLimited(PaywallTrigger.usageWarning80), isTrue);
+    });
+
+    test('usageWarning80: 25 saat önce gösterilmişse tekrar gösterilebilir (7 gün DEĞİL)', () async {
+      final prefs = await freshPrefs();
+      await prefs.setInt(
+        'paywall_last_shown_usageWarning80',
+        DateTime.now().subtract(const Duration(hours: 25)).millisecondsSinceEpoch,
+      );
+      final controller = PaywallController(prefs);
+
+      expect(controller.isFrequencyLimited(PaywallTrigger.usageWarning80), isFalse);
+    });
+
+    test('usageWarning80: banner olduğu için modal-oturum kısıtından muaf', () async {
+      final prefs = await freshPrefs();
+      final controller = PaywallController(prefs);
+      controller.recordShown(PaywallTrigger.trialEndingSoon); // oturum flag'ini set eder
+
+      // Diğer modal tetikleyiciler artık limitli...
+      expect(controller.isFrequencyLimited(PaywallTrigger.winBack), isTrue);
+      // ...ama banner (usageWarning80) hâlâ gösterilebilir (kendi 24s kuralına tabi).
+      expect(controller.isFrequencyLimited(PaywallTrigger.usageWarning80), isFalse);
+    });
   });
 }
