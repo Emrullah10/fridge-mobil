@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_dialog.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../auth/application/auth_providers.dart';
 import '../application/household_providers.dart';
@@ -25,22 +26,14 @@ class HouseholdMembersScreen extends ConsumerWidget {
   final Household household;
 
   Future<void> _leave(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Alandan ayrıl'),
-        content: Text('${household.name} alanından ayrılmak istediğine emin misin?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(dialogContext).colorScheme.error),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Ayrıl'),
-          ),
-        ],
-      ),
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Alandan ayrıl',
+      message: '${household.name} alanından ayrılmak istediğine emin misin?',
+      confirmLabel: 'Ayrıl',
+      isDestructive: true,
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
 
     try {
       await ref.read(householdRepositoryProvider).leaveHousehold(household.id);
@@ -57,25 +50,17 @@ class HouseholdMembersScreen extends ConsumerWidget {
   }
 
   Future<void> _delete(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Alanı sil'),
-        content: Text(
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Alanı sil',
+      message:
           '${household.name} alanı ve içindeki TÜM envanter, fiş ve üyelik verisi '
           'kalıcı olarak silinecek. Bu işlem geri alınamaz.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(dialogContext).colorScheme.error),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Alanı sil'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Alanı sil',
+      isDestructive: true,
+      icon: Icons.warning_amber_rounded,
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
 
     try {
       await ref.read(householdRepositoryProvider).deleteHousehold(household.id);

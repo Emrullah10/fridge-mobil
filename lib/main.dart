@@ -15,7 +15,6 @@ import 'package:app_links/app_links.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'core/error/api_error.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_providers.dart';
 import 'core/version/app_config_repository.dart';
@@ -31,7 +30,7 @@ import 'features/billing/domain/entitlements.dart';
 import 'features/billing/presentation/paywall_screen.dart';
 import 'features/billing/presentation/premium_intro_screen.dart';
 import 'core/widgets/app_shell.dart';
-import 'features/household/application/household_providers.dart';
+import 'features/household/presentation/join_household_screen.dart';
 import 'features/notification/application/notification_providers.dart';
 import 'features/notification/data/push_service.dart';
 import 'features/onboarding/application/onboarding_providers.dart';
@@ -373,53 +372,26 @@ class _AuthGateState extends ConsumerState<_AuthGate> with WidgetsBindingObserve
 
     final authState = ref.read(authControllerProvider);
     if (authState.status == AuthStatus.authenticated) {
-      _confirmJoin(code);
+      _openJoinScreen(code);
     } else {
       _pendingInviteCode = code;
     }
   }
 
-  Future<void> _confirmJoin(String code) async {
-    final context = rootNavigatorKey.currentContext;
-    if (context == null || !context.mounted) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Alana katıl'),
-        content: const Text(
-          'Bu davet linkiyle bir alana katılmak üzeresin. Devam edilsin mi?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Vazgeç'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Katıl'),
-          ),
-        ],
+  // Eski `_confirmJoin` tek düğmeli bir AlertDialog'du — alan adını bile
+  // göstermiyordu, hatalı kodda kullanıcı en baştan başlamak zorunda
+  // kalıyordu. JoinHouseholdScreen aynı akışı (FAB'dan açılanla birlikte)
+  // tek ekranda topluyor: kutular dolu gelir ama OTOMATİK GÖNDERİLMEZ,
+  // kullanıcı görüp "Katıl"a basar; hata olursa ekranda kalıp inline
+  // düzeltebilir.
+  void _openJoinScreen(String code) {
+    final navigator = rootNavigatorKey.currentState;
+    if (navigator == null) return;
+    navigator.push(
+      MaterialPageRoute(
+        builder: (_) => JoinHouseholdScreen(initialCode: code),
       ),
     );
-    if (confirmed != true || !context.mounted) return;
-
-    try {
-      await ProviderScope.containerOf(
-        context,
-      ).read(householdRepositoryProvider).acceptInvite(code);
-      ProviderScope.containerOf(context).invalidate(householdsProvider);
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Alana katıldın')));
-      }
-    } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
-      }
-    }
   }
 
   @override
@@ -575,7 +547,7 @@ class _AuthGateState extends ConsumerState<_AuthGate> with WidgetsBindingObserve
           // frame'e ertelenir — davet dialogu temizlenmiş yığının üstünde açılır.
           WidgetsBinding.instance.addPostFrameCallback((_) {
             WidgetsBinding.instance.addPostFrameCallback(
-              (_) => _confirmJoin(pendingCode),
+              (_) => _openJoinScreen(pendingCode),
             );
           });
         } else {

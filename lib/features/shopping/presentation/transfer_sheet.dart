@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_sheet.dart';
 import '../../household/application/household_providers.dart';
 
 class TransferResult {
@@ -14,9 +15,8 @@ class TransferResult {
 /// bölümlerini listeler, varsayılan olarak ilk 'fridge' kind'li bölümü
 /// önceden seçer.
 Future<TransferResult?> showTransferSheet(BuildContext context, {required String householdId}) {
-  return showModalBottomSheet<TransferResult>(
-    context: context,
-    isScrollControlled: true,
+  return showAppSheet<TransferResult>(
+    context,
     builder: (_) => _TransferSheet(householdId: householdId),
   );
 }

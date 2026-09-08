@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_dialog.dart';
 import '../../billing/application/paywall_controller.dart';
 import '../../billing/presentation/widgets/quota_upsell_banner.dart';
 import '../../shopping/application/shopping_providers.dart';
@@ -129,24 +130,15 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
               tooltip: 'Sohbeti temizle',
               icon: const Icon(Icons.delete_sweep_outlined),
               onPressed: () async {
-                final ok = await showDialog<bool>(
-                  context: context,
-                  builder: (c) => AlertDialog(
-                    title: const Text('Sohbeti temizle'),
-                    content: const Text('Tüm sohbet geçmişi silinsin mi?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(c, false),
-                        child: const Text('Vazgeç'),
-                      ),
-                      FilledButton(
-                        onPressed: () => Navigator.pop(c, true),
-                        child: const Text('Temizle'),
-                      ),
-                    ],
-                  ),
+                final ok = await AppDialog.confirm(
+                  context,
+                  title: 'Sohbeti temizle',
+                  message: 'Tüm sohbet geçmişi silinsin mi?',
+                  confirmLabel: 'Temizle',
+                  isDestructive: true,
+                  icon: Icons.delete_sweep_outlined,
                 );
-                if (ok == true) {
+                if (ok) {
                   await ref
                       .read(chefChatProvider(widget.householdId).notifier)
                       .clear();

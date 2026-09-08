@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/haptics.dart';
+import '../../../core/ui/app_dialog.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/async_view.dart';
@@ -148,32 +149,18 @@ class ShoppingListScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
-    final controller = TextEditingController();
-    final text = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Ne almalıyım?'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLines: 2,
-          decoration: InputDecoration(
-            hintText: 'örn. bu hafta 4 kişilik kahvaltılık lazım',
-            suffixIcon: VoiceInputButton(controller: controller),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('İptal'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, controller.text.trim()),
-            child: const Text('Öner'),
-          ),
-        ],
-      ),
+    final text = await AppDialog.prompt(
+      context,
+      title: 'Ne almalıyım?',
+      hintText: 'örn. bu hafta 4 kişilik kahvaltılık lazım',
+      confirmLabel: 'Öner',
+      maxLines: 2,
+      suffixBuilder: (controller) => VoiceInputButton(controller: controller),
+      // Serbest metin isteği — boş bırakılabilir olmalı (sesli girişle
+      // doldurulmadan da "Öner"e basılıp AI'ın kendi önerisine düşülebilir
+      // gibi görünse de asıl davranış boşsa hiçbir şey olmaması), bu yüzden
+      // varsayılan "boş olamaz" validator'ı burada istemiyoruz.
+      validator: (_) => null,
     );
     if (text == null || text.isEmpty || !context.mounted) return;
 

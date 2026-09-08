@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -219,16 +220,61 @@ class AppTheme {
         ),
       ),
       dialogTheme: DialogThemeData(
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.dialog),
+        ),
+        titleTextStyle: textTheme.titleSmall,
+        contentTextStyle: textTheme.bodyMedium,
+        actionsPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.xl,
         ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: colorScheme.surface,
+        elevation: 0,
+        showDragHandle: true,
+        dragHandleColor: colorScheme.outlineVariant,
+        constraints: const BoxConstraints(maxWidth: 640),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppRadius.dialog),
           ),
+        ),
+      ),
+      // iOS'ta Cupertino* widget'ları (CupertinoAlertDialog/ActionSheet/
+      // Switch) bu tema bilgisini kullanır. NoDefaultCupertinoThemeData
+      // kullanıyoruz (CupertinoThemeData DEĞİL) ki burada set etmediğimiz
+      // alanlar (ör. barBackgroundColor detayları) Material'dan türetilmeye
+      // devam etsin — bkz. MaterialBasedCupertinoThemeData. Dialog/action
+      // sheet zemin rengine/blur'una BİLİNÇLİ olarak dokunmuyoruz: iOS'ta
+      // "Fridge'e benzemek" değil "iOS'a benzemek" hedefi. Sadece tipografiyi
+      // (Inter) ve aksiyon rengini (primary) token'a bağlıyoruz.
+      cupertinoOverrideTheme: NoDefaultCupertinoThemeData(
+        brightness: brightness,
+        primaryColor: colorScheme.primary,
+        primaryContrastingColor: colorScheme.onPrimary,
+        scaffoldBackgroundColor: colorScheme.surface,
+        barBackgroundColor: colorScheme.surface,
+        textTheme: CupertinoTextThemeData(
+          primaryColor: colorScheme.primary,
+          textStyle: textTheme.bodyMedium,
+          actionTextStyle: textTheme.labelLarge?.copyWith(
+            color: colorScheme.primary,
+          ),
+          navTitleTextStyle: textTheme.titleMedium,
+          navLargeTitleTextStyle: textTheme.headlineMedium,
+          tabLabelTextStyle: textTheme.labelSmall,
+          dateTimePickerTextStyle: textTheme.bodyMedium,
+          pickerTextStyle: textTheme.bodyMedium,
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(

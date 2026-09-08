@@ -5,7 +5,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_providers.dart';
-import '../../../core/widgets/single_field_dialog.dart';
+import '../../../core/ui/app_dialog.dart';
+import '../../../core/ui/app_switch.dart';
 import '../../auth/application/auth_providers.dart';
 import '../../auth/presentation/upgrade_account_screen.dart';
 import '../../billing/application/entitlements_providers.dart';
@@ -72,14 +73,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _editProfile(BuildContext context, WidgetRef ref, String currentName) async {
-    final newName = await showSingleFieldDialog(
+    final newName = await AppDialog.prompt(
       context,
       title: 'Adını düzenle',
       hintText: 'Ad Soyad',
       confirmLabel: 'Kaydet',
       initialText: currentName,
+      keyboardType: TextInputType.name,
     );
-    if (newName == null || newName.trim().isEmpty || !context.mounted) return;
+    if (newName == null || !context.mounted) return;
 
     try {
       await ref.read(authControllerProvider.notifier).updateProfile(displayName: newName.trim());
@@ -91,23 +93,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _changePassword(BuildContext context, WidgetRef ref) async {
-    final currentPassword = await showSingleFieldDialog(
+    final currentPassword = await AppDialog.prompt(
       context,
       title: 'Mevcut şifren',
       hintText: 'Mevcut şifre',
       confirmLabel: 'Devam et',
       obscureText: true,
     );
-    if (currentPassword == null || currentPassword.isEmpty || !context.mounted) return;
+    if (currentPassword == null || !context.mounted) return;
 
-    final newPassword = await showSingleFieldDialog(
+    final newPassword = await AppDialog.prompt(
       context,
       title: 'Yeni şifre',
       hintText: 'Yeni şifre (en az 8 karakter)',
       confirmLabel: 'Şifreyi değiştir',
       obscureText: true,
+      validator: (value) =>
+          value.trim().length < 8 ? 'Şifre en az 8 karakter olmalı' : null,
     );
-    if (newPassword == null || newPassword.isEmpty || !context.mounted) return;
+    if (newPassword == null || !context.mounted) return;
 
     try {
       await ref.read(authControllerProvider.notifier).changePassword(
@@ -129,28 +133,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // bir daha bu cihazdan bile geri dönülemez — deviceId eşleşmesi login
     // ekranından geçmez). Uyarı normal çıkıştan belirgin şekilde farklı.
     final isGuest = ref.read(authControllerProvider).isGuest;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Çıkış yap'),
-        content: Text(
-          isGuest
-              ? 'Misafir hesabındasın. Çıkış yaparsan alanların, envanterin ve '
-                'fiş geçmişin GERİ ALINAMAZ şekilde kaybolur. Önce hesabını '
-                'kalıcı yapmanı öneririz.'
-              : 'Hesabından çıkış yapmak istediğine emin misin?',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('İptal')),
-          FilledButton(
-            style: isGuest ? FilledButton.styleFrom(backgroundColor: Theme.of(dialogContext).colorScheme.error) : null,
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(isGuest ? 'Yine de çık' : 'Çıkış yap'),
-          ),
-        ],
-      ),
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Çıkış yap',
+      message: isGuest
+          ? 'Misafir hesabındasın. Çıkış yaparsan alanların, envanterin ve '
+            'fiş geçmişin GERİ ALINAMAZ şekilde kaybolur. Önce hesabını '
+            'kalıcı yapmanı öneririz.'
+          : 'Hesabından çıkış yapmak istediğine emin misin?',
+      confirmLabel: isGuest ? 'Yine de çık' : 'Çıkış yap',
+      isDestructive: isGuest,
     );
-    if (confirmed == true) {
+    if (confirmed) {
       await ref.read(authControllerProvider.notifier).logout();
     }
   }
@@ -162,44 +156,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final entitlements = ref.read(entitlementsProvider);
     final hasActiveSubscription = entitlements.isPremium || entitlements.isTrial;
 
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Hesabını sil'),
-        content: Text(
-          hasActiveSubscription
-              ? 'Bu işlem geri alınamaz. Hesabın ve yalnızca senin sahibi olduğun '
-                'alanlardaki tüm envanter/fiş verisi kalıcı olarak silinir. '
-                'Paylaşımlı alanlarda sahiplik başka bir üyeye devredilir.\n\n'
-                'DİKKAT: Aktif bir aboneliğin var. Hesabını silmek aboneliğini '
-                'iptal ETMEZ — Google Play üzerinden ödeme almaya devam edilebilir. '
-                'Önce Ayarlar → Abonelik → Aboneliği Yönet / İptal Et yolundan '
-                'aboneliğini iptal etmeni öneririz.'
-              : 'Bu işlem geri alınamaz. Hesabın ve yalnızca senin sahibi olduğun '
-                'alanlardaki tüm envanter/fiş verisi kalıcı olarak silinir. '
-                'Paylaşımlı alanlarda sahiplik başka bir üyeye devredilir.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('İptal')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(dialogContext).colorScheme.error),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Devam et'),
-          ),
-        ],
-      ),
+    final proceed = await AppDialog.confirm(
+      context,
+      title: 'Hesabını sil',
+      message: hasActiveSubscription
+          ? 'Bu işlem geri alınamaz. Hesabın ve yalnızca senin sahibi olduğun '
+            'alanlardaki tüm envanter/fiş verisi kalıcı olarak silinir. '
+            'Paylaşımlı alanlarda sahiplik başka bir üyeye devredilir.\n\n'
+            'DİKKAT: Aktif bir aboneliğin var. Hesabını silmek aboneliğini '
+            'iptal ETMEZ — Google Play üzerinden ödeme almaya devam edilebilir. '
+            'Önce Ayarlar → Abonelik → Aboneliği Yönet / İptal Et yolundan '
+            'aboneliğini iptal etmeni öneririz.'
+          : 'Bu işlem geri alınamaz. Hesabın ve yalnızca senin sahibi olduğun '
+            'alanlardaki tüm envanter/fiş verisi kalıcı olarak silinir. '
+            'Paylaşımlı alanlarda sahiplik başka bir üyeye devredilir.',
+      confirmLabel: 'Devam et',
+      isDestructive: true,
+      icon: Icons.warning_amber_rounded,
     );
-    if (proceed != true || !context.mounted) return;
+    if (!proceed || !context.mounted) return;
 
-    final password = await showSingleFieldDialog(
+    final password = await AppDialog.prompt(
       context,
       title: 'Şifreni doğrula',
-      contentText: 'Silme işlemini onaylamak için şifreni gir.',
+      message: 'Silme işlemini onaylamak için şifreni gir.',
       hintText: 'Şifre',
       confirmLabel: 'Hesabı sil',
       obscureText: true,
     );
-    if (password == null || password.isEmpty || !context.mounted) return;
+    if (password == null || !context.mounted) return;
 
     try {
       await ref.read(authControllerProvider.notifier).deleteAccount(password: password);
@@ -316,8 +301,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ? Column(
                     children: [
                       for (final entry in _notificationTypeLabels.entries) ...[
-                        SwitchListTile(
-                          title: Text(entry.value),
+                        AppSwitchTile(
+                          title: entry.value,
                           value: _pushEnabledByType[entry.key] ?? true,
                           onChanged: (value) => _togglePreference(entry.key, value),
                         ),

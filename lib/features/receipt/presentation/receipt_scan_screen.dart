@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_dialog.dart';
 import '../../../core/widgets/responsive.dart';
 import '../../../core/widgets/scan_progress.dart';
 import '../../billing/application/paywall_controller.dart';
@@ -99,7 +100,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
 
     if (!stitched.overlapFound && _parts.length > 1) {
       final proceed = await _confirmNoOverlap();
-      if (proceed != true) return;
+      if (!proceed) return;
     }
 
     final rawText = stitched.lines.join('\n');
@@ -141,26 +142,16 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     }
   }
 
-  Future<bool?> _confirmNoOverlap() {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Örtüşme bulunamadı'),
-        content: const Text(
+  Future<bool> _confirmNoOverlap() {
+    return AppDialog.confirm(
+      context,
+      title: 'Örtüşme bulunamadı',
+      message:
           'Parçalar arasında örtüşme bulunamadı, listede tekrar eden ürünler olabilir. '
           'Yine de devam edilsin mi?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Geri dön'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Yine de gönder'),
-          ),
-        ],
-      ),
+      cancelLabel: 'Geri dön',
+      confirmLabel: 'Yine de gönder',
+      icon: Icons.warning_amber_rounded,
     );
   }
 

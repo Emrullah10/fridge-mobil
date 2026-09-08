@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/haptics.dart';
+import '../../../core/ui/app_segmented.dart';
+import '../../../core/ui/app_sheet.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/async_view.dart';
@@ -68,112 +70,12 @@ class InventoryScreen extends ConsumerWidget {
     WidgetRef ref,
     InventoryItem item,
   ) async {
-    // Girilen miktar eldekini aşarsa backend InsufficientStockError döner,
-    // o yüzden hem "Tamamen tüketildi" kısayolu hem de anlık doğrulama var.
-    //
-    // reason ayrımı para & israf paneli için kritik: 'consumed' -> "kurtarılan
-    // para", 'discarded'/'expired' -> "israf".
-    final controller = TextEditingController(text: '1');
-    var reason = 'consumed';
-    final amount = await showDialog<double>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('Bu üründen ne oldu?'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(
-                    value: 'consumed',
-                    label: Text('Kullandım'),
-                    icon: Icon(Icons.restaurant_rounded, size: 16),
-                  ),
-                  ButtonSegment(
-                    value: 'discarded',
-                    label: Text('Bozuldu'),
-                    icon: Icon(Icons.delete_outline_rounded, size: 16),
-                  ),
-                ],
-                selected: {reason},
-                showSelectedIcon: false,
-                onSelectionChanged: (s) =>
-                    setDialogState(() => reason = s.first),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Elinde ${item.quantity} ${unitLabel(item.unit)} var.',
-                style: TextStyle(
-                  color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              ValueListenableBuilder<TextEditingValue>(
-                valueListenable: controller,
-                builder: (_, value, _) {
-                  final parsed = double.tryParse(
-                    value.text.replaceAll(',', '.'),
-                  );
-                  final tooMuch = parsed != null && parsed > item.quantity;
-                  return TextField(
-                    controller: controller,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    autofocus: true,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (text) {
-                      final value = double.tryParse(text.replaceAll(',', '.'));
-                      if (value != null &&
-                          value > 0 &&
-                          value <= item.quantity) {
-                        Navigator.pop(dialogContext, value);
-                      }
-                    },
-                    decoration: InputDecoration(
-                      suffixText: unitLabel(item.unit),
-                      errorText: tooMuch ? 'Elindekinden fazla' : null,
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextButton.icon(
-                icon: const Icon(Icons.done_all_rounded, size: 18),
-                label: Text(
-                  reason == 'consumed' ? 'Tamamı kullanıldı' : 'Tamamı bozuldu',
-                ),
-                onPressed: () => Navigator.pop(dialogContext, item.quantity),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('İptal'),
-            ),
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
-              builder: (_, value, _) {
-                final parsed = double.tryParse(value.text.replaceAll(',', '.'));
-                final valid =
-                    parsed != null && parsed > 0 && parsed <= item.quantity;
-                return FilledButton(
-                  onPressed: valid
-                      ? () => Navigator.pop(dialogContext, parsed)
-                      : null,
-                  child: const Text('Onayla'),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
+    final result = await showAppSheet<_ConsumeResult>(
+      context,
+      builder: (_) => _ConsumeSheet(item: item),
     );
+    if (result == null) return;
 
-    if (amount == null || amount <= 0) return;
     final params = InventoryParams(
       householdId: householdId,
       storageLocationId: location.id,
@@ -181,7 +83,7 @@ class InventoryScreen extends ConsumerWidget {
     try {
       await ref
           .read(inventoryRepositoryProvider)
-          .consume(householdId, item.id, amount, reason: reason);
+          .consume(householdId, item.id, result.amount, reason: result.reason);
       ref.invalidate(inventoryItemsProvider(params));
       AppHaptics.success();
     } catch (error) {
@@ -438,6 +340,158 @@ class InventoryScreen extends ConsumerWidget {
           ),
         ),
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class _ConsumeResult {
+  const _ConsumeResult({required this.amount, required this.reason});
+  final double amount;
+  final String reason;
+}
+
+/// "Bu üründen ne oldu?" sheet'i — eskiden AlertDialog'du, `SegmentedButton`
+/// + canlı doğrulama bir dialog sınırına sıkışıyordu ve iOS'ta yabancı
+/// duruyordu (bkz. AppSegmented: iOS'ta CupertinoSlidingSegmentedControl).
+///
+/// reason ayrımı para & israf paneli için kritik: 'consumed' -> "kurtarılan
+/// para", 'discarded'/'expired' -> "israf". Girilen miktar eldekini aşarsa
+/// backend InsufficientStockError döner, o yüzden hem "Tamamı" kısayolu hem
+/// de anlık doğrulama var.
+class _ConsumeSheet extends StatefulWidget {
+  const _ConsumeSheet({required this.item});
+
+  final InventoryItem item;
+
+  @override
+  State<_ConsumeSheet> createState() => _ConsumeSheetState();
+}
+
+class _ConsumeSheetState extends State<_ConsumeSheet> {
+  late final TextEditingController _controller;
+  String _reason = 'consumed';
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: '1');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  double? _parsedAmount(String text) => double.tryParse(text.replaceAll(',', '.'));
+
+  bool _isValid(double? parsed) =>
+      parsed != null && parsed > 0 && parsed <= widget.item.quantity;
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    return AppSheetScaffold(
+      title: 'Bu üründen ne oldu?',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppSegmented<String>(
+            options: const [
+              AppSegmentedOption(
+                value: 'consumed',
+                label: 'Kullandım',
+                icon: Icons.restaurant_rounded,
+              ),
+              AppSegmentedOption(
+                value: 'discarded',
+                label: 'Bozuldu',
+                icon: Icons.delete_outline_rounded,
+              ),
+            ],
+            selected: _reason,
+            onChanged: (value) => setState(() => _reason = value),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Elinde ${item.quantity} ${unitLabel(item.unit)} var.',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _controller,
+            builder: (_, value, _) {
+              final parsed = _parsedAmount(value.text);
+              final tooMuch = parsed != null && parsed > item.quantity;
+              return TextField(
+                controller: _controller,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                autofocus: true,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (text) {
+                  final parsedValue = _parsedAmount(text);
+                  if (_isValid(parsedValue)) {
+                    Navigator.pop(
+                      context,
+                      _ConsumeResult(amount: parsedValue!, reason: _reason),
+                    );
+                  }
+                },
+                decoration: InputDecoration(
+                  suffixText: unitLabel(item.unit),
+                  errorText: tooMuch ? 'Elindekinden fazla' : null,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextButton.icon(
+            icon: const Icon(Icons.done_all_rounded, size: 18),
+            label: Text(
+              _reason == 'consumed' ? 'Tamamı kullanıldı' : 'Tamamı bozuldu',
+            ),
+            onPressed: () => Navigator.pop(
+              context,
+              _ConsumeResult(amount: item.quantity, reason: _reason),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('İptal'),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _controller,
+                  builder: (_, value, _) {
+                    final parsed = _parsedAmount(value.text);
+                    final valid = _isValid(parsed);
+                    return FilledButton(
+                      onPressed: valid
+                          ? () => Navigator.pop(
+                              context,
+                              _ConsumeResult(amount: parsed!, reason: _reason),
+                            )
+                          : null,
+                      child: const Text('Onayla'),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

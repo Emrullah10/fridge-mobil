@@ -15,9 +15,9 @@ import '../../household/application/household_providers.dart';
 import '../../household/data/household_repository.dart';
 import '../../inventory/application/inventory_providers.dart';
 import '../../product/application/product_providers.dart';
-import '../../product/presentation/product_picker_sheet.dart';
 import '../application/receipt_providers.dart';
 import '../data/receipt_repository.dart';
+import 'receipt_line_edit_screen.dart';
 
 class ReceiptReviewScreen extends ConsumerStatefulWidget {
   const ReceiptReviewScreen({
@@ -129,25 +129,6 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
   }
 
   Future<void> _editItem(ReceiptLineItem item) async {
-    final nameController = TextEditingController(text: item.parsedName);
-    final brandController = TextEditingController(text: item.parsedBrand ?? '');
-    final quantityController = TextEditingController(
-      text: item.parsedQuantity.toString(),
-    );
-    final packSizeController = TextEditingController(
-      text: item.parsedPackSize?.toString() ?? '',
-    );
-    final priceController = TextEditingController(
-      text: item.parsedPrice?.toString() ?? '',
-    );
-    final brandFocus = FocusNode();
-    final quantityFocus = FocusNode();
-    String selectedProductId = item.matchedProductId!;
-    String selectedProductName = item.parsedName;
-    String? selectedLocationId = _locationIdByItemId[item.id];
-    String selectedUnit = item.parsedUnit;
-    String? selectedCategoryKey;
-    String selectedPackUnit = item.parsedPackUnit ?? 'milliliter';
     final locations =
         ref.read(storageLocationsProvider(widget.householdId)).valueOrNull ??
         [];
@@ -155,196 +136,20 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
         ref.read(productCategoriesProvider(widget.householdId)).valueOrNull ??
         [];
 
-    final edited = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('Satırı Düzelt'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Fişte yazan: "${item.rawText}"',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              DropdownButtonFormField<String>(
-                initialValue: selectedLocationId,
-                decoration: const InputDecoration(
-                  labelText: 'Bölüm',
-                  prefixIcon: Icon(Icons.kitchen_rounded),
-                ),
-                hint: const Text('Bölüm seç'),
-                items: [
-                  for (final location in locations)
-                    DropdownMenuItem(
-                      value: location.id,
-                      child: Text(location.name),
-                    ),
-                ],
-                onChanged: (value) =>
-                    setDialogState(() => selectedLocationId = value),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.search_rounded),
-                label: Text(selectedProductName),
-                onPressed: () async {
-                  final picked = await showProductPicker(
-                    context,
-                    householdId: widget.householdId,
-                  );
-                  if (picked != null) {
-                    setDialogState(() {
-                      selectedProductId = picked.id;
-                      selectedProductName = picked.canonicalName;
-                      nameController.text = picked.canonicalName;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: nameController,
-                textInputAction: TextInputAction.next,
-                onSubmitted: (_) => brandFocus.requestFocus(),
-                decoration: const InputDecoration(labelText: 'Ürün adı'),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: brandController,
-                focusNode: brandFocus,
-                textInputAction: TextInputAction.next,
-                onSubmitted: (_) => quantityFocus.requestFocus(),
-                decoration: const InputDecoration(
-                  labelText: 'Marka (opsiyonel)',
-                  helperText: 'Girdiğin marka bir daha hatırlanır',
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: quantityController,
-                focusNode: quantityFocus,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(labelText: 'Miktar'),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              DropdownButtonFormField<String>(
-                initialValue: selectedUnit,
-                decoration: const InputDecoration(labelText: 'Birim'),
-                items: [
-                  for (final unit in unitOptions)
-                    DropdownMenuItem(value: unit, child: Text(unitLabel(unit))),
-                ],
-                onChanged: (value) {
-                  if (value != null) setDialogState(() => selectedUnit = value);
-                },
-              ),
-              if (selectedUnit == 'piece') ...[
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: packSizeController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Paket boyutu (opsiyonel)',
-                          helperText: 'örn. 6 adet × 200 ml için 200 yaz',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: selectedPackUnit,
-                        decoration: const InputDecoration(labelText: 'Birim'),
-                        items: [
-                          for (final unit in unitOptions.where(
-                            (u) => u != 'piece',
-                          ))
-                            DropdownMenuItem(
-                              value: unit,
-                              child: Text(unitShortLabel(unit)),
-                            ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null)
-                            setDialogState(() => selectedPackUnit = value);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: priceController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  labelText: 'Fiyat (opsiyonel)',
-                  prefixText: '₺ ',
-                  helperText: 'Satırın fiş üzerindeki toplam tutarı',
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              DropdownButtonFormField<String>(
-                initialValue: selectedCategoryKey,
-                decoration: const InputDecoration(
-                  labelText: 'Kategori (opsiyonel)',
-                  helperText: 'Doğru kategori tarif önerilerini iyileştirir',
-                ),
-                hint: const Text('Kategori seç'),
-                items: [
-                  for (final category in categories)
-                    DropdownMenuItem(
-                      value: category.key,
-                      child: Text(category.nameTr),
-                    ),
-                ],
-                onChanged: (value) =>
-                    setDialogState(() => selectedCategoryKey = value),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('İptal'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Kaydet'),
-            ),
-          ],
+    // Tam ekran — eskiden 8 alan + nested ürün seçici bir AlertDialog'a
+    // sıkıştırılıyordu. bkz. receipt_line_edit_screen.dart.
+    final edit = await Navigator.of(context).push<ReceiptLineEdit>(
+      MaterialPageRoute(
+        builder: (_) => ReceiptLineEditScreen(
+          householdId: widget.householdId,
+          item: item,
+          locations: locations,
+          categories: categories,
+          initialLocationId: _locationIdByItemId[item.id],
         ),
       ),
     );
-
-    if (edited != true || !mounted) return;
-
-    final newName = nameController.text.trim();
-    final newBrand = brandController.text.trim();
-    final newQuantity =
-        double.tryParse(quantityController.text) ?? item.parsedQuantity;
-    // Paket boyutu yalnızca 'piece' birimi için anlamlı — birim değiştiyse
-    // veya alan boş bırakıldıysa null gönderilir (paket bilgisi silinir).
-    final newPackSize = selectedUnit == 'piece'
-        ? double.tryParse(packSizeController.text)
-        : null;
-    final newPackUnit = newPackSize != null ? selectedPackUnit : null;
-    final priceText = priceController.text.trim().replaceAll(',', '.');
-    final newPrice = priceText.isEmpty ? null : double.tryParse(priceText);
+    if (edit == null || !mounted) return;
 
     try {
       await ref
@@ -353,15 +158,15 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
             widget.householdId,
             widget.scanId,
             item.id,
-            parsedName: newName,
-            parsedBrand: newBrand.isEmpty ? null : newBrand,
-            parsedQuantity: newQuantity,
-            parsedUnit: selectedUnit,
-            parsedPackSize: newPackSize,
-            parsedPackUnit: newPackUnit,
-            parsedPrice: newPrice,
-            matchedProductId: selectedProductId,
-            categoryKey: selectedCategoryKey,
+            parsedName: edit.name,
+            parsedBrand: edit.brand,
+            parsedQuantity: edit.quantity,
+            parsedUnit: edit.unit,
+            parsedPackSize: edit.packSize,
+            parsedPackUnit: edit.packUnit,
+            parsedPrice: edit.price,
+            matchedProductId: edit.productId,
+            categoryKey: edit.categoryKey,
           );
     } catch (error) {
       if (mounted) {
@@ -377,21 +182,21 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
       _items[index] = ReceiptLineItem(
         id: item.id,
         rawText: item.rawText,
-        parsedName: newName,
-        parsedBrand: newBrand.isEmpty ? null : newBrand,
-        parsedQuantity: newQuantity,
-        parsedUnit: selectedUnit,
-        parsedPackSize: newPackSize,
-        parsedPackUnit: newPackUnit,
-        parsedPrice: newPrice,
-        matchedProductId: selectedProductId,
+        parsedName: edit.name,
+        parsedBrand: edit.brand,
+        parsedQuantity: edit.quantity,
+        parsedUnit: edit.unit,
+        parsedPackSize: edit.packSize,
+        parsedPackUnit: edit.packUnit,
+        parsedPrice: edit.price,
+        matchedProductId: edit.productId,
         matchMethod: 'manual',
         confidence: 1.0,
         suggestedStorageKind: item.suggestedStorageKind,
       );
       // Bölüm seçimi backend'e gitmez (correctLineItem bunu bilmiyor) —
       // sadece confirm anında gönderilecek lokal state.
-      _locationIdByItemId[item.id] = selectedLocationId;
+      _locationIdByItemId[item.id] = edit.locationId;
       _selectedIds.add(
         item.id,
       ); // Kullanıcı düzelttiyse artık güveniyoruz demektir.

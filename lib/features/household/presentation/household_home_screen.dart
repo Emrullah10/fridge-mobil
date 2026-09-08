@@ -5,6 +5,9 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_dialog.dart';
+import '../../../core/ui/app_sheet.dart';
+import '../../../core/ui/app_action_sheet.dart';
 import '../../auth/application/auth_providers.dart';
 import '../../billing/presentation/demo_receipt_flow.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
@@ -40,6 +43,9 @@ final scanFabKey = GlobalKey();
 final firstStorageCardKey = GlobalKey();
 final householdMoreMenuKey = GlobalKey();
 
+/// Bölüm kartına uzun basınca çıkan aksiyon sheet'inin seçenekleri.
+enum _LocationMenuAction { edit, delete }
+
 class HouseholdHomeScreen extends ConsumerWidget {
   const HouseholdHomeScreen({super.key, required this.household});
 
@@ -70,9 +76,9 @@ class HouseholdHomeScreen extends ConsumerWidget {
       return;
     }
 
-    await showDialog(
-      context: context,
-      builder: (dialogContext) => _InviteCodeDialog(
+    await showAppSheet(
+      context,
+      builder: (sheetContext) => _InviteCodeDialog(
         household: household,
         initialCode: code!,
         baseUrl: _inviteBaseUrl,
@@ -310,31 +316,15 @@ class HouseholdHomeScreen extends ConsumerWidget {
     WidgetRef ref,
     StorageLocation location,
   ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Bölümü Sil'),
-        content: Text(
-          '"${location.name}" bölümünü silmek istediğine emin misin?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Vazgeç'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(
-              'Sil',
-              style: TextStyle(
-                color: Theme.of(dialogContext).colorScheme.error,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Bölümü Sil',
+      message: '"${location.name}" bölümünü silmek istediğine emin misin?',
+      confirmLabel: 'Sil',
+      isDestructive: true,
+      icon: Icons.delete_outline_rounded,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     final repo = ref.read(householdRepositoryProvider);
     int itemCount;
@@ -365,31 +355,15 @@ class HouseholdHomeScreen extends ConsumerWidget {
     // onayı sun; eskiden backend LastLocationError verirdi, artık burada
     // sessizce return etmek yerine kullanıcıya net bir karar bıraktık.
     if (otherLocations.isEmpty) {
-      final forceDelete = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text('"${location.name}" içinde $itemCount ürün var'),
-          content: const Text(
+      final forceDelete = await AppDialog.confirm(
+        context,
+        title: '"${location.name}" içinde $itemCount ürün var',
+        message:
             'Taşınacak başka bölüm yok. Bölüm, içindeki ürünlerle birlikte silinsin mi?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Vazgeç'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: Text(
-                'Yine de sil',
-                style: TextStyle(
-                  color: Theme.of(dialogContext).colorScheme.error,
-                ),
-              ),
-            ),
-          ],
-        ),
+        confirmLabel: 'Yine de sil',
+        isDestructive: true,
       );
-      if (forceDelete != true) return;
+      if (!forceDelete) return;
       try {
         await repo.deleteLocation(household.id, location.id, strategy: 'force');
         ref.invalidate(storageLocationsProvider(household.id));
@@ -403,18 +377,13 @@ class HouseholdHomeScreen extends ConsumerWidget {
       return;
     }
 
-    final targetId = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: Text('"${location.name}" dolu — ürünleri nereye taşıyalım?'),
-        children: [
-          for (final target in otherLocations)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(dialogContext, target.id),
-              child: Text(target.name),
-            ),
-        ],
-      ),
+    final targetId = await showAppActionSheet<String>(
+      context,
+      title: '"${location.name}" dolu — ürünleri nereye taşıyalım?',
+      actions: [
+        for (final target in otherLocations)
+          AppSheetAction(value: target.id, label: target.name),
+      ],
     );
     if (targetId == null) return;
 
@@ -531,40 +500,32 @@ class HouseholdHomeScreen extends ConsumerWidget {
                 InventoryScreen(householdId: household.id, location: location),
           ),
         ),
-        onLongPress: () => showModalBottomSheet<void>(
-          context: context,
-          builder: (sheetContext) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.edit_outlined),
-                  title: const Text('Düzenle'),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _editLocation(context, ref, location);
-                  },
-                ),
-                ListTile(
-                  leading: Icon(
-                    Icons.delete_outline_rounded,
-                    color: Theme.of(sheetContext).colorScheme.error,
-                  ),
-                  title: Text(
-                    'Sil',
-                    style: TextStyle(
-                      color: Theme.of(sheetContext).colorScheme.error,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _deleteLocation(context, ref, location);
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
+        onLongPress: () async {
+          final action = await showAppActionSheet<_LocationMenuAction>(
+            context,
+            title: location.name,
+            actions: const [
+              AppSheetAction(
+                value: _LocationMenuAction.edit,
+                label: 'Düzenle',
+                icon: Icons.edit_outlined,
+              ),
+              AppSheetAction(
+                value: _LocationMenuAction.delete,
+                label: 'Sil',
+                icon: Icons.delete_outline_rounded,
+                isDestructive: true,
+              ),
+            ],
+          );
+          if (!context.mounted || action == null) return;
+          switch (action) {
+            case _LocationMenuAction.edit:
+              _editLocation(context, ref, location);
+            case _LocationMenuAction.delete:
+              _deleteLocation(context, ref, location);
+          }
+        },
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Column(
@@ -926,26 +887,15 @@ class _InviteCodeDialogState extends State<_InviteCodeDialog> {
   String get _link => '${widget.baseUrl}/$_code';
 
   Future<void> _rotate() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Kodu yenile?'),
-        content: const Text(
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Kodu yenile?',
+      message:
           'Eski kod artık çalışmaz. Bu kodu daha önce paylaştığın kişiler yeni kodu almadan katılamaz.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Vazgeç'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Yenile'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Yenile',
+      isDestructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     setState(() => _rotating = true);
     try {
@@ -965,9 +915,9 @@ class _InviteCodeDialogState extends State<_InviteCodeDialog> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return AlertDialog(
-      title: const Text('Davet Kodu'),
-      content: Column(
+    return AppSheetScaffold(
+      title: 'Davet Kodu',
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1052,21 +1002,29 @@ class _InviteCodeDialogState extends State<_InviteCodeDialog> {
               label: const Text('Kodu yenile'),
             ),
           ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => Share.share(
+                    '${widget.household.name} alanıma katıl! Davet kodu: $_code\n$_link',
+                  ),
+                  icon: const Icon(Icons.share_rounded, size: 18),
+                  label: const Text('Paylaş'),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Kapat'),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
-      actions: [
-        TextButton.icon(
-          onPressed: () => Share.share(
-            '${widget.household.name} alanıma katıl! Davet kodu: $_code\n$_link',
-          ),
-          icon: const Icon(Icons.share_rounded, size: 18),
-          label: const Text('Paylaş'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Kapat'),
-        ),
-      ],
     );
   }
 }

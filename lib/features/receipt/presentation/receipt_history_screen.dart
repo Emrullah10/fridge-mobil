@@ -25,9 +25,22 @@ class ReceiptHistoryScreen extends ConsumerWidget {
   (IconData, Color, Color, String) _statusStyle(BuildContext context, String status) {
     final colorScheme = Theme.of(context).colorScheme;
     return switch (status) {
-      'review_pending' => (Icons.rate_review_rounded, colorScheme.primary, colorScheme.primaryContainer, 'İnceleme bekliyor'),
+      // BUG (2026-09-08 düzeltildi): rozet metni `primary` ile, zemini
+      // `primaryContainer` ile boyanıyordu — M3'ün "container üstü vurgu"
+      // çifti (onPrimaryContainer/primaryContainer) yerine yanlışlıkla
+      // primary/primaryContainer kullanılmıştı. Açık temada ikisi de koyu
+      // yeşil tona yakın olduğu için kontrast 1.44:1'e düşüyordu (koyu
+      // temada primary açık yeşile döndüğü için 5.44:1 ile tesadüfen
+      // okunaklıydı) — "koyuda görünüyor, açıkta görünmüyor" şikayetinin
+      // kök nedeni buydu. Doğru çift: onPrimaryContainer/primaryContainer.
+      'review_pending' => (
+          Icons.rate_review_rounded,
+          colorScheme.onPrimaryContainer,
+          colorScheme.primaryContainer,
+          'İnceleme bekliyor',
+        ),
       'completed' => (Icons.check_circle_rounded, colorScheme.primary, colorScheme.surfaceContainerHighest, 'Tamamlandı'),
-      'failed' => (Icons.error_outline_rounded, colorScheme.error, colorScheme.errorContainer, 'Başarısız'),
+      'failed' => (Icons.error_outline_rounded, colorScheme.onErrorContainer, colorScheme.errorContainer, 'Başarısız'),
       _ => (Icons.hourglass_top_rounded, colorScheme.onSurfaceVariant, colorScheme.surfaceContainerHighest, 'İşleniyor'),
     };
   }

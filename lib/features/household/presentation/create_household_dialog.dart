@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_sheet.dart';
+import '../../../core/ui/app_switch.dart';
 import '../../../core/widgets/household_kind.dart';
 import '../data/household_repository.dart';
 
-/// "Yeni Alan" / "Alanı Düzenle" dialogunun sonucu: isim + serbest simge +
+/// "Yeni Alan" / "Alanı Düzenle" sheet'inin sonucu: isim + serbest simge +
 /// yemek özelliği (yemek yalnızca oluşturma modunda anlamlı).
 class HouseholdFormResult {
   const HouseholdFormResult({
@@ -18,118 +20,144 @@ class HouseholdFormResult {
   final bool foodEnabled;
 }
 
-/// Alan oluşturma/düzenleme dialogu. `existing` verilirse "düzenle" modu:
+/// Alan oluşturma/düzenleme sheet'i. `existing` verilirse "düzenle" modu:
 /// başlık "Alanı Düzenle", buton "Kaydet", yemek switch'i gizli (o ayarın
 /// tek yeri Alan Özellikleri ekranı). İsim zorunlu — boşsa inline hata,
-/// dialog kapanmaz.
+/// sheet kapanmaz.
+///
+/// AlertDialog DEĞİL sheet: isim + ikon seçici (Wrap) + switch bir dialog
+/// sınırına sıkışmıyordu (SingleChildScrollView ile zorlanıyordu).
 Future<HouseholdFormResult?> showHouseholdFormDialog(
   BuildContext context, {
   Household? existing,
 }) {
-  final isEdit = existing != null;
-  final controller = TextEditingController(text: existing?.name ?? '');
+  return showAppSheet<HouseholdFormResult>(
+    context,
+    builder: (_) => _HouseholdFormSheet(existing: existing),
+  );
+}
+
+class _HouseholdFormSheet extends StatefulWidget {
+  const _HouseholdFormSheet({this.existing});
+
+  final Household? existing;
+
+  @override
+  State<_HouseholdFormSheet> createState() => _HouseholdFormSheetState();
+}
+
+class _HouseholdFormSheetState extends State<_HouseholdFormSheet> {
+  late final TextEditingController _controller;
   // Oluşturmada varsayılan seçili simge; düzenlemede mevcut simge (yoksa yine
   // ilk seçenek — "seçimsiz" durumu yok, kart hiç ikonsuz kalmaz).
-  var selectedIcon =
-      existing?.icon ?? householdIconKeyForIcon(householdIconChoices.first);
-  var foodEnabled = false;
-  String? nameError;
+  late String? _selectedIcon;
+  bool _foodEnabled = false;
+  String? _nameError;
 
-  return showDialog<HouseholdFormResult>(
-    context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setDialogState) {
-        void confirm() {
-          final name = controller.text.trim();
-          if (name.isEmpty) {
-            setDialogState(() => nameError = 'Bir isim girin');
-            return;
-          }
-          Navigator.pop(
-            dialogContext,
-            HouseholdFormResult(
-              name: name,
-              icon: selectedIcon,
-              foodEnabled: foodEnabled,
-            ),
-          );
-        }
+  bool get _isEdit => widget.existing != null;
 
-        return AlertDialog(
-          title: Text(isEdit ? 'Alanı Düzenle' : 'Yeni Alan'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: controller,
-                  decoration: InputDecoration(
-                    hintText: 'Örn. Evimiz, Ofis, Yazlık, Sığınak',
-                    errorText: nameError,
-                  ),
-                  autofocus: !isEdit,
-                  textCapitalization: TextCapitalization.sentences,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => confirm(),
-                  onChanged: (_) {
-                    if (nameError != null)
-                      setDialogState(() => nameError = null);
-                  },
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Simge',
-                    style: Theme.of(dialogContext).textTheme.bodySmall,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.sm,
-                  children: [
-                    for (final iconData in householdIconChoices)
-                      ChoiceChip(
-                        selected:
-                            householdIconKeyForIcon(iconData) == selectedIcon,
-                        onSelected: (_) => setDialogState(
-                          () =>
-                              selectedIcon = householdIconKeyForIcon(iconData),
-                        ),
-                        label: Icon(iconData, size: 18),
-                      ),
-                  ],
-                ),
-                if (!isEdit) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Yemek özellikleri'),
-                    subtitle: const Text(
-                      'Tarifler, AI Chef, son kullanma tarihi takibi',
-                    ),
-                    value: foodEnabled,
-                    onChanged: (value) =>
-                        setDialogState(() => foodEnabled = value),
-                  ),
-                ],
-              ],
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.existing?.name ?? '');
+    _selectedIcon =
+        widget.existing?.icon ??
+        householdIconKeyForIcon(householdIconChoices.first);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    final name = _controller.text.trim();
+    if (name.isEmpty) {
+      setState(() => _nameError = 'Bir isim girin');
+      return;
+    }
+    Navigator.pop(
+      context,
+      HouseholdFormResult(
+        name: name,
+        icon: _selectedIcon,
+        foodEnabled: _foodEnabled,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSheetScaffold(
+      title: _isEdit ? 'Alanı Düzenle' : 'Yeni Alan',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _controller,
+            decoration: InputDecoration(
+              hintText: 'Örn. Evimiz, Ofis, Yazlık, Sığınak',
+              errorText: _nameError,
             ),
+            autofocus: !_isEdit,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _confirm(),
+            onChanged: (_) {
+              if (_nameError != null) setState(() => _nameError = null);
+            },
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('İptal'),
-            ),
-            FilledButton(
-              onPressed: confirm,
-              child: Text(isEdit ? 'Kaydet' : 'Oluştur'),
+          const SizedBox(height: AppSpacing.md),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Simge', style: Theme.of(context).textTheme.bodySmall),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              for (final iconData in householdIconChoices)
+                ChoiceChip(
+                  selected: householdIconKeyForIcon(iconData) == _selectedIcon,
+                  onSelected: (_) => setState(
+                    () => _selectedIcon = householdIconKeyForIcon(iconData),
+                  ),
+                  label: Icon(iconData, size: 18),
+                ),
+            ],
+          ),
+          if (!_isEdit) ...[
+            const SizedBox(height: AppSpacing.md),
+            AppSwitchTile(
+              value: _foodEnabled,
+              onChanged: (value) => setState(() => _foodEnabled = value),
+              title: 'Yemek özellikleri',
+              subtitle: 'Tarifler, AI Chef, son kullanma tarihi takibi',
             ),
           ],
-        );
-      },
-    ),
-  );
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('İptal'),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: FilledButton(
+                  onPressed: _confirm,
+                  child: Text(_isEdit ? 'Kaydet' : 'Oluştur'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

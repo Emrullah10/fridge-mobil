@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_sheet.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/scan_progress.dart';
 
@@ -32,13 +33,8 @@ const _demoItems = <_DemoLineItem>[
 /// FAB'a bağlanan giriş noktası — misafirse bunu, kayıtlı kullanıcıysa
 /// gerçek ReceiptScanScreen'i açan karar household_home_screen.dart'ta.
 Future<void> showDemoReceiptFlow(BuildContext context) {
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.dialog)),
-    ),
+  return showAppSheet<void>(
+    context,
     builder: (_) => const _DemoReceiptSheet(),
   );
 }

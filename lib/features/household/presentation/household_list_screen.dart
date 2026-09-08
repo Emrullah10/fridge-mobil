@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
@@ -8,11 +7,11 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/household_kind.dart';
-import '../../../core/widgets/single_field_dialog.dart';
 import '../../auth/application/auth_providers.dart';
 import '../../auth/presentation/upgrade_account_screen.dart';
 import '../application/household_providers.dart';
 import 'create_household_dialog.dart';
+import 'join_household_screen.dart';
 
 class HouseholdListScreen extends ConsumerWidget {
   const HouseholdListScreen({super.key});
@@ -39,54 +38,14 @@ class HouseholdListScreen extends ConsumerWidget {
     }
   }
 
-  // 12 hane hex kod (bkz. household-invite.repository.js), 4'erli gruplu
-  // gösterimle boşluklu ya da boşluksuz olabilir. WhatsApp'tan kopyalanan
-  // kod panodaysa dialog açılırken otomatik dolsun diye kontrol ediyoruz.
-  static final _codeLikePattern = RegExp(
-    r'^[a-f0-9\s]{12,17}$',
-    caseSensitive: false,
-  );
-
   Future<void> _joinHousehold(BuildContext context, WidgetRef ref) async {
-    String? clipboardCode;
-    try {
-      final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
-      final text = clipboard?.text?.trim();
-      if (text != null && _codeLikePattern.hasMatch(text)) {
-        clipboardCode = text;
-      }
-    } catch (_) {
-      // Pano erişimi başarısız olsa da katılma akışını engellemesin.
-    }
-
-    if (!context.mounted) return;
-    final code = await showSingleFieldDialog(
-      context,
-      title: 'Davet Koduyla Katıl',
-      hintText: 'Davet kodu',
-      confirmLabel: 'Katıl',
-      initialText: clipboardCode,
+    final joined = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const JoinHouseholdScreen()),
     );
-
-    // Kullanıcı görüntülemedeki 4'erli gruplu kodu ("a3f9 c1d0 e2b7") kopyalayıp
-    // yapıştırabilir — boşlukları ve baş/son boşlukları temizle, büyük/küçük
-    // harf duyarlılığını kaldır.
-    final cleanCode = code?.trim().replaceAll(' ', '').toLowerCase();
-    if (cleanCode == null || cleanCode.isEmpty) return;
-    try {
-      await ref.read(householdRepositoryProvider).acceptInvite(cleanCode);
-      ref.invalidate(householdsProvider);
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Alana katıldın')));
-      }
-    } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
-      }
+    if (joined == true && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Alana katıldın')));
     }
   }
 

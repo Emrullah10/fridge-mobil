@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_sheet.dart';
 import '../../../core/widgets/unit_label.dart';
 import '../data/shopping_repository.dart';
 
@@ -21,9 +22,8 @@ Future<ShoppingItemEdit?> showShoppingItemSheet(
   BuildContext context, {
   ShoppingItem? existing,
 }) {
-  return showModalBottomSheet<ShoppingItemEdit>(
-    context: context,
-    isScrollControlled: true,
+  return showAppSheet<ShoppingItemEdit>(
+    context,
     builder: (_) => _ShoppingItemSheet(existing: existing),
   );
 }

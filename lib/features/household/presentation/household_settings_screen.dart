@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_dialog.dart';
+import '../../../core/ui/app_switch.dart';
 import '../application/household_providers.dart';
 import '../data/household_repository.dart';
 
@@ -21,25 +23,16 @@ class HouseholdSettingsScreen extends ConsumerWidget {
   /// (household_home_screen.dart'taki eski `_toggleFoodFeature`'dan taşındı.)
   Future<void> _toggleFoodFeature(BuildContext context, WidgetRef ref, Household household) async {
     final enable = !household.foodEnabled;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Yemek özellikleri'),
-        content: Text(
-          enable
-              ? 'Tarifler, AI Chef ve son kullanma tarihi takibi bu alanda açılsın mı?'
-              : 'Tarifler ve AI Chef bu alanda kapatılsın mı? Envanter ve alışveriş listesi etkilenmez.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('İptal')),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(enable ? 'Aç' : 'Kapat'),
-          ),
-        ],
-      ),
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Yemek özellikleri',
+      message: enable
+          ? 'Tarifler, AI Chef ve son kullanma tarihi takibi bu alanda açılsın mı?'
+          : 'Tarifler ve AI Chef bu alanda kapatılsın mı? Envanter ve alışveriş listesi etkilenmez.',
+      cancelLabel: 'İptal',
+      confirmLabel: enable ? 'Aç' : 'Kapat',
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
 
     try {
       await ref.read(householdRepositoryProvider).updateFoodFeature(household.id, enable);
@@ -72,12 +65,12 @@ class HouseholdSettingsScreen extends ConsumerWidget {
             ),
           ),
           Card(
-            child: SwitchListTile(
+            child: AppSwitchTile(
               value: live.foodEnabled,
               onChanged: (_) => _toggleFoodFeature(context, ref, live),
-              secondary: Icon(live.foodEnabled ? Icons.restaurant_rounded : Icons.restaurant_outlined),
-              title: const Text('Yemek özellikleri'),
-              subtitle: const Text('Tarifler, AI Chef ve son kullanma tarihi takibi'),
+              leading: Icon(live.foodEnabled ? Icons.restaurant_rounded : Icons.restaurant_outlined),
+              title: 'Yemek özellikleri',
+              subtitle: 'Tarifler, AI Chef ve son kullanma tarihi takibi',
             ),
           ),
         ],

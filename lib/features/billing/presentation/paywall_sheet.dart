@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_sheet.dart';
 
 /// Bağlamsal paywall — kota doldu / kilitli özelliğe dokunuldu / misafir
 /// AI denedi anlarında gösterilir (bkz. plan §Faz 4 Tetiklenme #1, #6).
@@ -14,12 +15,8 @@ Future<void> showPaywallSheet(
   PlanLimitInfo? info,
   VoidCallback? onUpgrade,
 }) {
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.dialog)),
-    ),
+  return showAppSheet<void>(
+    context,
     builder: (sheetContext) => _PaywallSheetContent(info: info, onUpgrade: onUpgrade),
   );
 }

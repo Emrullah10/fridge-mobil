@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_action_sheet.dart';
+import '../../../core/ui/app_sheet.dart';
 import '../../../core/widgets/unit_label.dart';
 import '../application/product_providers.dart';
 import '../data/product_repository.dart';
@@ -17,9 +19,11 @@ Future<Product?> showProductPicker(
   BuildContext context, {
   required String householdId,
 }) {
-  return showModalBottomSheet<Product>(
-    context: context,
-    isScrollControlled: true,
+  return showAppSheet<Product>(
+    context,
+    // DraggableScrollableSheet kendi sürükleme algılayıcısını taşıyor —
+    // global drag handle ile çakışmaması için kapatıyoruz.
+    showDragHandle: false,
     builder: (_) => _ProductPickerSheet(householdId: householdId),
   );
 }
@@ -73,37 +77,18 @@ class _ProductPickerSheetState extends ConsumerState<_ProductPickerSheet> {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
 
-    String selectedUnit = 'piece';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: Text('"$query" ürününü oluştur'),
-          content: DropdownButtonFormField<String>(
-            initialValue: selectedUnit,
-            decoration: const InputDecoration(labelText: 'Birim'),
-            items: [
-              for (final u in _units)
-                DropdownMenuItem(value: u, child: Text(unitLabel(u))),
-            ],
-            onChanged: (value) =>
-                setDialogState(() => selectedUnit = value ?? 'piece'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('İptal'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Oluştur'),
-            ),
-          ],
-        ),
-      ),
+    // Eskiden "birim seç" ayrı bir onay dialoguydu (Dropdown + İptal/Oluştur)
+    // — nested modal (sheet üstünde dialog) ve gereksiz bir ekstra adımdı.
+    // Action sheet ile tek dokunuşta hem seçim hem onay.
+    final selectedUnit = await showAppActionSheet<String>(
+      context,
+      title: '"$query" ürününü oluştur',
+      message: 'Birim seç',
+      actions: [
+        for (final u in _units) AppSheetAction(value: u, label: unitLabel(u)),
+      ],
     );
-
-    if (confirmed != true || !mounted) return;
+    if (selectedUnit == null || !mounted) return;
 
     final product = await ref
         .read(productRepositoryProvider)

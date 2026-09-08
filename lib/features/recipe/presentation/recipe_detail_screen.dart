@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_dialog.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/unit_label.dart';
 import '../../inventory/application/inventory_providers.dart';
@@ -48,18 +49,13 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
   }
 
   Future<void> _cook() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Bu tarifi pişirdin mi?'),
-        content: const Text('Malzemeler dolabından düşülecek.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Evet, pişirdim')),
-        ],
-      ),
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Bu tarifi pişirdin mi?',
+      message: 'Malzemeler dolabından düşülecek.',
+      confirmLabel: 'Evet, pişirdim',
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     setState(() => _isCooking = true);
     try {
