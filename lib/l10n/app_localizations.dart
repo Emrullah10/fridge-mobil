@@ -336,6 +336,54 @@ abstract class AppL10n {
   /// In tr, this message translates to:
   /// **'yaklaşık'**
   String get nutritionApprox;
+
+  /// No description provided for @updateAvailableMessage.
+  ///
+  /// In tr, this message translates to:
+  /// **'Fridge\'in yeni bir sürümü mevcut.'**
+  String get updateAvailableMessage;
+
+  /// No description provided for @updateAction.
+  ///
+  /// In tr, this message translates to:
+  /// **'Güncelle'**
+  String get updateAction;
+
+  /// No description provided for @dismissAction.
+  ///
+  /// In tr, this message translates to:
+  /// **'Kapat'**
+  String get dismissAction;
+
+  /// No description provided for @forceUpdateTitle.
+  ///
+  /// In tr, this message translates to:
+  /// **'Fridge\'i kullanmaya devam etmek için güncellemen gerekiyor'**
+  String get forceUpdateTitle;
+
+  /// No description provided for @forceUpdateAction.
+  ///
+  /// In tr, this message translates to:
+  /// **'Şimdi güncelle'**
+  String get forceUpdateAction;
+
+  /// No description provided for @updateReadyMessage.
+  ///
+  /// In tr, this message translates to:
+  /// **'Güncelleme indirildi.'**
+  String get updateReadyMessage;
+
+  /// No description provided for @updateRestartAction.
+  ///
+  /// In tr, this message translates to:
+  /// **'Yeniden başlat'**
+  String get updateRestartAction;
+
+  /// No description provided for @storeOpenFailedMessage.
+  ///
+  /// In tr, this message translates to:
+  /// **'Mağaza açılamadı'**
+  String get storeOpenFailedMessage;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

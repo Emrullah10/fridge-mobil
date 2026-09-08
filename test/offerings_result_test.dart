@@ -124,6 +124,92 @@ void main() {
     });
   });
 
+  group('PurchaseRepository — en iyi subscription option seçimi', () {
+    // Regresyon: `storeProduct.defaultOption` bazı paketlerde offer'sız
+    // taban plana düşüyordu — Play Console'da teklif "Aktif" olsa bile
+    // paywall'da indirim/deneme hiç görünmüyordu (kullanıcı şikayeti:
+    // "bireysel aylık ve aile yıllıkta indirim gözükmüyor, diğerlerinde
+    // gözüküyor"). `subscriptionOptions` listesindeki offer'lı seçenek
+    // artık `defaultOption`'a tercih ediliyor.
+    SubscriptionOption basePlan({double price = 79.99}) => SubscriptionOption(
+          'base',
+          'p1',
+          'p1',
+          [],
+          const [],
+          true,
+          null,
+          false,
+          _phase(mode: OfferPaymentMode.singlePayment, price: price),
+          null,
+          null,
+          null,
+          null,
+        );
+
+    SubscriptionOption offerOption({required PricingPhase? free, required PricingPhase? intro}) => SubscriptionOption(
+          'offer',
+          'p1',
+          'p1',
+          [],
+          const [],
+          false,
+          null,
+          false,
+          _phase(mode: OfferPaymentMode.singlePayment, price: 79.99),
+          free,
+          intro,
+          null,
+          null,
+        );
+
+    StoreProduct storeProduct({SubscriptionOption? defaultOption, List<SubscriptionOption>? options}) => StoreProduct(
+          'p1',
+          'desc',
+          'Aylık',
+          79.99,
+          '₺79,99',
+          'TRY',
+          defaultOption: defaultOption,
+          subscriptionOptions: options,
+        );
+
+    test('defaultOption offer taşımıyor ama subscriptionOptions içinde offerlı seçenek varsa o tercih edilir', () {
+      final base = basePlan();
+      final offer = offerOption(
+        free: null,
+        intro: _phase(mode: OfferPaymentMode.discountedRecurringPayment, price: 29.99, billingCycleCount: 3),
+      );
+      final product = storeProduct(defaultOption: base, options: [base, offer]);
+
+      final repository = PurchaseRepository();
+      final chosen = repository.bestSubscriptionOptionForTest(product);
+
+      expect(chosen?.id, 'offer');
+      expect(chosen?.introPhase, isNotNull);
+    });
+
+    test('subscriptionOptions içinde offerlı seçenek yoksa defaultOption\'a düşer', () {
+      final base = basePlan();
+      final product = storeProduct(defaultOption: base, options: [base]);
+
+      final repository = PurchaseRepository();
+      final chosen = repository.bestSubscriptionOptionForTest(product);
+
+      expect(chosen?.id, 'base');
+    });
+
+    test('subscriptionOptions hiç gelmemişse (null/boş) defaultOption\'a düşer', () {
+      final base = basePlan();
+      final product = storeProduct(defaultOption: base, options: null);
+
+      final repository = PurchaseRepository();
+      final chosen = repository.bestSubscriptionOptionForTest(product);
+
+      expect(chosen?.id, 'base');
+    });
+  });
+
   group('PurchaseRepository.fetchOfferings — configure() hiç çağrılmadıysa', () {
     test('notConfigured döner, RC plugin\'ına hiç dokunulmadan (boot çökmez ilkesi)', () async {
       // configure() bu testte hiç çağrılmadı — PurchaseRepository._configured

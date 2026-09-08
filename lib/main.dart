@@ -19,6 +19,8 @@ import 'core/error/api_error.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_providers.dart';
 import 'core/version/app_config_repository.dart';
+import 'core/version/in_app_updater.dart';
+import 'core/version/update_decision.dart';
 import 'core/version/version_prefs.dart';
 import 'features/auth/application/auth_providers.dart';
 import 'features/auth/presentation/welcome_screen.dart';
@@ -40,6 +42,10 @@ import 'firebase_options.dart';
 
 final appConfigRepositoryProvider = Provider<AppConfigRepository>((ref) {
   return AppConfigRepository(ref.watch(apiClientProvider));
+});
+
+final inAppUpdaterProvider = Provider<InAppUpdater>((ref) {
+  return const PlayInAppUpdater();
 });
 
 // Crash reporting servisi (Sentry/Crashlytics) yok — bunlar olmadan
@@ -166,7 +172,7 @@ class _AuthGate extends ConsumerStatefulWidget {
   ConsumerState<_AuthGate> createState() => _AuthGateState();
 }
 
-class _AuthGateState extends ConsumerState<_AuthGate> {
+class _AuthGateState extends ConsumerState<_AuthGate> with WidgetsBindingObserver {
   AuthStatus? _lastStatus;
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSubscription;
@@ -180,9 +186,17 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
   bool _forceUpdateRequired = false;
   String _storeUrl = '';
 
+  // Uygulama sadece cold start'ta değil, uzun süre açık kaldıktan sonra
+  // foreground'a dönüşte de kontrol edilsin diye (bkz. kusur #1). Backend
+  // cache TTL'i (6 saat) ile aynı eşik kullanılır — daha sık kontrol
+  // gereksiz istek üretir.
+  DateTime? _lastVersionCheck;
+  static const _versionCheckInterval = Duration(hours: 6);
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initDeepLinks();
     // Bir sonraki frame'e ertelenir — widget test'lerinde initState içinde
     // senkron başlatılan bir network çağrısı, test bittiğinde hâlâ bekleyen
@@ -190,56 +204,146 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkAppVersion());
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final last = _lastVersionCheck;
+      if (last == null || DateTime.now().difference(last) >= _versionCheckInterval) {
+        _checkAppVersion();
+      }
+    }
+  }
+
   Future<void> _checkAppVersion() async {
+    _lastVersionCheck = DateTime.now();
     try {
       final config = await ref.read(appConfigRepositoryProvider).fetch();
       if (config == null) return;
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
+      final dismissed = await dismissedUpdateVersion();
 
       if (!mounted) return;
-      if (compareVersions(currentVersion, config.minSupportedVersion) < 0) {
-        setState(() {
-          _forceUpdateRequired = true;
-          _storeUrl = config.storeUrl;
-        });
-      } else if (compareVersions(currentVersion, config.latestVersion) < 0) {
-        final dismissed = await dismissedUpdateVersion();
-        if (dismissed == config.latestVersion) return;
-        if (!mounted) return;
-        WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _showUpdateBanner(config.storeUrl, config.latestVersion),
-        );
+      final action = decideUpdate(
+        currentVersion: currentVersion,
+        config: config,
+        dismissedVersion: dismissed,
+      );
+
+      switch (action) {
+        case UpdateAction.none:
+          return;
+        case UpdateAction.forced:
+          await _handleForcedUpdate(config.storeUrl);
+        case UpdateAction.optional:
+          await _handleOptionalUpdate(config.storeUrl, config.latestVersion);
       }
     } catch (_) {
       // Sürüm kontrolü best-effort — uygulama açılışını asla engellemez.
     }
   }
 
-  void _showUpdateBanner(String storeUrl, String latestVersion) {
+  /// Android + Play'den kurulu ise native immediate akışı denenir —
+  /// başarısız olursa (emülatör, sideload, Play olmayan cihaz, kullanıcı
+  /// reddetti) mevcut tam ekran + storeUrl akışına düşülür.
+  Future<void> _handleForcedUpdate(String storeUrl) async {
+    final updater = ref.read(inAppUpdaterProvider);
+    if (await updater.isAvailable() && await updater.startImmediate()) {
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _forceUpdateRequired = true;
+      _storeUrl = storeUrl;
+    });
+  }
+
+  /// Android + Play'den kurulu ise flexible indirme başlatılır — indirme
+  /// başladıysa "Yeniden başlat" banner'ı gösterilir, aksi halde mevcut
+  /// kapatılabilir banner + storeUrl akışına düşülür.
+  Future<void> _handleOptionalUpdate(String storeUrl, String latestVersion) async {
+    final updater = ref.read(inAppUpdaterProvider);
+    if (await updater.isAvailable() && await updater.startFlexible()) {
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _showUpdateReadyBanner(updater),
+      );
+      return;
+    }
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _showUpdateBanner(storeUrl, latestVersion),
+    );
+  }
+
+  void _showUpdateReadyBanner(InAppUpdater updater) {
     final context = rootNavigatorKey.currentContext;
     if (context == null || !context.mounted) return;
+    final l10n = AppL10n.of(context);
     ScaffoldMessenger.of(context).showMaterialBanner(
       MaterialBanner(
-        content: const Text('Fridge\'in yeni bir sürümü mevcut.'),
+        content: Text(l10n.updateReadyMessage),
         actions: [
           TextButton(
             onPressed: () {
               ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
-              setDismissedUpdateVersion(latestVersion);
-              launchUrl(
-                Uri.parse(storeUrl),
-                mode: LaunchMode.externalApplication,
-              );
+              updater.completeFlexible();
             },
-            child: const Text('Güncelle'),
+            child: Text(l10n.updateRestartAction),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openStore(BuildContext context, String storeUrl) async {
+    final l10n = AppL10n.of(context);
+    try {
+      final launched = await launchUrl(
+        Uri.parse(storeUrl),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.storeOpenFailedMessage)));
+      }
+    } catch (_) {
+      // storeUrl boş/bozuk olabilir (ör. iOS App Store id'si henüz
+      // ayarlanmamış) — kullanıcı force-update ekranında KİLİTLİ kalmasın
+      // diye burada mutlaka yakalanır (bkz. kusur #3).
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.storeOpenFailedMessage)));
+      }
+    }
+  }
+
+  void _showUpdateBanner(String storeUrl, String latestVersion) {
+    final context = rootNavigatorKey.currentContext;
+    if (context == null || !context.mounted) return;
+    final l10n = AppL10n.of(context);
+    ScaffoldMessenger.of(context).showMaterialBanner(
+      MaterialBanner(
+        content: Text(l10n.updateAvailableMessage),
+        actions: [
+          TextButton(
+            onPressed: () {
+              // "Güncelle" artık dismiss KAYDETMİYOR (bkz. kusur #2) —
+              // kullanıcı store'a gidip vazgeçerse bir sonraki açılışta
+              // yeniden hatırlatılır. Sadece "Kapat" susturur.
+              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              _openStore(context, storeUrl);
+            },
+            child: Text(l10n.updateAction),
           ),
           TextButton(
             onPressed: () {
               ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
               setDismissedUpdateVersion(latestVersion);
             },
-            child: const Text('Kapat'),
+            child: Text(l10n.dismissAction),
           ),
         ],
       ),
@@ -320,6 +424,7 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _linkSubscription?.cancel();
     super.dispose();
   }
@@ -402,6 +507,7 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
   @override
   Widget build(BuildContext context) {
     if (_forceUpdateRequired) {
+      final l10n = AppL10n.of(context);
       return Scaffold(
         body: Center(
           child: Padding(
@@ -411,18 +517,15 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
               children: [
                 const Icon(Icons.system_update_rounded, size: 56),
                 const SizedBox(height: 16),
-                const Text(
-                  'Fridge\'i kullanmaya devam etmek için güncellemen gerekiyor',
+                Text(
+                  l10n.forceUpdateTitle,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                 ),
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: () => launchUrl(
-                    Uri.parse(_storeUrl),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                  child: const Text('Şimdi güncelle'),
+                  onPressed: () => _openStore(context, _storeUrl),
+                  child: Text(l10n.forceUpdateAction),
                 ),
               ],
             ),

@@ -129,4 +129,29 @@ class AppL10nTr extends AppL10n {
 
   @override
   String get nutritionApprox => 'yaklaşık';
+
+  @override
+  String get updateAvailableMessage => 'Fridge\'in yeni bir sürümü mevcut.';
+
+  @override
+  String get updateAction => 'Güncelle';
+
+  @override
+  String get dismissAction => 'Kapat';
+
+  @override
+  String get forceUpdateTitle =>
+      'Fridge\'i kullanmaya devam etmek için güncellemen gerekiyor';
+
+  @override
+  String get forceUpdateAction => 'Şimdi güncelle';
+
+  @override
+  String get updateReadyMessage => 'Güncelleme indirildi.';
+
+  @override
+  String get updateRestartAction => 'Yeniden başlat';
+
+  @override
+  String get storeOpenFailedMessage => 'Mağaza açılamadı';
 }

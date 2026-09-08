@@ -52,5 +52,14 @@
   "dietKcalTarget": "Daily calorie target (optional)",
 
   "nutritionPerServing": "Per serving",
-  "nutritionApprox": "approx."
+  "nutritionApprox": "approx.",
+
+  "updateAvailableMessage": "A new version of Fridge is available.",
+  "updateAction": "Update",
+  "dismissAction": "Dismiss",
+  "forceUpdateTitle": "You need to update to keep using Fridge",
+  "forceUpdateAction": "Update now",
+  "updateReadyMessage": "Update downloaded.",
+  "updateRestartAction": "Restart",
+  "storeOpenFailedMessage": "Couldn't open the store"
 }

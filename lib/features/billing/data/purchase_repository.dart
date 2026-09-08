@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -204,7 +206,7 @@ class PurchaseRepository {
       }
       return OfferingsResult.success(
         current.availablePackages.map((pkg) {
-          final defaultOption = pkg.storeProduct.defaultOption;
+          final option = _bestSubscriptionOption(pkg.storeProduct);
           return PurchaseProduct(
             identifier: pkg.storeProduct.identifier,
             priceString: pkg.storeProduct.priceString,
@@ -213,9 +215,9 @@ class PurchaseRepository {
             packageType: pkg.packageType,
             price: pkg.storeProduct.price,
             pricePerMonthString: pkg.storeProduct.pricePerMonthString,
-            freePhase: defaultOption?.freePhase,
-            introPhase: defaultOption?.introPhase,
-            fullPricePhase: defaultOption?.fullPricePhase,
+            freePhase: option?.freePhase,
+            introPhase: option?.introPhase,
+            fullPricePhase: option?.fullPricePhase,
             introductoryPrice: pkg.storeProduct.introductoryPrice,
           );
         }).toList(),
@@ -223,6 +225,26 @@ class PurchaseRepository {
     } catch (e) {
       return OfferingsResult.failed(OfferingsFailure.storeError, debugMessage: e.toString());
     }
+  }
+
+  /// `storeProduct.defaultOption` bazı paketlerde (gözlem: aynı üründe
+  /// birden fazla aktif Play teklifi olduğunda) RC tarafından offer'sız
+  /// taban plana düşüyor — Play Console'da teklif "Aktif" ve doğru
+  /// yapılandırılmış olsa bile paywall'da indirim/deneme hiç görünmüyordu
+  /// (kullanıcı şikayeti: "bazı kartlarda indirim gözükmüyor"). `defaultOption`
+  /// yerine `subscriptionOptions` listesinde offer taşıyan (taban plan
+  /// olmayan) bir seçenek varsa onu tercih ediyoruz; yoksa `defaultOption`'a
+  /// düşüyoruz (davranış aynı kalır).
+  @visibleForTesting
+  SubscriptionOption? bestSubscriptionOptionForTest(StoreProduct product) => _bestSubscriptionOption(product);
+
+  SubscriptionOption? _bestSubscriptionOption(StoreProduct product) {
+    final options = product.subscriptionOptions;
+    if (options != null && options.isNotEmpty) {
+      final withOffer = options.where((o) => !o.isBasePlan && (o.freePhase != null || o.introPhase != null));
+      if (withOffer.isNotEmpty) return withOffer.first;
+    }
+    return product.defaultOption;
   }
 
   /// Satın alma başlatır. Sonucu backend'e HİÇ bildirmez — RevenueCat
@@ -243,7 +265,15 @@ class PurchaseRepository {
       if (package == null) {
         return const PurchaseResult(success: false, errorMessage: 'Ürün bulunamadı.');
       }
-      await Purchases.purchase(PurchaseParams.package(package));
+      // Android'de görüntülemede seçtiğimiz aynı subscription option ile
+      // satın al — `PurchaseParams.package()` RC'nin kendi `defaultOption`'ını
+      // kullanır, bu bazı paketlerde offer'sız taban plana düşüyordu
+      // (kartta indirim görünse bile ödemede uygulanmama riski). iOS'ta bu
+      // API yok (Google Play-only), package ile devam edilir.
+      final option = Platform.isAndroid ? _bestSubscriptionOption(package.storeProduct) : null;
+      await Purchases.purchase(
+        option != null ? PurchaseParams.subscriptionOption(option) : PurchaseParams.package(package),
+      );
       return const PurchaseResult(success: true);
     } on PlatformException catch (e) {
       final errorCode = PurchasesErrorHelper.getErrorCode(e);

@@ -53,5 +53,14 @@
   "dietKcalTarget": "Günlük kalori hedefi (opsiyonel)",
 
   "nutritionPerServing": "Porsiyon başına",
-  "nutritionApprox": "yaklaşık"
+  "nutritionApprox": "yaklaşık",
+
+  "updateAvailableMessage": "Fridge'in yeni bir sürümü mevcut.",
+  "updateAction": "Güncelle",
+  "dismissAction": "Kapat",
+  "forceUpdateTitle": "Fridge'i kullanmaya devam etmek için güncellemen gerekiyor",
+  "forceUpdateAction": "Şimdi güncelle",
+  "updateReadyMessage": "Güncelleme indirildi.",
+  "updateRestartAction": "Yeniden başlat",
+  "storeOpenFailedMessage": "Mağaza açılamadı"
 }

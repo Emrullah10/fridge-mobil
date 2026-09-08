@@ -5,10 +5,14 @@ import '../../data/purchase_repository.dart';
 
 /// Paywall'daki tek bir paket kartı. Eskiden tek bir `Text(priceString)`
 /// satırıydı — mağazada tanımlı ücretsiz deneme/indirimli teklif hiç
-/// görünmüyordu (kullanıcı şikayeti: "indirimlerimiz var ama kartlarda tam
-/// ücret yazıyor"). Şimdi üç durumu ayırt eder: ücretsiz deneme, indirimli
-/// giriş fiyatı, ya da (indirim yoksa) yıllığın aylık karşılığı + tasarruf
-/// rozeti.
+/// görünmüyordu. Sonra üç durumu ayırt eden bir yatay tek-satır düzene
+/// geçildi, ama uzun Türkçe başlık + rozet + üstü çizili fiyat aynı satıra
+/// sığmayınca taşma/iç içe girme oldu (kullanıcı şikayeti: "yazılar içi içe
+/// girmiş"). Şimdi dikey/bölünmüş düzen: üstte başlık+rozet satırı, altta
+/// büyük fiyat + tek kısa ikincil satır. Uzun yasal açıklama ("İlk X
+/// ücretsiz, sonra Y") karttan kaldırıldı — Play/App Store zorunluluğu artık
+/// tek başına ekran altındaki `_renewalDisclosure()` satırınca karşılanıyor
+/// (bkz. paywall_screen.dart).
 class ProductTile extends StatelessWidget {
   const ProductTile({
     super.key,
@@ -27,6 +31,11 @@ class ProductTile extends StatelessWidget {
   /// gösterilmez.
   final PurchaseProduct? monthlyForComparison;
 
+  /// Radyo ikonu (24) + aradaki boşluk (AppSpacing.sm) — alt satırların sol
+  /// kenarı buna göre hizalanır (eskiden sabit 36 kullanılıyordu, ikonla
+  /// hizalı değildi).
+  static const double _indicatorGutter = 24 + AppSpacing.sm;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -40,6 +49,7 @@ class ProductTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
+            color: selected ? theme.colorScheme.primary.withValues(alpha: 0.06) : null,
             borderRadius: BorderRadius.circular(AppRadius.card),
             border: Border.all(
               color: selected ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
@@ -57,39 +67,44 @@ class ProductTile extends StatelessWidget {
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(product.title, style: theme.textTheme.titleSmall),
-                            if (badge != null) ...[
-                              const SizedBox(width: AppSpacing.xs),
-                              _Badge(label: badge),
-                            ],
-                          ],
-                        ),
-                        Text(
-                          product.description,
-                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                        ),
-                      ],
+                    child: Text(
+                      product.title,
+                      style: theme.textTheme.titleSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  _PriceColumn(product: product, monthlyForComparison: monthlyForComparison),
+                  if (badge != null) ...[
+                    const SizedBox(width: AppSpacing.xs),
+                    _Badge(label: badge),
+                  ],
                 ],
               ),
-              if (_disclosure() case final disclosure?) ...[
-                const SizedBox(height: AppSpacing.xs),
-                Padding(
-                  padding: const EdgeInsets.only(left: 36),
-                  child: Text(
-                    disclosure,
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                  ),
+              Padding(
+                padding: const EdgeInsets.only(left: _indicatorGutter, top: AppSpacing.xs),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.description,
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    _PriceRow(product: product),
+                    if (_secondaryLine() case final line?) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        line,
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
                 ),
-              ],
+              ),
             ],
           ),
         ),
@@ -108,28 +123,26 @@ class ProductTile extends StatelessWidget {
     return null;
   }
 
-  /// Fiyatın altında çıkan açıklama satırı — Play/App Store politikası
-  /// deneme/indirim varsa süre ve sonraki fiyatın AÇIKÇA belirtilmesini
-  /// zorunlu kılıyor (bildirimsiz deneme sürüm reddi sebebi olabilir).
-  String? _disclosure() {
+  /// Fiyatın altındaki tek kısa satır — uzun yasal metin (süre + sonraki
+  /// fiyat) artık burada değil, ekran altındaki kalıcı yenileme satırında.
+  /// Öncelik: aylık karşılığı > kısa deneme notu.
+  String? _secondaryLine() {
+    final perMonth = product.pricePerMonthString;
+    if (perMonth != null && monthlyForComparison != null && !product.hasFreeTrial && !product.hasIntroDiscount) {
+      return '≈ $perMonth/ay';
+    }
     final period = product.trialPeriodLabel;
     if (product.hasFreeTrial && period != null) {
-      return 'İlk $period ücretsiz, sonra ${product.priceString}';
-    }
-    if (product.hasIntroDiscount && product.introPriceString != null) {
-      final cycles = product.introCycles;
-      final periodLabel = cycles != null && cycles > 1 ? 'İlk $cycles dönem' : 'İlk dönem';
-      return '$periodLabel ${product.introPriceString}, sonra ${product.priceString}';
+      return 'İlk $period ücretsiz';
     }
     return null;
   }
 }
 
-class _PriceColumn extends StatelessWidget {
-  const _PriceColumn({required this.product, required this.monthlyForComparison});
+class _PriceRow extends StatelessWidget {
+  const _PriceRow({required this.product});
 
   final PurchaseProduct product;
-  final PurchaseProduct? monthlyForComparison;
 
   @override
   Widget build(BuildContext context) {
@@ -139,10 +152,16 @@ class _PriceColumn extends StatelessWidget {
     // (plan §Faz 4 Play politikası notu).
     if (product.hasFreeTrial || product.hasIntroDiscount) {
       final introPrice = product.introPriceString;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
         children: [
-          if (introPrice != null && !product.hasFreeTrial)
+          Text(
+            introPrice ?? product.priceString,
+            style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),
+          ),
+          if (introPrice != null && !product.hasFreeTrial) ...[
+            const SizedBox(width: AppSpacing.xs),
             Text(
               product.priceString,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -150,29 +169,15 @@ class _PriceColumn extends StatelessWidget {
                 decoration: TextDecoration.lineThrough,
               ),
             ),
-          Text(
-            introPrice ?? product.priceString,
-            style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary),
-          ),
+          ],
         ],
       );
     }
 
-    final perMonth = product.pricePerMonthString;
-    if (perMonth != null && monthlyForComparison != null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(product.priceString, style: theme.textTheme.titleMedium),
-          Text(
-            '$perMonth/ay',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-        ],
-      );
-    }
-
-    return Text(product.priceString, style: theme.textTheme.titleMedium);
+    return Text(
+      product.priceString,
+      style: theme.textTheme.titleLarge,
+    );
   }
 }
 
@@ -196,6 +201,8 @@ class _Badge extends StatelessWidget {
           color: theme.colorScheme.onPrimaryContainer,
           fontWeight: FontWeight.bold,
         ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

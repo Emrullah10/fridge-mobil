@@ -36,7 +36,10 @@ void main() {
     await tester.pumpWidget(_wrap(ProductTile(product: product, selected: false, onTap: () {})));
 
     expect(find.textContaining('ÜCRETSİZ'), findsOneWidget);
-    expect(find.textContaining('İlk 1 ay ücretsiz, sonra ₺79,99'), findsOneWidget);
+    expect(find.textContaining('İlk 1 ay ücretsiz'), findsOneWidget);
+    // Uzun yasal açıklama ('sonra ₺X') artık karttan kalkıp ekran altındaki
+    // kalıcı yenileme satırına taşındı (paywall_screen._renewalDisclosure).
+    expect(find.textContaining('sonra ₺79,99'), findsNothing);
   });
 
   testWidgets('indirimli giriş fiyatı — eski fiyat üstü çizili, yeni fiyat vurgulu', (tester) async {
@@ -52,7 +55,9 @@ void main() {
     expect(find.textContaining('İNDİRİM'), findsOneWidget);
     expect(find.text('₺79,99'), findsOneWidget); // üstü çizili eski fiyat
     expect(find.text('₺29.99'), findsOneWidget); // yeni fiyat
-    expect(find.textContaining('İlk 3 dönem'), findsOneWidget);
+    // Uzun yasal açıklama ('İlk 3 dönem ... sonra ...') artık karttan
+    // kalkıp ekran altındaki kalıcı yenileme satırına taşındı.
+    expect(find.textContaining('İlk 3 dönem'), findsNothing);
   });
 
   testWidgets('yıllık paket, indirim yok — aylık karşılığı ve tasarruf rozeti', (tester) async {
@@ -71,5 +76,26 @@ void main() {
 
     expect(find.textContaining('TASARRUF'), findsOneWidget);
     expect(find.textContaining('₺49,99/ay'), findsOneWidget);
+  });
+
+  testWidgets('dar ekran + uzun başlık/rozet/fiyat — taşma (overflow) hatası olmamalı', (tester) async {
+    // Regresyon: eskiden tek yatay Row'a sıkıştırılan başlık+rozet+fiyat,
+    // uzun Türkçe metinlerle dar ekranda RenderFlex overflow veriyordu
+    // (kullanıcı şikayeti: "yazılar içi içe girmiş").
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final product = PurchaseProduct(
+      identifier: 'family-yearly',
+      priceString: '₺1.499,99',
+      title: 'Yıllık Aile Paketi — Sınırsız Üye',
+      description: 'Tüm hane üyeleri için sınırsız fiş tarama ve tarif üretimi',
+      introPhase: _phase(mode: OfferPaymentMode.discountedRecurringPayment, price: 29.99, billingCycleCount: 3),
+    );
+    await tester.pumpWidget(_wrap(ProductTile(product: product, selected: true, onTap: () {})));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
   });
 }

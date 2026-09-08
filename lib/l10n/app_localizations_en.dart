@@ -130,4 +130,28 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get nutritionApprox => 'approx.';
+
+  @override
+  String get updateAvailableMessage => 'A new version of Fridge is available.';
+
+  @override
+  String get updateAction => 'Update';
+
+  @override
+  String get dismissAction => 'Dismiss';
+
+  @override
+  String get forceUpdateTitle => 'You need to update to keep using Fridge';
+
+  @override
+  String get forceUpdateAction => 'Update now';
+
+  @override
+  String get updateReadyMessage => 'Update downloaded.';
+
+  @override
+  String get updateRestartAction => 'Restart';
+
+  @override
+  String get storeOpenFailedMessage => 'Couldn\'t open the store';
 }
