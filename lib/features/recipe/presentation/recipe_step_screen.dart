@@ -43,7 +43,10 @@ class _RecipeStepScreenState extends State<RecipeStepScreen> {
         totalSeconds: (step.minutes ?? 0) * 60,
         onTick: () => setState(() {}),
         onDone: () {
-          CookTimerService.instance.notifyStepDone(stepOrder: step.order, recipeTitle: widget.title);
+          CookTimerService.instance.notifyStepDone(
+            stepOrder: step.order,
+            recipeTitle: widget.title,
+          );
           if (mounted) {
             setState(() {});
             ScaffoldMessenger.of(context).showSnackBar(
@@ -75,7 +78,9 @@ class _RecipeStepScreenState extends State<RecipeStepScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 2),
                       height: 4,
                       decoration: BoxDecoration(
-                        color: i <= _currentPage ? colorScheme.primary : colorScheme.surfaceContainerHighest,
+                        color: i <= _currentPage
+                            ? colorScheme.primary
+                            : colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                     ),
@@ -98,7 +103,8 @@ class _RecipeStepScreenState extends State<RecipeStepScreen> {
                       children: [
                         Text(
                           'Adım ${step.order}',
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.primary),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: colorScheme.primary),
                         ),
                         const SizedBox(height: AppSpacing.md),
                         Text(
@@ -108,7 +114,10 @@ class _RecipeStepScreenState extends State<RecipeStepScreen> {
                         ),
                         if (step.minutes != null) ...[
                           const SizedBox(height: AppSpacing.lg),
-                          _StepTimerControl(timer: _timerFor(step), minutes: step.minutes!),
+                          _StepTimerControl(
+                            timer: _timerFor(step),
+                            minutes: step.minutes!,
+                          ),
                         ],
                       ],
                     ),
@@ -137,10 +146,14 @@ class _RecipeStepScreenState extends State<RecipeStepScreen> {
                     onPressed: _currentPage == widget.steps.length - 1
                         ? () => Navigator.of(context).pop()
                         : () => _pageController.nextPage(
-                              duration: const Duration(milliseconds: 250),
-                              curve: Curves.easeOutCubic,
-                            ),
-                    child: Text(_currentPage == widget.steps.length - 1 ? 'Bitti' : 'Sonraki'),
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOutCubic,
+                          ),
+                    child: Text(
+                      _currentPage == widget.steps.length - 1
+                          ? 'Bitti'
+                          : 'Sonraki',
+                    ),
                   ),
                 ),
               ],
@@ -155,7 +168,11 @@ class _RecipeStepScreenState extends State<RecipeStepScreen> {
 /// Tek bir adımın geri sayım durumu. Widget ağacından bağımsız — sayfa
 /// kaydırılınca bile çalışmaya devam eder.
 class _StepTimer {
-  _StepTimer({required this.totalSeconds, required this.onTick, required this.onDone});
+  _StepTimer({
+    required this.totalSeconds,
+    required this.onTick,
+    required this.onDone,
+  });
 
   final int totalSeconds;
   final VoidCallback onTick;
@@ -237,7 +254,9 @@ class _StepTimerControl extends StatelessWidget {
                   value: timer.running || timer.finished ? frac : 1.0,
                   strokeWidth: 6,
                   backgroundColor: cs.surfaceContainerHighest,
-                  valueColor: AlwaysStoppedAnimation(timer.finished ? cs.error : cs.primary),
+                  valueColor: AlwaysStoppedAnimation(
+                    timer.finished ? cs.error : cs.primary,
+                  ),
                 ),
               ),
               Column(
@@ -245,10 +264,16 @@ class _StepTimerControl extends StatelessWidget {
                 children: [
                   Text(
                     _fmt(display),
-                    style: tt.headlineSmall?.copyWith(fontFeatures: const [], fontWeight: FontWeight.w700),
+                    style: tt.headlineSmall?.copyWith(
+                      fontFeatures: const [],
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   if (timer.finished)
-                    Text('doldu', style: tt.labelSmall?.copyWith(color: cs.error)),
+                    Text(
+                      'doldu',
+                      style: tt.labelSmall?.copyWith(color: cs.error),
+                    ),
                 ],
               ),
             ],
@@ -261,10 +286,17 @@ class _StepTimerControl extends StatelessWidget {
             if (!timer.finished)
               FilledButton.tonalIcon(
                 onPressed: timer.running ? timer.pause : timer.start,
-                icon: Icon(timer.running ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 18),
-                label: Text(timer.running
-                    ? 'Duraklat'
-                    : (timer.remaining > 0 ? 'Devam' : '$minutes dk başlat')),
+                icon: Icon(
+                  timer.running
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                  size: 18,
+                ),
+                label: Text(
+                  timer.running
+                      ? 'Duraklat'
+                      : (timer.remaining > 0 ? 'Devam' : '$minutes dk başlat'),
+                ),
               ),
             if (timer.running || timer.finished || timer.remaining > 0) ...[
               const SizedBox(width: AppSpacing.sm),

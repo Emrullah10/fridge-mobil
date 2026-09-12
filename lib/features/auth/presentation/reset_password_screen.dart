@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_icons.dart';
+import '../../../core/ui/app_text_form_field.dart';
 import '../../../core/validation/validators.dart';
 import '../../../core/widgets/button_progress.dart';
 import '../../../core/widgets/form_error_text.dart';
@@ -87,6 +89,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -181,7 +184,15 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                   const SizedBox(height: AppSpacing.xl),
                   TextFormField(
                     controller: _codeController,
-                    keyboardType: TextInputType.number,
+                    // `TextInputType.number` iOS'ta Return tuşu OLMAYAN bir
+                    // klavye açar (join_household_screen.dart'taki
+                    // aynı sorunun küçük ölçekli hâli). `visiblePassword`
+                    // rakam girişini engellemez ama Return tuşu verir —
+                    // `digitsOnly` formatter zaten yalnız rakamı kabul
+                    // ediyor, tek fark klavye görünümü.
+                    keyboardType: TextInputType.visiblePassword,
+                    autocorrect: false,
+                    enableSuggestions: false,
                     textAlign: TextAlign.center,
                     autofocus: true,
                     textInputAction: TextInputAction.next,
@@ -203,7 +214,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                     validator: Validators.resetCode,
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  TextFormField(
+                  AppTextFormField(
                     controller: _passwordController,
                     focusNode: _passwordFocus,
                     obscureText: _obscurePassword,
@@ -212,12 +223,12 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                     onFieldSubmitted: (_) => _isSubmitting ? null : _submit(),
                     decoration: InputDecoration(
                       labelText: 'Yeni Şifre',
-                      prefixIcon: const Icon(Icons.lock_outline),
+                      prefixIcon: Icon(AppIcons.lock(context)),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
+                              ? AppIcons.eye(context)
+                              : AppIcons.eyeOff(context),
                         ),
                         tooltip: _obscurePassword
                             ? 'Şifreyi göster'

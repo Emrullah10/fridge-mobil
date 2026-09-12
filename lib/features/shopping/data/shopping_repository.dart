@@ -6,10 +6,8 @@ class ShoppingList {
   final String id;
   final String name;
 
-  factory ShoppingList.fromJson(Map<String, dynamic> json) => ShoppingList(
-        id: json['id'] as String,
-        name: json['name'] as String,
-      );
+  factory ShoppingList.fromJson(Map<String, dynamic> json) =>
+      ShoppingList(id: json['id'] as String, name: json['name'] as String);
 }
 
 class ShoppingItem {
@@ -35,15 +33,15 @@ class ShoppingItem {
   final String source;
 
   factory ShoppingItem.fromJson(Map<String, dynamic> json) => ShoppingItem(
-        id: json['id'] as String,
-        productId: json['productId'] as String?,
-        name: json['name'] as String? ?? 'Bilinmeyen ürün',
-        quantity: (json['quantity'] as num).toDouble(),
-        unit: json['unit'] as String,
-        isChecked: json['isChecked'] as bool? ?? false,
-        note: json['note'] as String?,
-        source: json['source'] as String? ?? 'manual',
-      );
+    id: json['id'] as String,
+    productId: json['productId'] as String?,
+    name: json['name'] as String? ?? 'Bilinmeyen ürün',
+    quantity: (json['quantity'] as num).toDouble(),
+    unit: json['unit'] as String,
+    isChecked: json['isChecked'] as bool? ?? false,
+    note: json['note'] as String?,
+    source: json['source'] as String? ?? 'manual',
+  );
 }
 
 class ShoppingSuggestion {
@@ -66,7 +64,8 @@ class ShoppingSuggestion {
   final String? reasonText;
   final double? confidence;
 
-  factory ShoppingSuggestion.fromJson(Map<String, dynamic> json) => ShoppingSuggestion(
+  factory ShoppingSuggestion.fromJson(Map<String, dynamic> json) =>
+      ShoppingSuggestion(
         productId: json['productId'] as String?,
         name: json['name'] as String,
         unit: json['unit'] as String,
@@ -93,7 +92,9 @@ class ShoppingRepository {
   Future<ShoppingListData> getList(String householdId) async {
     final response = await _client.dio.get(_base(householdId));
     return ShoppingListData(
-      list: ShoppingList.fromJson(response.data['list'] as Map<String, dynamic>),
+      list: ShoppingList.fromJson(
+        response.data['list'] as Map<String, dynamic>,
+      ),
       items: (response.data['items'] as List)
           .map((i) => ShoppingItem.fromJson(i as Map<String, dynamic>))
           .toList(),
@@ -110,15 +111,23 @@ class ShoppingRepository {
   /// Tüketim ritmine dayalı AI önerileri. Açık kullanıcı jestiyle çağrılır,
   /// otomatik değil — her istek Gemini'ye para harcıyor.
   Future<List<ShoppingSuggestion>> aiSuggestions(String householdId) async {
-    final response = await _client.dio.post('${_base(householdId)}/suggestions/ai');
+    final response = await _client.dio.post(
+      '${_base(householdId)}/suggestions/ai',
+    );
     return (response.data['suggestions'] as List)
         .map((s) => ShoppingSuggestion.fromJson(s as Map<String, dynamic>))
         .toList();
   }
 
   /// Serbest metinden alışveriş önerisi ("bu hafta 4 kişilik kahvaltılık lazım").
-  Future<List<ShoppingSuggestion>> suggestFromText(String householdId, String text) async {
-    final response = await _client.dio.post('${_base(householdId)}/from-text', data: {'text': text});
+  Future<List<ShoppingSuggestion>> suggestFromText(
+    String householdId,
+    String text,
+  ) async {
+    final response = await _client.dio.post(
+      '${_base(householdId)}/from-text',
+      data: {'text': text},
+    );
     return (response.data['suggestions'] as List)
         .map((s) => ShoppingSuggestion.fromJson(s as Map<String, dynamic>))
         .toList();
@@ -133,14 +142,17 @@ class ShoppingRepository {
     String? note,
     String source = 'manual',
   }) async {
-    final response = await _client.dio.post('${_base(householdId)}/items', data: {
-      if (productId != null) 'productId': productId,
-      if (customName != null) 'customName': customName,
-      'quantity': quantity,
-      'unit': unit,
-      if (note != null) 'note': note,
-      'source': source,
-    });
+    final response = await _client.dio.post(
+      '${_base(householdId)}/items',
+      data: {
+        if (productId != null) 'productId': productId,
+        if (customName != null) 'customName': customName,
+        'quantity': quantity,
+        'unit': unit,
+        if (note != null) 'note': note,
+        'source': source,
+      },
+    );
     return ShoppingItem.fromJson(response.data['item'] as Map<String, dynamic>);
   }
 
@@ -152,12 +164,15 @@ class ShoppingRepository {
     String? note,
     bool? isChecked,
   }) async {
-    final response = await _client.dio.patch('${_base(householdId)}/items/$itemId', data: {
-      if (quantity != null) 'quantity': quantity,
-      if (unit != null) 'unit': unit,
-      if (note != null) 'note': note,
-      if (isChecked != null) 'isChecked': isChecked,
-    });
+    final response = await _client.dio.patch(
+      '${_base(householdId)}/items/$itemId',
+      data: {
+        if (quantity != null) 'quantity': quantity,
+        if (unit != null) 'unit': unit,
+        if (note != null) 'note': note,
+        if (isChecked != null) 'isChecked': isChecked,
+      },
+    );
     return ShoppingItem.fromJson(response.data['item'] as Map<String, dynamic>);
   }
 
@@ -166,7 +181,10 @@ class ShoppingRepository {
   }
 
   Future<void> reorder(String householdId, List<String> orderedIds) async {
-    await _client.dio.post('${_base(householdId)}/items/reorder', data: {'orderedIds': orderedIds});
+    await _client.dio.post(
+      '${_base(householdId)}/items/reorder',
+      data: {'orderedIds': orderedIds},
+    );
   }
 
   Future<int> clearChecked(String householdId) async {
@@ -175,7 +193,9 @@ class ShoppingRepository {
   }
 
   Future<int> addFromRecipe(String householdId, String recipeId) async {
-    final response = await _client.dio.post('${_base(householdId)}/from-recipe/$recipeId');
+    final response = await _client.dio.post(
+      '${_base(householdId)}/from-recipe/$recipeId',
+    );
     return response.data['added'] as int;
   }
 
@@ -184,10 +204,13 @@ class ShoppingRepository {
     required String storageLocationId,
     DateTime? expiresAt,
   }) async {
-    final response = await _client.dio.post('${_base(householdId)}/transfer', data: {
-      'storageLocationId': storageLocationId,
-      if (expiresAt != null) 'expiresAt': expiresAt.toIso8601String(),
-    });
+    final response = await _client.dio.post(
+      '${_base(householdId)}/transfer',
+      data: {
+        'storageLocationId': storageLocationId,
+        if (expiresAt != null) 'expiresAt': expiresAt.toIso8601String(),
+      },
+    );
     return response.data['transferred'] as int;
   }
 }

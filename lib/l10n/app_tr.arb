@@ -1,7 +1,7 @@
 {
   "@@locale": "tr",
 
-  "appTitle": "Fridge",
+  "appTitle": "Elde",
   "@appTitle": { "description": "Uygulama adı" },
 
   "navAreas": "Alanlarım",
@@ -55,10 +55,10 @@
   "nutritionPerServing": "Porsiyon başına",
   "nutritionApprox": "yaklaşık",
 
-  "updateAvailableMessage": "Fridge'in yeni bir sürümü mevcut.",
+  "updateAvailableMessage": "Elde'nin yeni bir sürümü mevcut.",
   "updateAction": "Güncelle",
   "dismissAction": "Kapat",
-  "forceUpdateTitle": "Fridge'i kullanmaya devam etmek için güncellemen gerekiyor",
+  "forceUpdateTitle": "Elde'yi kullanmaya devam etmek için güncellemen gerekiyor",
   "forceUpdateAction": "Şimdi güncelle",
   "updateReadyMessage": "Güncelleme indirildi.",
   "updateRestartAction": "Yeniden başlat",

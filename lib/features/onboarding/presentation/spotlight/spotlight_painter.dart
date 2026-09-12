@@ -23,7 +23,10 @@ class SpotlightPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final inflated = target.inflate(10);
-    final holeRRect = RRect.fromRectAndRadius(inflated, const Radius.circular(AppRadius.card));
+    final holeRRect = RRect.fromRectAndRadius(
+      inflated,
+      const Radius.circular(AppRadius.card),
+    );
 
     final scrimPath = Path.combine(
       PathOperation.difference,
@@ -49,5 +52,8 @@ class SpotlightPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant SpotlightPainter old) =>
-      old.target != target || old.pulse != pulse || old.accent != accent || old.scrimColor != scrimColor;
+      old.target != target ||
+      old.pulse != pulse ||
+      old.accent != accent ||
+      old.scrimColor != scrimColor;
 }

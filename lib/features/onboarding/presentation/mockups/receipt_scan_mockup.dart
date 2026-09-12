@@ -34,9 +34,13 @@ class _ReceiptScanMockupState extends OnboardingMockupState<ReceiptScanMockup> {
       builder: (context, _) {
         final t = controller.value;
         // Işık kartın üstünden altına 0.0 -> 0.62 aralığında iner.
-        final scanT = Curves.easeInOutCubic.transform((t / 0.62).clamp(0.0, 1.0));
+        final scanT = Curves.easeInOutCubic.transform(
+          (t / 0.62).clamp(0.0, 1.0),
+        );
         // Kutular 0.7 -> 1.0 aralığında düşer.
-        final dropT = Curves.easeOutBack.transform(((t - 0.7) / 0.3).clamp(0.0, 1.0));
+        final dropT = Curves.easeOutBack.transform(
+          ((t - 0.7) / 0.3).clamp(0.0, 1.0),
+        );
 
         return Center(
           child: Column(
@@ -52,7 +56,9 @@ class _ReceiptScanMockupState extends OnboardingMockupState<ReceiptScanMockup> {
                       children: [
                         Positioned.fill(
                           child: DecoratedBox(
-                            decoration: BoxDecoration(color: colorScheme.surfaceContainerLowest),
+                            decoration: BoxDecoration(
+                              color: colorScheme.surfaceContainerLowest,
+                            ),
                           ),
                         ),
                         Padding(
@@ -60,9 +66,17 @@ class _ReceiptScanMockupState extends OnboardingMockupState<ReceiptScanMockup> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Text('MİGROS', style: textTheme.labelSmall?.copyWith(letterSpacing: 1.5)),
+                              Text(
+                                'MİGROS',
+                                style: textTheme.labelSmall?.copyWith(
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
                               const SizedBox(height: AppSpacing.sm),
-                              Container(height: 1, color: colorScheme.outlineVariant),
+                              Container(
+                                height: 1,
+                                color: colorScheme.outlineVariant,
+                              ),
                               const SizedBox(height: AppSpacing.md),
                               for (var i = 0; i < _rows.length; i++) ...[
                                 _row(i, scanT, textTheme, colorScheme),
@@ -104,9 +118,17 @@ class _ReceiptScanMockupState extends OnboardingMockupState<ReceiptScanMockup> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      StorageIconBox(icon: Icons.local_drink_rounded, color: context.appColors.storageFridge, size: 44),
+                      StorageIconBox(
+                        icon: Icons.local_drink_rounded,
+                        color: context.appColors.storageFridge,
+                        size: 44,
+                      ),
                       const SizedBox(width: AppSpacing.sm),
-                      StorageIconBox(icon: Icons.bakery_dining_rounded, color: context.appColors.storagePantry, size: 44),
+                      StorageIconBox(
+                        icon: Icons.bakery_dining_rounded,
+                        color: context.appColors.storagePantry,
+                        size: 44,
+                      ),
                     ],
                   ),
                 ),
@@ -118,7 +140,12 @@ class _ReceiptScanMockupState extends OnboardingMockupState<ReceiptScanMockup> {
     );
   }
 
-  Widget _row(int i, double scanT, TextTheme textTheme, ColorScheme colorScheme) {
+  Widget _row(
+    int i,
+    double scanT,
+    TextTheme textTheme,
+    ColorScheme colorScheme,
+  ) {
     // Satır, ışık kendi hizasını geçince belirir.
     final threshold = 0.28 + i * 0.16;
     final appear = ((scanT - threshold) / 0.18).clamp(0.0, 1.0);
@@ -128,8 +155,21 @@ class _ReceiptScanMockupState extends OnboardingMockupState<ReceiptScanMockup> {
         offset: Offset(0, (1 - appear) * 8),
         child: Row(
           children: [
-            Expanded(child: Text(_rows[i].$1, style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurface))),
-            Text('₺${_rows[i].$2}', style: textTheme.bodySmall?.copyWith(color: colorScheme.primary, fontWeight: FontWeight.w700)),
+            Expanded(
+              child: Text(
+                _rows[i].$1,
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface,
+                ),
+              ),
+            ),
+            Text(
+              '₺${_rows[i].$2}',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ],
         ),
       ),

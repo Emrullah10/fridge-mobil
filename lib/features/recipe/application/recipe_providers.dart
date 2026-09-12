@@ -7,15 +7,24 @@ final recipeRepositoryProvider = Provider<RecipeRepository>((ref) {
   return RecipeRepository(ref.watch(apiClientProvider));
 });
 
-final recipeSuggestionsProvider = FutureProvider.family<List<Recipe>, String>((ref, householdId) async {
+final recipeSuggestionsProvider = FutureProvider.family<List<Recipe>, String>((
+  ref,
+  householdId,
+) async {
   return ref.watch(recipeRepositoryProvider).listSuggestions(householdId);
 });
 
-final recipeListProvider = FutureProvider.family<List<Recipe>, String>((ref, householdId) async {
+final recipeListProvider = FutureProvider.family<List<Recipe>, String>((
+  ref,
+  householdId,
+) async {
   return ref.watch(recipeRepositoryProvider).listAll(householdId);
 });
 
-final favoriteRecipeIdsProvider = FutureProvider.family<List<String>, String>((ref, householdId) async {
+final favoriteRecipeIdsProvider = FutureProvider.family<List<String>, String>((
+  ref,
+  householdId,
+) async {
   return ref.watch(recipeRepositoryProvider).listFavoriteIds(householdId);
 });
 
@@ -27,12 +36,19 @@ class RecipeDetailParams {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is RecipeDetailParams && other.householdId == householdId && other.recipeId == recipeId);
+      (other is RecipeDetailParams &&
+          other.householdId == householdId &&
+          other.recipeId == recipeId);
 
   @override
   int get hashCode => Object.hash(householdId, recipeId);
 }
 
-final recipeDetailProvider = FutureProvider.family<Recipe, RecipeDetailParams>((ref, params) async {
-  return ref.watch(recipeRepositoryProvider).getDetail(params.householdId, params.recipeId);
+final recipeDetailProvider = FutureProvider.family<Recipe, RecipeDetailParams>((
+  ref,
+  params,
+) async {
+  return ref
+      .watch(recipeRepositoryProvider)
+      .getDetail(params.householdId, params.recipeId);
 });

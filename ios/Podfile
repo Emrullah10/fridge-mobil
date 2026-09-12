@@ -49,14 +49,12 @@ post_install do |installer|
     new_text = text.gsub(/EXCLUDED_ARCHS\[sdk=iphonesimulator\*\]\s*=\s*.*/, 'EXCLUDED_ARCHS[sdk=iphonesimulator*] = i386')
     File.open(file, "w") { |f| f.puts new_text }
   end
-  # patch_arm64_frameworks.py, ML Kit framework'lerinin arm64 device slice'ındaki
-  # LC_BUILD_VERSION platform bayrağını IOSSIMULATOR'a çevirir — Apple Silicon
-  # Mac'te iOS SİMÜLATÖRÜNÜ çalıştırmak için (ML Kit simülatör slice vermiyor).
-  # Bu yama gerçek cihaz / archive / TestFlight build'ini BOZAR ("built for
-  # iOS-simulator" linker hatası). Bu yüzden yalnızca açıkça istendiğinde çalışır.
-  # Simülatör için:  FRIDGE_PATCH_SIM=1 pod install
-  # Cihaz/TestFlight için:  pod install   (yamasız, düz)
-  if ENV['FRIDGE_PATCH_SIM'] == '1'
+  # patch_arm64_frameworks.py: Apple Silicon Mac'te simülatör çalıştırmak için
+  # ML Kit framework'lerini simülatör uyumlu yapar.
+  # VARSAYILAN: Simülatör yaması her zaman aktiftir — normal 'flutter run' sorunsuz çalışır.
+  # Yalnızca gerçek cihaz / TestFlight / archive build'i alınırken yama atlanır:
+  #   FRIDGE_DEVICE_BUILD=1 pod install
+  unless ENV['FRIDGE_DEVICE_BUILD'] == '1'
     system("python3 patch_arm64_frameworks.py")
   end
 end

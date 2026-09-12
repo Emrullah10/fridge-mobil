@@ -11,21 +11,21 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   Entitlements withQuota(int used, int limit) => const Entitlements(
-        plan: PlanTier.free,
-        source: 'signup',
-        status: 'active',
-        features: {},
-        quotas: {},
-        households: {},
-      ).copyWithQuota('recipe', AiQuota(limit: limit, used: used, boosted: false));
+    plan: PlanTier.free,
+    source: 'signup',
+    status: 'active',
+    features: {},
+    quotas: {},
+    households: {},
+  ).copyWithQuota('recipe', AiQuota(limit: limit, used: used, boosted: false));
 
   Widget wrap(Entitlements entitlements) {
     SharedPreferences.setMockInitialValues({});
     return ProviderScope(
-      overrides: [
-        entitlementsProvider.overrideWithValue(entitlements),
-      ],
-      child: const MaterialApp(home: Scaffold(body: QuotaUpsellBanner(feature: 'recipe'))),
+      overrides: [entitlementsProvider.overrideWithValue(entitlements)],
+      child: const MaterialApp(
+        home: Scaffold(body: QuotaUpsellBanner(feature: 'recipe')),
+      ),
     );
   }
 
@@ -42,11 +42,14 @@ void main() {
     expect(find.text('12/15 kullandın'), findsOneWidget);
   });
 
-  testWidgets('kota tamamen dolduğunda banner görünmez (402 sheet devreye girer)', (tester) async {
-    await tester.pumpWidget(wrap(withQuota(15, 15)));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('kullandın'), findsNothing);
-  });
+  testWidgets(
+    'kota tamamen dolduğunda banner görünmez (402 sheet devreye girer)',
+    (tester) async {
+      await tester.pumpWidget(wrap(withQuota(15, 15)));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('kullandın'), findsNothing);
+    },
+  );
 
   testWidgets('sınırsız kotada banner hiç görünmez', (tester) async {
     const unlimited = Entitlements(
@@ -65,15 +68,15 @@ void main() {
 
 extension on Entitlements {
   Entitlements copyWithQuota(String feature, AiQuota quota) => Entitlements(
-        plan: plan,
-        source: source,
-        status: status,
-        features: features,
-        quotas: {...quotas, feature: quota},
-        households: households,
-        trialEndsAt: trialEndsAt,
-        periodEndsAt: periodEndsAt,
-        familySeat: familySeat,
-        family: family,
-      );
+    plan: plan,
+    source: source,
+    status: status,
+    features: features,
+    quotas: {...quotas, feature: quota},
+    households: households,
+    trialEndsAt: trialEndsAt,
+    periodEndsAt: periodEndsAt,
+    familySeat: familySeat,
+    family: family,
+  );
 }

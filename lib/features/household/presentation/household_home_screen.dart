@@ -6,6 +6,8 @@ import 'package:share_plus/share_plus.dart';
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_dialog.dart';
+import '../../../core/ui/app_icons.dart';
+import '../../../core/ui/app_progress.dart';
 import '../../../core/ui/app_sheet.dart';
 import '../../../core/ui/app_action_sheet.dart';
 import '../../auth/application/auth_providers.dart';
@@ -78,7 +80,7 @@ class HouseholdHomeScreen extends ConsumerWidget {
 
     await showAppSheet(
       context,
-      builder: (sheetContext) => _InviteCodeDialog(
+      builder: (sheetContext, __) => _InviteCodeDialog(
         household: household,
         initialCode: code!,
         baseUrl: _inviteBaseUrl,
@@ -648,7 +650,11 @@ class HouseholdHomeScreen extends ConsumerWidget {
                   isLabelVisible: unreadCount > 0,
                   child: const Icon(Icons.notifications_outlined),
                 ),
-                tooltip: 'Bildirimler',
+                // Badge rozeti görsel — sayı ekran okuyucuya tooltip
+                // üzerinden ayrıca anons ediliyor ("3 okunmamış bildirim").
+                tooltip: unreadCount > 0
+                    ? 'Bildirimler, $unreadCount okunmamış'
+                    : 'Bildirimler',
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const NotificationsScreen(),
@@ -917,6 +923,7 @@ class _InviteCodeDialogState extends State<_InviteCodeDialog> {
     final colorScheme = Theme.of(context).colorScheme;
     return AppSheetScaffold(
       title: 'Davet Kodu',
+      onClose: () => Navigator.of(context).pop(),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -996,7 +1003,7 @@ class _InviteCodeDialogState extends State<_InviteCodeDialog> {
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: AppProgress(strokeWidth: 2),
                     )
                   : const Icon(Icons.refresh_rounded, size: 18),
               label: const Text('Kodu yenile'),
@@ -1007,10 +1014,20 @@ class _InviteCodeDialogState extends State<_InviteCodeDialog> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => Share.share(
-                    '${widget.household.name} alanıma katıl! Davet kodu: $_code\n$_link',
-                  ),
-                  icon: const Icon(Icons.share_rounded, size: 18),
+                  onPressed: () {
+                    // iPad'de `sharePositionOrigin` olmadan popover anchor'sız
+                    // açılıyor (sol üst köşede beliriyor / bazı iPadOS
+                    // sürümlerinde exception) — bu ekranın kendi RenderBox'ı
+                    // anchor olarak veriliyor.
+                    final box = context.findRenderObject() as RenderBox?;
+                    Share.share(
+                      '${widget.household.name} alanıma katıl! Davet kodu: $_code\n$_link',
+                      sharePositionOrigin: box != null
+                          ? box.localToGlobal(Offset.zero) & box.size
+                          : null,
+                    );
+                  },
+                  icon: Icon(AppIcons.share(context), size: 18),
                   label: const Text('Paylaş'),
                 ),
               ),

@@ -18,12 +18,15 @@ void main() {
     );
   });
 
-  test('householdIconFor: icon yok + bilinmeyen kind → place_rounded (other)', () {
-    expect(
-      householdIconFor(iconKey: null, kind: 'other'),
-      Icons.place_rounded,
-    );
-  });
+  test(
+    'householdIconFor: icon yok + bilinmeyen kind → place_rounded (other)',
+    () {
+      expect(
+        householdIconFor(iconKey: null, kind: 'other'),
+        Icons.place_rounded,
+      );
+    },
+  );
 
   test('householdIconFor: geçersiz icon anahtarı da kind yedeğine düşer', () {
     expect(

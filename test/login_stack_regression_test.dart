@@ -19,7 +19,9 @@ import 'package:fridge_mobil/main.dart';
 /// testin amacı bu değil, bu yüzden no-op'a düşürüyoruz.
 class _NoopPushService implements PushService {
   @override
-  Future<void> registerForCurrentUser({PushNotificationTapHandler? onTap}) async {}
+  Future<void> registerForCurrentUser({
+    PushNotificationTapHandler? onTap,
+  }) async {}
 
   @override
   Future<void> unregister() async {}
@@ -35,7 +37,8 @@ class _NoopPushService implements PushService {
 /// wasSignedIn olduğunda rootNavigatorKey ile köke kadar popUntil yapıyor;
 /// bu test o davranışı sabitliyor.
 class _FakeAuthController extends AuthController {
-  _FakeAuthController(ApiClient client) : super(AuthRepository(client), DeviceIdStorage()) {
+  _FakeAuthController(ApiClient client)
+    : super(AuthRepository(client), DeviceIdStorage()) {
     // super constructor _restoreSession()'ı tetikler; test senaryosu için
     // hemen unauthenticated'a sabitliyoruz (gerçek bir HTTP çağrısı yok).
     state = const AuthState(status: AuthStatus.unauthenticated);
@@ -62,7 +65,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          authControllerProvider.overrideWith((ref) => _FakeAuthController(ref.watch(apiClientProvider))),
+          authControllerProvider.overrideWith(
+            (ref) => _FakeAuthController(ref.watch(apiClientProvider)),
+          ),
           pushServiceProvider.overrideWithValue(_NoopPushService()),
         ],
         child: const FridgeApp(),
@@ -83,7 +88,9 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(LoginScreen)),
     );
-    await container.read(authControllerProvider.notifier).login(email: 'a@b.com', password: '123456');
+    await container
+        .read(authControllerProvider.notifier)
+        .login(email: 'a@b.com', password: '123456');
 
     // _AuthGate rebuild + post-frame popUntil için birkaç pump gerekir.
     await tester.pump();

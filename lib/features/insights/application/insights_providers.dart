@@ -26,11 +26,12 @@ class InsightsPeriod {
   int get hashCode => Object.hash(householdId, from, to);
 }
 
-final householdInsightsProvider =
-    FutureProvider.family<HouseholdInsights, InsightsPeriod>((ref, period) async {
-  return ref.watch(insightsRepositoryProvider).fetch(
-        period.householdId,
-        from: period.from,
-        to: period.to,
-      );
-});
+// autoDispose: `InsightsPeriod`'un kimliği `_range`'e bağlı (bkz.
+// insights_screen.dart) — dönem her değiştiğinde yeni bir family instance'ı
+// doğuyor, autoDispose olmadan eskiler asla temizlenmiyordu.
+final householdInsightsProvider = FutureProvider.autoDispose
+    .family<HouseholdInsights, InsightsPeriod>((ref, period) async {
+      return ref
+          .watch(insightsRepositoryProvider)
+          .fetch(period.householdId, from: period.from, to: period.to);
+    });

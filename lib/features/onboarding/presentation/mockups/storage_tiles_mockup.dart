@@ -14,7 +14,8 @@ class StorageTilesMockup extends OnboardingMockup {
   State<StorageTilesMockup> createState() => _StorageTilesMockupState();
 }
 
-class _StorageTilesMockupState extends OnboardingMockupState<StorageTilesMockup> {
+class _StorageTilesMockupState
+    extends OnboardingMockupState<StorageTilesMockup> {
   @override
   Duration get animDuration => const Duration(milliseconds: 2400);
 
@@ -33,11 +34,14 @@ class _StorageTilesMockupState extends OnboardingMockupState<StorageTilesMockup>
       builder: (context, _) {
         final t = controller.value;
         // Çip 0.55 -> 0.8 aralığında üstten hedef kutuya (indeks 0) uçar.
-        final flyT = Curves.easeInCubic.transform(((t - 0.55) / 0.25).clamp(0.0, 1.0));
+        final flyT = Curves.easeInCubic.transform(
+          ((t - 0.55) / 0.25).clamp(0.0, 1.0),
+        );
         final chipVisible = t > 0.5 && t < 0.86;
         // Kutu nabzı 0.82 -> 0.94.
         final pulseRaw = ((t - 0.82) / 0.12).clamp(0.0, 1.0);
-        final pulse = 1 + 0.08 * (pulseRaw < 0.5 ? pulseRaw * 2 : (1 - pulseRaw) * 2);
+        final pulse =
+            1 + 0.08 * (pulseRaw < 0.5 ? pulseRaw * 2 : (1 - pulseRaw) * 2);
 
         return Center(
           child: Stack(
@@ -49,7 +53,8 @@ class _StorageTilesMockupState extends OnboardingMockupState<StorageTilesMockup>
                 children: [
                   for (var i = 0; i < tiles.length; i++) ...[
                     _tile(i, t, tiles[i], textTheme, scale: i == 0 ? pulse : 1),
-                    if (i != tiles.length - 1) const SizedBox(width: AppSpacing.md),
+                    if (i != tiles.length - 1)
+                      const SizedBox(width: AppSpacing.md),
                   ],
                 ],
               ),
@@ -63,9 +68,14 @@ class _StorageTilesMockupState extends OnboardingMockupState<StorageTilesMockup>
                     child: Opacity(
                       opacity: flyT < 0.9 ? 1 : (1 - flyT) * 10,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: AppSpacing.xs,
+                        ),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.secondaryContainer,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.secondaryContainer,
                           borderRadius: BorderRadius.circular(AppRadius.pill),
                         ),
                         child: Text('🥛 Süt', style: textTheme.labelSmall),
@@ -80,8 +90,16 @@ class _StorageTilesMockupState extends OnboardingMockupState<StorageTilesMockup>
     );
   }
 
-  Widget _tile(int i, double t, (IconData, String, Color) tile, TextTheme textTheme, {required double scale}) {
-    final appear = Curves.easeOutBack.transform(((t - i * 0.12) / 0.3).clamp(0.0, 1.0));
+  Widget _tile(
+    int i,
+    double t,
+    (IconData, String, Color) tile,
+    TextTheme textTheme, {
+    required double scale,
+  }) {
+    final appear = Curves.easeOutBack.transform(
+      ((t - i * 0.12) / 0.3).clamp(0.0, 1.0),
+    );
     return Opacity(
       opacity: appear.clamp(0.0, 1.0),
       child: Transform.scale(
@@ -89,9 +107,19 @@ class _StorageTilesMockupState extends OnboardingMockupState<StorageTilesMockup>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            StorageIconBox(icon: tile.$1, color: tile.$3, size: 64, iconSize: 30),
+            StorageIconBox(
+              icon: tile.$1,
+              color: tile.$3,
+              size: 64,
+              iconSize: 30,
+            ),
             const SizedBox(height: AppSpacing.xs),
-            Text(tile.$2, style: textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w500)),
+            Text(
+              tile.$2,
+              style: textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ),

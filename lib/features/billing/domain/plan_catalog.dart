@@ -53,7 +53,11 @@ class PlanLimits {
 }
 
 class PlanCatalog {
-  const PlanCatalog({required this.free, required this.premium, required this.familySeats});
+  const PlanCatalog({
+    required this.free,
+    required this.premium,
+    required this.familySeats,
+  });
 
   final PlanLimits free;
   final PlanLimits premium;
@@ -64,8 +68,12 @@ class PlanCatalog {
   factory PlanCatalog.fromJson(Map<String, dynamic> json) {
     final plans = json['plans'] as Map<String, dynamic>? ?? const {};
     return PlanCatalog(
-      free: PlanLimits.fromJson(plans['free'] as Map<String, dynamic>? ?? const {}),
-      premium: PlanLimits.fromJson(plans['premium'] as Map<String, dynamic>? ?? const {}),
+      free: PlanLimits.fromJson(
+        plans['free'] as Map<String, dynamic>? ?? const {},
+      ),
+      premium: PlanLimits.fromJson(
+        plans['premium'] as Map<String, dynamic>? ?? const {},
+      ),
       familySeats: (json['familySeats'] as num?)?.toInt(),
     );
   }

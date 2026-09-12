@@ -37,7 +37,8 @@ class AuthController extends StateNotifier<AuthState> {
   final AuthRepository _repo;
   final DeviceIdStorage _deviceIdStorage;
 
-  AuthStatus _statusFor(AppUser user) => user.isGuest ? AuthStatus.guest : AuthStatus.authenticated;
+  AuthStatus _statusFor(AppUser user) =>
+      user.isGuest ? AuthStatus.guest : AuthStatus.authenticated;
 
   Future<void> _restoreSession() async {
     final hasSession = await _repo.hasStoredSession();
@@ -72,7 +73,11 @@ class AuthController extends StateNotifier<AuthState> {
     unawaited(PurchaseRepository.logIn(user.id));
   }
 
-  Future<void> register({required String email, required String password, required String displayName}) async {
+  Future<void> register({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
     // KRİTİK: hâlâ misafir oturumundaysak register() YENİ bir kullanıcı
     // yaratır — misafirin alanı/envanteri/fişleri eski (artık erişilemeyen)
     // kullanıcıda kalır, ekran o alanın id'sini taşımaya devam ettiği için
@@ -81,7 +86,11 @@ class AuthController extends StateNotifier<AuthState> {
     // kullanıcı satırını günceller, veri kaybı olmaz — misafirken kayıt
     // olmak her zaman bu yoldan gitmeli.
     if (state.isGuest) {
-      await upgradeAccount(email: email, password: password, displayName: displayName);
+      await upgradeAccount(
+        email: email,
+        password: password,
+        displayName: displayName,
+      );
       return;
     }
     // deviceId (varsa) 14 günlük ters denemenin cihaz-bazlı suistimal
@@ -89,7 +98,12 @@ class AuthController extends StateNotifier<AuthState> {
     // register'da yeniden kullanılır (kayıt duvarı olmadan denenmiş bir
     // misafir cihazı, hesap değiştirse bile ikinci deneme almasın).
     final deviceId = await _deviceIdStorage.getOrCreate();
-    await _repo.register(email: email, password: password, displayName: displayName, deviceId: deviceId);
+    await _repo.register(
+      email: email,
+      password: password,
+      displayName: displayName,
+      deviceId: deviceId,
+    );
     await login(email: email, password: password);
   }
 
@@ -130,17 +144,29 @@ class AuthController extends StateNotifier<AuthState> {
     unawaited(PurchaseRepository.logOut());
   }
 
-  Future<void> updateProfile({required String displayName, Object? dietProfile = _keepDiet}) async {
+  Future<void> updateProfile({
+    required String displayName,
+    Object? dietProfile = _keepDiet,
+  }) async {
     final user = identical(dietProfile, _keepDiet)
         ? await _repo.updateProfile(displayName: displayName)
-        : await _repo.updateProfile(displayName: displayName, dietProfile: dietProfile);
+        : await _repo.updateProfile(
+            displayName: displayName,
+            dietProfile: dietProfile,
+          );
     state = state.copyWith(user: user);
   }
 
   static const _keepDiet = Object();
 
-  Future<void> changePassword({required String currentPassword, required String newPassword}) {
-    return _repo.changePassword(currentPassword: currentPassword, newPassword: newPassword);
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) {
+    return _repo.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
   }
 
   Future<void> deleteAccount({required String password}) async {
@@ -189,12 +215,19 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(ref.watch(apiClientProvider));
 });
 
-final deviceIdStorageProvider = Provider<DeviceIdStorage>((ref) => DeviceIdStorage());
+final deviceIdStorageProvider = Provider<DeviceIdStorage>(
+  (ref) => DeviceIdStorage(),
+);
 
-final authControllerProvider = StateNotifierProvider<AuthController, AuthState>((ref) {
-  final controller = AuthController(ref.watch(authRepositoryProvider), ref.watch(deviceIdStorageProvider));
-  void listener() => controller.forceUnauthenticated();
-  _unauthorizedNotifier.addListener(listener);
-  ref.onDispose(() => _unauthorizedNotifier.removeListener(listener));
-  return controller;
-});
+final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
+  (ref) {
+    final controller = AuthController(
+      ref.watch(authRepositoryProvider),
+      ref.watch(deviceIdStorageProvider),
+    );
+    void listener() => controller.forceUnauthenticated();
+    _unauthorizedNotifier.addListener(listener);
+    ref.onDispose(() => _unauthorizedNotifier.removeListener(listener));
+    return controller;
+  },
+);

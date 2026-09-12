@@ -29,7 +29,8 @@ class _SecureTokenStore implements TokenStore {
   Future<String?> read(String key) => _storage.read(key: key);
 
   @override
-  Future<void> write(String key, String value) => _storage.write(key: key, value: value);
+  Future<void> write(String key, String value) =>
+      _storage.write(key: key, value: value);
 
   @override
   Future<void> delete(String key) => _storage.delete(key: key);
@@ -73,12 +74,16 @@ class TokenStorage {
   Future<String?> readAccessToken() => _store.read(_accessTokenKey);
   Future<String?> readRefreshToken() => _store.read(_refreshTokenKey);
 
-  Future<void> saveTokens({required String accessToken, required String refreshToken}) async {
+  Future<void> saveTokens({
+    required String accessToken,
+    required String refreshToken,
+  }) async {
     await _store.write(_accessTokenKey, accessToken);
     await _store.write(_refreshTokenKey, refreshToken);
   }
 
-  Future<void> saveAccessToken(String token) => _store.write(_accessTokenKey, token);
+  Future<void> saveAccessToken(String token) =>
+      _store.write(_accessTokenKey, token);
 
   Future<void> clear() async {
     await _store.delete(_accessTokenKey);

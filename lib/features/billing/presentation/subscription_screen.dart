@@ -16,22 +16,26 @@ class SubscriptionScreen extends ConsumerWidget {
   const SubscriptionScreen({super.key});
 
   String _planLabel(PlanTier plan) => switch (plan) {
-        PlanTier.guest => 'Misafir',
-        PlanTier.free => 'Ücretsiz',
-        PlanTier.trial => 'Deneme (Premium)',
-        PlanTier.premium => 'Premium',
-      };
+    PlanTier.guest => 'Misafir',
+    PlanTier.free => 'Ücretsiz',
+    PlanTier.trial => 'Deneme (Premium)',
+    PlanTier.premium => 'Premium',
+  };
 
   Future<void> _openManageUrl(BuildContext context, WidgetRef ref) async {
     try {
-      final url = await ref.read(entitlementsRepositoryProvider).fetchManageSubscriptionUrl();
+      final url = await ref
+          .read(entitlementsRepositoryProvider)
+          .fetchManageSubscriptionUrl();
       final uri = Uri.parse(url);
       if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
         throw Exception('URL açılamadı');
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
@@ -55,18 +59,26 @@ class SubscriptionScreen extends ConsumerWidget {
                   Row(
                     children: [
                       Icon(
-                        entitlements.isPremium || entitlements.isTrial ? Icons.workspace_premium_rounded : Icons.person_outline_rounded,
+                        entitlements.isPremium || entitlements.isTrial
+                            ? Icons.workspace_premium_rounded
+                            : Icons.person_outline_rounded,
                         color: theme.colorScheme.primary,
                       ),
                       const SizedBox(width: AppSpacing.sm),
-                      Text(_planLabel(entitlements.plan), style: theme.textTheme.titleMedium),
+                      Text(
+                        _planLabel(entitlements.plan),
+                        style: theme.textTheme.titleMedium,
+                      ),
                     ],
                   ),
-                  if (entitlements.isTrial && entitlements.trialDaysLeft != null) ...[
+                  if (entitlements.isTrial &&
+                      entitlements.trialDaysLeft != null) ...[
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       '${entitlements.trialDaysLeft} gün sonra ücretsiz kademeye düşecek',
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                   if (entitlements.periodEndsAt != null) ...[
@@ -75,7 +87,9 @@ class SubscriptionScreen extends ConsumerWidget {
                       entitlements.status == 'canceled'
                           ? 'Aboneliğin ${_formatDate(entitlements.periodEndsAt!)} tarihinde sona erecek'
                           : '${_formatDate(entitlements.periodEndsAt!)} tarihinde yenilenir',
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                   // Aile koltuğunda olan bir üye kendi cebinden ödemiyor —
@@ -85,7 +99,9 @@ class SubscriptionScreen extends ConsumerWidget {
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       '${entitlements.familySeat!.sponsorName ?? "Bir kullanıcının"} aile paketindesin',
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ],
@@ -131,7 +147,10 @@ class _FamilyRosterCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Aile üyeleri ${roster.used}/${roster.seats}', style: theme.textTheme.titleSmall),
+            Text(
+              'Aile üyeleri ${roster.used}/${roster.seats}',
+              style: theme.textTheme.titleSmall,
+            ),
             const SizedBox(height: AppSpacing.sm),
             for (final member in roster.members)
               Padding(
@@ -139,14 +158,28 @@ class _FamilyRosterCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      member.active ? Icons.check_circle_rounded : Icons.circle_outlined,
+                      member.active
+                          ? Icons.check_circle_rounded
+                          : Icons.circle_outlined,
                       size: 18,
-                      color: member.active ? theme.colorScheme.primary : theme.colorScheme.outline,
+                      color: member.active
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.outline,
                     ),
                     const SizedBox(width: AppSpacing.xs),
-                    Expanded(child: Text(member.displayName ?? 'Üye', style: theme.textTheme.bodyMedium)),
+                    Expanded(
+                      child: Text(
+                        member.displayName ?? 'Üye',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
                     if (!member.active)
-                      Text('Koltuk dolu', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                      Text(
+                        'Koltuk dolu',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -164,7 +197,10 @@ class _UpgradeCta extends StatelessWidget {
   Widget build(BuildContext context) {
     return FilledButton(
       onPressed: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => const PaywallScreen(),
+        ),
       ),
       child: const Text('Premium\'a Geç'),
     );

@@ -9,7 +9,7 @@ class AppL10nTr extends AppL10n {
   AppL10nTr([String locale = 'tr']) : super(locale);
 
   @override
-  String get appTitle => 'Fridge';
+  String get appTitle => 'Elde';
 
   @override
   String get navAreas => 'Alanlarım';
@@ -131,7 +131,7 @@ class AppL10nTr extends AppL10n {
   String get nutritionApprox => 'yaklaşık';
 
   @override
-  String get updateAvailableMessage => 'Fridge\'in yeni bir sürümü mevcut.';
+  String get updateAvailableMessage => 'Elde\'nin yeni bir sürümü mevcut.';
 
   @override
   String get updateAction => 'Güncelle';
@@ -141,7 +141,7 @@ class AppL10nTr extends AppL10n {
 
   @override
   String get forceUpdateTitle =>
-      'Fridge\'i kullanmaya devam etmek için güncellemen gerekiyor';
+      'Elde\'yi kullanmaya devam etmek için güncellemen gerekiyor';
 
   @override
   String get forceUpdateAction => 'Şimdi güncelle';

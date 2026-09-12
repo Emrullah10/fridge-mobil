@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/adaptive.dart';
+import '../../../core/ui/app_icons.dart';
 import '../../../core/ui/app_dialog.dart';
 import '../../../core/widgets/responsive.dart';
 import '../../../core/widgets/scan_progress.dart';
@@ -75,10 +77,18 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         _step = _ScanStep.idle;
       });
     } on PlatformException catch (error) {
+      // iOS'ta izin yolu "Ayarlar > Elde", Android'de "Ayarlar >
+      // Uygulamalar > Elde" — sabit Android metni iOS kullanıcısını
+      // yanlış menüye gönderiyordu.
+      final isDenied =
+          error.code == 'camera_access_denied' ||
+          error.code == 'photo_access_denied';
       setState(() {
         _step = _ScanStep.idle;
-        _errorMessage = error.code == 'camera_access_denied'
-            ? 'Kamera izni verilmedi. Fişi taramak için Ayarlar > Uygulamalar > Fridge yolundan kamera iznini aç.'
+        _errorMessage = isDenied
+            ? (isCupertino(context)
+                  ? 'Kamera/galeri izni verilmedi. Ayarlar > Elde yolundan izni aç.'
+                  : 'Kamera/galeri izni verilmedi. Ayarlar > Uygulamalar > Elde yolundan izni aç.')
             : 'Bir şeyler ters gitti: ${error.message ?? error.code}';
       });
     } catch (error) {
@@ -134,7 +144,11 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
       if (planLimitInfo != null && mounted) {
         final controllerAsync = ref.read(paywallControllerProvider);
         controllerAsync.whenData((controller) {
-          controller.maybeShow(context, trigger: PaywallTrigger.quotaExceeded, info: planLimitInfo);
+          controller.maybeShow(
+            context,
+            trigger: PaywallTrigger.quotaExceeded,
+            info: planLimitInfo,
+          );
         });
       } else {
         setState(() => _errorMessage = describeApiError(error));
@@ -300,7 +314,7 @@ class _PartsStrip extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.close_rounded,
+                      AppIcons.close(context),
                       size: 16,
                       color: colorScheme.onError,
                     ),

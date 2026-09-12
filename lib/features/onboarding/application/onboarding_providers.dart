@@ -59,18 +59,23 @@ typedef OnboardingSeenController = _FlagController;
 
 /// null = henüz SharedPreferences'tan okunmadı (ilk frame'de tanıtım
 /// yanlışlıkla gösterilmesin/gizlenmesin diye ayırt edilir).
-final onboardingSeenProvider = StateNotifierProvider<_FlagController, bool?>((ref) {
+final onboardingSeenProvider = StateNotifierProvider<_FlagController, bool?>((
+  ref,
+) {
   return _FlagController(_prefsKey);
 });
 
 /// Ekran başına tur bayrağı — `tourSeenProvider(CoachTourId.inventory)` gibi.
-final tourSeenProvider = StateNotifierProvider.family<_FlagController, bool?, CoachTourId>(
-  (ref, id) => _FlagController(id.prefsKey),
-);
+final tourSeenProvider =
+    StateNotifierProvider.family<_FlagController, bool?, CoachTourId>(
+      (ref, id) => _FlagController(id.prefsKey),
+    );
 
 /// null = henüz okunmadı, false = ilk kez AppShell'e girildiğinde
 /// PremiumIntroScreen gösterilmeli, true = bir daha gösterilmez. Ayarlar'daki
 /// "Tanıtımı tekrar göster" bunu da sıfırlar (bkz. settings_screen.dart).
-final premiumIntroSeenProvider = StateNotifierProvider<_FlagController, bool?>((ref) {
+final premiumIntroSeenProvider = StateNotifierProvider<_FlagController, bool?>((
+  ref,
+) {
   return _FlagController(_premiumIntroPrefsKey);
 });

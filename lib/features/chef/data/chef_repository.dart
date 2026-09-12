@@ -1,7 +1,12 @@
 import '../../../core/api/api_client.dart';
 
 class ChefMessage {
-  const ChefMessage({required this.id, required this.role, required this.content, required this.createdAt});
+  const ChefMessage({
+    required this.id,
+    required this.role,
+    required this.content,
+    required this.createdAt,
+  });
 
   final String id;
   final String role; // 'user' | 'assistant'
@@ -11,26 +16,34 @@ class ChefMessage {
   bool get isUser => role == 'user';
 
   factory ChefMessage.fromJson(Map<String, dynamic> json) => ChefMessage(
-        id: json['id'] as String,
-        role: json['role'] as String,
-        content: json['content'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-      );
+    id: json['id'] as String,
+    role: json['role'] as String,
+    content: json['content'] as String,
+    createdAt: DateTime.parse(json['createdAt'] as String),
+  );
 }
 
 /// Modelin "şunu da alman lazım" önerisi. Doğrudan listeye yazılmaz —
 /// kullanıcı çipe basınca eklenir (halüsinasyon savunması).
 class ChefShoppingSuggestion {
-  const ChefShoppingSuggestion({required this.name, this.quantity, this.unit, required this.reasonText});
+  const ChefShoppingSuggestion({
+    required this.name,
+    this.quantity,
+    this.unit,
+    required this.reasonText,
+  });
 
   final String name;
   final double? quantity;
   final String? unit;
   final String reasonText;
 
-  factory ChefShoppingSuggestion.fromJson(Map<String, dynamic> json) => ChefShoppingSuggestion(
+  factory ChefShoppingSuggestion.fromJson(Map<String, dynamic> json) =>
+      ChefShoppingSuggestion(
         name: json['name'] as String,
-        quantity: json['quantity'] != null ? (json['quantity'] as num).toDouble() : null,
+        quantity: json['quantity'] != null
+            ? (json['quantity'] as num).toDouble()
+            : null,
         unit: json['unit'] as String?,
         reasonText: json['reasonText'] as String? ?? '',
       );
@@ -48,7 +61,9 @@ class ChefRepository {
   final ApiClient _client;
 
   Future<List<ChefMessage>> history(String householdId) async {
-    final response = await _client.dio.get('/households/$householdId/chef/messages');
+    final response = await _client.dio.get(
+      '/households/$householdId/chef/messages',
+    );
     return (response.data['messages'] as List)
         .map((m) => ChefMessage.fromJson(m as Map<String, dynamic>))
         .toList();
@@ -63,7 +78,9 @@ class ChefRepository {
     return ChefReply(
       message: ChefMessage.fromJson(data['message'] as Map<String, dynamic>),
       suggestions: (data['suggestedShoppingItems'] as List? ?? [])
-          .map((s) => ChefShoppingSuggestion.fromJson(s as Map<String, dynamic>))
+          .map(
+            (s) => ChefShoppingSuggestion.fromJson(s as Map<String, dynamic>),
+          )
           .toList(),
     );
   }

@@ -25,13 +25,17 @@ class ScanProgress extends StatefulWidget {
   State<ScanProgress> createState() => _ScanProgressState();
 }
 
-class _ScanProgressState extends State<ScanProgress> with SingleTickerProviderStateMixin {
+class _ScanProgressState extends State<ScanProgress>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
   }
 
   @override
@@ -43,7 +47,8 @@ class _ScanProgressState extends State<ScanProgress> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final disableAnimations = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final disableAnimations =
+        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -55,7 +60,11 @@ class _ScanProgressState extends State<ScanProgress> with SingleTickerProviderSt
               ? Icon(Icons.sync_rounded, size: 40, color: colorScheme.primary)
               : RotationTransition(
                   turns: _controller,
-                  child: Icon(Icons.sync_rounded, size: 40, color: colorScheme.primary),
+                  child: Icon(
+                    Icons.sync_rounded,
+                    size: 40,
+                    color: colorScheme.primary,
+                  ),
                 ),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -84,7 +93,8 @@ class _ScanProgressState extends State<ScanProgress> with SingleTickerProviderSt
                   borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
               ),
-              if (i != widget.steps.length - 1) const SizedBox(width: AppSpacing.xs),
+              if (i != widget.steps.length - 1)
+                const SizedBox(width: AppSpacing.xs),
             ],
           ],
         ),

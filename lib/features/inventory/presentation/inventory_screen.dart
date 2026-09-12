@@ -4,9 +4,11 @@ import 'package:intl/intl.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/haptics.dart';
+import '../../../core/ui/app_number_field.dart';
 import '../../../core/ui/app_segmented.dart';
 import '../../../core/ui/app_sheet.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/validation/validators.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -72,7 +74,7 @@ class InventoryScreen extends ConsumerWidget {
   ) async {
     final result = await showAppSheet<_ConsumeResult>(
       context,
-      builder: (_) => _ConsumeSheet(item: item),
+      builder: (_, __) => _ConsumeSheet(item: item),
     );
     if (result == null) return;
 
@@ -384,115 +386,92 @@ class _ConsumeSheetState extends State<_ConsumeSheet> {
     super.dispose();
   }
 
-  double? _parsedAmount(String text) => double.tryParse(text.replaceAll(',', '.'));
+  double? _parsedAmount(String text) => Validators.parseDecimal(text);
 
   bool _isValid(double? parsed) =>
       parsed != null && parsed > 0 && parsed <= widget.item.quantity;
 
+  void _confirmWith(double amount) {
+    Navigator.pop(context, _ConsumeResult(amount: amount, reason: _reason));
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    return AppSheetScaffold(
-      title: 'Bu üründen ne oldu?',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppSegmented<String>(
-            options: const [
-              AppSegmentedOption(
-                value: 'consumed',
-                label: 'Kullandım',
-                icon: Icons.restaurant_rounded,
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _controller,
+      builder: (_, value, _) {
+        final parsed = _parsedAmount(value.text);
+        final valid = _isValid(parsed);
+        return AppSheetScaffold(
+          title: 'Bu üründen ne oldu?',
+          onClose: () => Navigator.pop(context),
+          onConfirm: valid ? () => _confirmWith(parsed!) : null,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppSegmented<String>(
+                options: const [
+                  AppSegmentedOption(
+                    value: 'consumed',
+                    label: 'Kullandım',
+                    icon: Icons.restaurant_rounded,
+                  ),
+                  AppSegmentedOption(
+                    value: 'discarded',
+                    label: 'Bozuldu',
+                    icon: Icons.delete_outline_rounded,
+                  ),
+                ],
+                selected: _reason,
+                onChanged: (value) => setState(() => _reason = value),
               ),
-              AppSegmentedOption(
-                value: 'discarded',
-                label: 'Bozuldu',
-                icon: Icons.delete_outline_rounded,
-              ),
-            ],
-            selected: _reason,
-            onChanged: (value) => setState(() => _reason = value),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Elinde ${item.quantity} ${unitLabel(item.unit)} var.',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _controller,
-            builder: (_, value, _) {
-              final parsed = _parsedAmount(value.text);
-              final tooMuch = parsed != null && parsed > item.quantity;
-              return TextField(
-                controller: _controller,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Elinde ${item.quantity} ${unitLabel(item.unit)} var.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              AppNumberField(
+                controller: _controller,
                 autofocus: true,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (text) {
                   final parsedValue = _parsedAmount(text);
-                  if (_isValid(parsedValue)) {
-                    Navigator.pop(
-                      context,
-                      _ConsumeResult(amount: parsedValue!, reason: _reason),
-                    );
-                  }
+                  if (_isValid(parsedValue)) _confirmWith(parsedValue!);
                 },
                 decoration: InputDecoration(
                   suffixText: unitLabel(item.unit),
-                  errorText: tooMuch ? 'Elindekinden fazla' : null,
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          TextButton.icon(
-            icon: const Icon(Icons.done_all_rounded, size: 18),
-            label: Text(
-              _reason == 'consumed' ? 'Tamamı kullanıldı' : 'Tamamı bozuldu',
-            ),
-            onPressed: () => Navigator.pop(
-              context,
-              _ConsumeResult(amount: item.quantity, reason: _reason),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('İptal'),
+                  errorText: (parsed != null && parsed > item.quantity)
+                      ? 'Elindekinden fazla'
+                      : null,
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: _controller,
-                  builder: (_, value, _) {
-                    final parsed = _parsedAmount(value.text);
-                    final valid = _isValid(parsed);
-                    return FilledButton(
-                      onPressed: valid
-                          ? () => Navigator.pop(
-                              context,
-                              _ConsumeResult(amount: parsed!, reason: _reason),
-                            )
-                          : null,
-                      child: const Text('Onayla'),
-                    );
-                  },
+              const SizedBox(height: AppSpacing.sm),
+              TextButton.icon(
+                icon: const Icon(Icons.done_all_rounded, size: 18),
+                label: Text(
+                  _reason == 'consumed'
+                      ? 'Tamamı kullanıldı'
+                      : 'Tamamı bozuldu',
+                ),
+                onPressed: () => _confirmWith(item.quantity),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: valid ? () => _confirmWith(parsed!) : null,
+                  child: const Text('Onayla'),
                 ),
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

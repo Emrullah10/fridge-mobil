@@ -26,31 +26,42 @@ class RecipeMatchRing extends StatelessWidget {
     final color = missing == 0
         ? colorScheme.primary
         : missing <= 2
-            ? context.appColors.statusWarning
-            : colorScheme.onSurfaceVariant;
+        ? context.appColors.statusWarning
+        : colorScheme.onSurfaceVariant;
 
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: ratio),
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.easeOutCubic,
-            builder: (context, value, _) => CircularProgressIndicator(
-              value: value,
-              strokeWidth: 4,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-              valueColor: AlwaysStoppedAnimation(color),
-            ),
+    return Semantics(
+      // Halkanın kendisi görsel — sadece "8/10" rakamını okumak yerine
+      // ekran okuyucuya anlamlı bir cümle veriliyor.
+      label: '$total malzemeden $available\'i mevcut',
+      child: ExcludeSemantics(
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: ratio),
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, _) => CircularProgressIndicator(
+                  value: value,
+                  strokeWidth: 4,
+                  backgroundColor: colorScheme.surfaceContainerHighest,
+                  valueColor: AlwaysStoppedAnimation(color),
+                ),
+              ),
+              Text(
+                '$available/$total',
+                style: TextStyle(
+                  fontSize: size * 0.24,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ],
           ),
-          Text(
-            '$available/$total',
-            style: TextStyle(fontSize: size * 0.24, fontWeight: FontWeight.w700, color: color),
-          ),
-        ],
+        ),
       ),
     );
   }

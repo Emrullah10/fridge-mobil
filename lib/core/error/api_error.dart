@@ -77,12 +77,16 @@ class PlanLimitInfo {
     if (code is! String) return null;
     return PlanLimitInfo(
       code: code,
-      message: errorMap['message'] as String? ?? 'Bu işlem için plan sınırına ulaşıldı.',
+      message:
+          errorMap['message'] as String? ??
+          'Bu işlem için plan sınırına ulaşıldı.',
       plan: data['plan'] as String?,
       feature: data['feature'] as String?,
       limit: (data['limit'] as num?)?.toInt(),
       used: (data['used'] as num?)?.toInt(),
-      resetsAt: data['resetsAt'] is String ? DateTime.tryParse(data['resetsAt'] as String) : null,
+      resetsAt: data['resetsAt'] is String
+          ? DateTime.tryParse(data['resetsAt'] as String)
+          : null,
       upgradeAvailable: data['upgradeAvailable'] as bool? ?? true,
     );
   }

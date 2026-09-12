@@ -11,5 +11,5 @@ final productRepositoryProvider = Provider<ProductRepository>((ref) {
 // fiş onay ekranındaki kategori dropdown'ı için önbelleklenir.
 final productCategoriesProvider =
     FutureProvider.family<List<ProductCategory>, String>((ref, householdId) {
-  return ref.watch(productRepositoryProvider).listCategories(householdId);
-});
+      return ref.watch(productRepositoryProvider).listCategories(householdId);
+    });

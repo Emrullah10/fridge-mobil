@@ -12,44 +12,75 @@ void main() {
   }
 
   group('PaywallController — frekans kuralları (plan §Faz 4)', () {
-    test('quotaExceeded HİÇBİR ZAMAN frekans kısıtına takılmaz — kullanıcının doğrudan aksiyonu', () async {
-      final prefs = await freshPrefs();
-      final controller = PaywallController(prefs);
-      controller.recordShown(PaywallTrigger.quotaExceeded);
-      controller.recordShown(PaywallTrigger.quotaExceeded);
+    test(
+      'quotaExceeded HİÇBİR ZAMAN frekans kısıtına takılmaz — kullanıcının doğrudan aksiyonu',
+      () async {
+        final prefs = await freshPrefs();
+        final controller = PaywallController(prefs);
+        controller.recordShown(PaywallTrigger.quotaExceeded);
+        controller.recordShown(PaywallTrigger.quotaExceeded);
 
-      expect(controller.isFrequencyLimited(PaywallTrigger.quotaExceeded), isFalse);
-    });
+        expect(
+          controller.isFrequencyLimited(PaywallTrigger.quotaExceeded),
+          isFalse,
+        );
+      },
+    );
 
-    test('lockedFeatureTap da her zaman gösterilir — kullanıcının doğrudan aksiyonu', () async {
-      final prefs = await freshPrefs();
-      await prefs.setInt('paywall_last_shown_lockedFeatureTap', DateTime.now().millisecondsSinceEpoch);
-      final controller = PaywallController(prefs);
+    test(
+      'lockedFeatureTap da her zaman gösterilir — kullanıcının doğrudan aksiyonu',
+      () async {
+        final prefs = await freshPrefs();
+        await prefs.setInt(
+          'paywall_last_shown_lockedFeatureTap',
+          DateTime.now().millisecondsSinceEpoch,
+        );
+        final controller = PaywallController(prefs);
 
-      expect(controller.isFrequencyLimited(PaywallTrigger.lockedFeatureTap), isFalse);
-    });
+        expect(
+          controller.isFrequencyLimited(PaywallTrigger.lockedFeatureTap),
+          isFalse,
+        );
+      },
+    );
 
-    test('modal oturumda en fazla 1: bir kez gösterildikten sonra AYNI oturumda tekrar limitlenir', () async {
-      final prefs = await freshPrefs();
-      final controller = PaywallController(prefs);
+    test(
+      'modal oturumda en fazla 1: bir kez gösterildikten sonra AYNI oturumda tekrar limitlenir',
+      () async {
+        final prefs = await freshPrefs();
+        final controller = PaywallController(prefs);
 
-      expect(controller.isFrequencyLimited(PaywallTrigger.trialEndingSoon), isFalse);
-      controller.recordShown(PaywallTrigger.trialEndingSoon);
+        expect(
+          controller.isFrequencyLimited(PaywallTrigger.trialEndingSoon),
+          isFalse,
+        );
+        controller.recordShown(PaywallTrigger.trialEndingSoon);
 
-      // Aynı oturumda BAŞKA bir tetikleyici bile artık limitli (modal-oturum kısıtı).
-      expect(controller.isFrequencyLimited(PaywallTrigger.winBack), isTrue);
-    });
+        // Aynı oturumda BAŞKA bir tetikleyici bile artık limitli (modal-oturum kısıtı).
+        expect(controller.isFrequencyLimited(PaywallTrigger.winBack), isTrue);
+      },
+    );
 
-    test('7 günden az önce gösterilmiş tetikleyici (yeni controller/oturumda bile) limitli kalır', () async {
-      final prefs = await freshPrefs();
-      await prefs.setInt(
-        'paywall_last_shown_trialEndingSoon',
-        DateTime.now().subtract(const Duration(days: 3)).millisecondsSinceEpoch,
-      );
-      final controller = PaywallController(prefs); // yeni instance, session flag'i sıfır
+    test(
+      '7 günden az önce gösterilmiş tetikleyici (yeni controller/oturumda bile) limitli kalır',
+      () async {
+        final prefs = await freshPrefs();
+        await prefs.setInt(
+          'paywall_last_shown_trialEndingSoon',
+          DateTime.now()
+              .subtract(const Duration(days: 3))
+              .millisecondsSinceEpoch,
+        );
+        final controller = PaywallController(
+          prefs,
+        ); // yeni instance, session flag'i sıfır
 
-      expect(controller.isFrequencyLimited(PaywallTrigger.trialEndingSoon), isTrue);
-    });
+        expect(
+          controller.isFrequencyLimited(PaywallTrigger.trialEndingSoon),
+          isTrue,
+        );
+      },
+    );
 
     test('7 günden eski kayıt -> tekrar gösterilebilir', () async {
       final prefs = await freshPrefs();
@@ -59,19 +90,25 @@ void main() {
       );
       final controller = PaywallController(prefs);
 
-      expect(controller.isFrequencyLimited(PaywallTrigger.trialEndingSoon), isFalse);
-    });
-
-    test('"Şimdi değil" sonrası 14 gün susturma — dismissed_until gelecekteyse limitli', () async {
-      final prefs = await freshPrefs();
-      await prefs.setInt(
-        'paywall_dismissed_until_winBack',
-        DateTime.now().add(const Duration(days: 10)).millisecondsSinceEpoch,
+      expect(
+        controller.isFrequencyLimited(PaywallTrigger.trialEndingSoon),
+        isFalse,
       );
-      final controller = PaywallController(prefs);
-
-      expect(controller.isFrequencyLimited(PaywallTrigger.winBack), isTrue);
     });
+
+    test(
+      '"Şimdi değil" sonrası 14 gün susturma — dismissed_until gelecekteyse limitli',
+      () async {
+        final prefs = await freshPrefs();
+        await prefs.setInt(
+          'paywall_dismissed_until_winBack',
+          DateTime.now().add(const Duration(days: 10)).millisecondsSinceEpoch,
+        );
+        final controller = PaywallController(prefs);
+
+        expect(controller.isFrequencyLimited(PaywallTrigger.winBack), isTrue);
+      },
+    );
 
     test('14 günlük susturma süresi geçmişse tekrar gösterilebilir', () async {
       final prefs = await freshPrefs();
@@ -88,40 +125,67 @@ void main() {
       final prefs = await freshPrefs();
       final controller = PaywallController(prefs);
 
-      expect(controller.isFrequencyLimited(PaywallTrigger.usageWarning80), isFalse);
-    });
-
-    test('usageWarning80: 23 saat önce gösterilmişse hâlâ limitli (24 saat kuralı)', () async {
-      final prefs = await freshPrefs();
-      await prefs.setInt(
-        'paywall_last_shown_usageWarning80',
-        DateTime.now().subtract(const Duration(hours: 23)).millisecondsSinceEpoch,
+      expect(
+        controller.isFrequencyLimited(PaywallTrigger.usageWarning80),
+        isFalse,
       );
-      final controller = PaywallController(prefs);
-
-      expect(controller.isFrequencyLimited(PaywallTrigger.usageWarning80), isTrue);
     });
 
-    test('usageWarning80: 25 saat önce gösterilmişse tekrar gösterilebilir (7 gün DEĞİL)', () async {
-      final prefs = await freshPrefs();
-      await prefs.setInt(
-        'paywall_last_shown_usageWarning80',
-        DateTime.now().subtract(const Duration(hours: 25)).millisecondsSinceEpoch,
-      );
-      final controller = PaywallController(prefs);
+    test(
+      'usageWarning80: 23 saat önce gösterilmişse hâlâ limitli (24 saat kuralı)',
+      () async {
+        final prefs = await freshPrefs();
+        await prefs.setInt(
+          'paywall_last_shown_usageWarning80',
+          DateTime.now()
+              .subtract(const Duration(hours: 23))
+              .millisecondsSinceEpoch,
+        );
+        final controller = PaywallController(prefs);
 
-      expect(controller.isFrequencyLimited(PaywallTrigger.usageWarning80), isFalse);
-    });
+        expect(
+          controller.isFrequencyLimited(PaywallTrigger.usageWarning80),
+          isTrue,
+        );
+      },
+    );
 
-    test('usageWarning80: banner olduğu için modal-oturum kısıtından muaf', () async {
-      final prefs = await freshPrefs();
-      final controller = PaywallController(prefs);
-      controller.recordShown(PaywallTrigger.trialEndingSoon); // oturum flag'ini set eder
+    test(
+      'usageWarning80: 25 saat önce gösterilmişse tekrar gösterilebilir (7 gün DEĞİL)',
+      () async {
+        final prefs = await freshPrefs();
+        await prefs.setInt(
+          'paywall_last_shown_usageWarning80',
+          DateTime.now()
+              .subtract(const Duration(hours: 25))
+              .millisecondsSinceEpoch,
+        );
+        final controller = PaywallController(prefs);
 
-      // Diğer modal tetikleyiciler artık limitli...
-      expect(controller.isFrequencyLimited(PaywallTrigger.winBack), isTrue);
-      // ...ama banner (usageWarning80) hâlâ gösterilebilir (kendi 24s kuralına tabi).
-      expect(controller.isFrequencyLimited(PaywallTrigger.usageWarning80), isFalse);
-    });
+        expect(
+          controller.isFrequencyLimited(PaywallTrigger.usageWarning80),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'usageWarning80: banner olduğu için modal-oturum kısıtından muaf',
+      () async {
+        final prefs = await freshPrefs();
+        final controller = PaywallController(prefs);
+        controller.recordShown(
+          PaywallTrigger.trialEndingSoon,
+        ); // oturum flag'ini set eder
+
+        // Diğer modal tetikleyiciler artık limitli...
+        expect(controller.isFrequencyLimited(PaywallTrigger.winBack), isTrue);
+        // ...ama banner (usageWarning80) hâlâ gösterilebilir (kendi 24s kuralına tabi).
+        expect(
+          controller.isFrequencyLimited(PaywallTrigger.usageWarning80),
+          isFalse,
+        );
+      },
+    );
   });
 }

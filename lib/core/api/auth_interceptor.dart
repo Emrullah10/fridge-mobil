@@ -7,10 +7,8 @@ import 'api_config.dart';
 /// bir access token alıp isteği bir kez tekrar dener. Refresh de başarısız
 /// olursa onUnauthorized çağrılır (login ekranına yönlendirme burada tetiklenir).
 class AuthInterceptor extends Interceptor {
-  AuthInterceptor({
-    required this.tokenStorage,
-    required this.onUnauthorized,
-  }) : _refreshDio = Dio(BaseOptions(baseUrl: ApiConfig.baseUrl));
+  AuthInterceptor({required this.tokenStorage, required this.onUnauthorized})
+    : _refreshDio = Dio(BaseOptions(baseUrl: ApiConfig.baseUrl));
 
   final TokenStorage tokenStorage;
   final Dio _refreshDio;
@@ -19,7 +17,10 @@ class AuthInterceptor extends Interceptor {
   bool _isRefreshing = false;
 
   @override
-  Future<void> onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+  Future<void> onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
     options.headers['X-Client-Type'] = 'mobile';
     final accessToken = await tokenStorage.readAccessToken();
     if (accessToken != null) {
@@ -29,7 +30,10 @@ class AuthInterceptor extends Interceptor {
   }
 
   @override
-  Future<void> onError(DioException err, ErrorInterceptorHandler handler) async {
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
     final isUnauthorized = err.response?.statusCode == 401;
     final isRetry = err.requestOptions.extra['retried'] == true;
 
@@ -53,7 +57,10 @@ class AuthInterceptor extends Interceptor {
 
       final newAccessToken = response.data['accessToken'] as String;
       final newRefreshToken = response.data['refreshToken'] as String;
-      await tokenStorage.saveTokens(accessToken: newAccessToken, refreshToken: newRefreshToken);
+      await tokenStorage.saveTokens(
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+      );
 
       final retryOptions = err.requestOptions;
       retryOptions.headers['Authorization'] = 'Bearer $newAccessToken';

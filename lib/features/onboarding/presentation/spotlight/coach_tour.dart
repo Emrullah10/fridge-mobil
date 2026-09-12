@@ -38,7 +38,8 @@ class CoachStep {
 /// ön-eleme hem tur sırasındaki canlı takip bunu kullanır.
 Rect? resolveStepRect(CoachStep step, BuildContext context) {
   if (step.targetKey != null) {
-    final box = step.targetKey!.currentContext?.findRenderObject() as RenderBox?;
+    final box =
+        step.targetKey!.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize || !box.attached) return null;
     return box.localToGlobal(Offset.zero) & box.size;
   }
@@ -56,7 +57,9 @@ Future<void> showCoachTour(
   // optional adımlar yalnızca hedefleri o an ekrandaysa tura girer — hedefi
   // veriye bağlı olanlar (Dolaba Aktar, SKT rozeti, eşleşme halkası) boş
   // ekranda "ekran ortasında anlamsız delik" üretmesin.
-  final usable = steps.where((s) => !s.optional || resolveStepRect(s, context) != null).toList();
+  final usable = steps
+      .where((s) => !s.optional || resolveStepRect(s, context) != null)
+      .toList();
   if (usable.isEmpty) {
     onFinished();
     return Future.value();
@@ -65,7 +68,8 @@ Future<void> showCoachTour(
     PageRouteBuilder(
       opaque: false,
       barrierDismissible: false,
-      pageBuilder: (_, a1, a2) => _CoachTourOverlay(steps: usable, onFinished: onFinished),
+      pageBuilder: (_, a1, a2) =>
+          _CoachTourOverlay(steps: usable, onFinished: onFinished),
     ),
   );
 }
@@ -80,21 +84,31 @@ class _CoachTourOverlay extends StatefulWidget {
   State<_CoachTourOverlay> createState() => _CoachTourOverlayState();
 }
 
-class _CoachTourOverlayState extends State<_CoachTourOverlay> with TickerProviderStateMixin {
+class _CoachTourOverlayState extends State<_CoachTourOverlay>
+    with TickerProviderStateMixin {
   late final AnimationController _pulse;
   int _index = 0;
   Rect? _currentRect;
   Rect? _previousRect;
   late final AnimationController _moveController;
 
-  bool get _reduceMotion => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+  bool get _reduceMotion =>
+      MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600))..repeat();
-    _moveController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-    WidgetsBinding.instance.addPostFrameCallback((_) => _resolveRect(animate: false));
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat();
+    _moveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _resolveRect(animate: false),
+    );
   }
 
   @override
@@ -114,7 +128,11 @@ class _CoachTourOverlayState extends State<_CoachTourOverlay> with TickerProvide
   Rect get _liveTargetRect =>
       resolveStepRect(widget.steps[_index], context) ??
       _currentRect ??
-      Rect.fromCenter(center: MediaQuery.sizeOf(context).center(Offset.zero), width: 120, height: 48);
+      Rect.fromCenter(
+        center: MediaQuery.sizeOf(context).center(Offset.zero),
+        width: 120,
+        height: 48,
+      );
 
   void _resolveRect({required bool animate}) {
     final rect = _liveTargetRect;
@@ -172,9 +190,14 @@ class _CoachTourOverlayState extends State<_CoachTourOverlay> with TickerProvide
           if (_moveController.isCompleted) {
             rect = _liveTargetRect;
           } else {
-            rect = Rect.lerp(_previousRect, _currentRect, moveT) ?? _currentRect ?? Rect.zero;
+            rect =
+                Rect.lerp(_previousRect, _currentRect, moveT) ??
+                _currentRect ??
+                Rect.zero;
           }
-          final pulseT = _reduceMotion ? 0.0 : Curves.easeOut.transform(_pulse.value);
+          final pulseT = _reduceMotion
+              ? 0.0
+              : Curves.easeOut.transform(_pulse.value);
 
           // Balon hedefin altına ya da üstüne — ekran ortasının hangi
           // yarısındaysa ona göre.
@@ -282,14 +305,27 @@ class _Bubble extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(step.title, style: textTheme.titleSmall?.copyWith(color: step.accent)),
+          Text(
+            step.title,
+            style: textTheme.titleSmall?.copyWith(color: step.accent),
+          ),
           const SizedBox(height: AppSpacing.xs),
-          Text(step.body, style: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+          Text(
+            step.body,
+            style: textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(height: AppSpacing.md),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('${index + 1} / $total', style: textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+              Text(
+                '${index + 1} / $total',
+                style: textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
               Row(
                 children: [
                   if (!isLast)
@@ -300,7 +336,9 @@ class _Bubble extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       backgroundColor: step.accent,
                       minimumSize: const Size(0, 44),
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                      ),
                     ),
                     child: Text(isLast ? 'Bitti' : 'İleri'),
                   ),

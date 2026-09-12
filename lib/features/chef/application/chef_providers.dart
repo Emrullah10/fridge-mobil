@@ -47,13 +47,16 @@ class ChefChatState {
       sending: sending ?? this.sending,
       pendingSuggestions: pendingSuggestions ?? this.pendingSuggestions,
       error: clearError ? null : (error ?? this.error),
-      planLimitInfo: clearPlanLimitInfo ? null : (planLimitInfo ?? this.planLimitInfo),
+      planLimitInfo: clearPlanLimitInfo
+          ? null
+          : (planLimitInfo ?? this.planLimitInfo),
     );
   }
 }
 
 class ChefChatNotifier extends StateNotifier<ChefChatState> {
-  ChefChatNotifier(this._repo, this._householdId) : super(const ChefChatState()) {
+  ChefChatNotifier(this._repo, this._householdId)
+    : super(const ChefChatState()) {
     load();
   }
 
@@ -111,9 +114,11 @@ class ChefChatNotifier extends StateNotifier<ChefChatState> {
   /// Ekran paywall'ı gösterdikten sonra çağırır — aynı hata tekrar
   /// tetiklenmesin (kullanıcı ekrandan çıkıp geri dönerse eski planLimitInfo
   /// kalıp yeniden paywall açmasın).
-  void dismissPlanLimitInfo() => state = state.copyWith(clearPlanLimitInfo: true);
+  void dismissPlanLimitInfo() =>
+      state = state.copyWith(clearPlanLimitInfo: true);
 
-  void dismissSuggestions() => state = state.copyWith(pendingSuggestions: const []);
+  void dismissSuggestions() =>
+      state = state.copyWith(pendingSuggestions: const []);
 
   Future<void> clear() async {
     await _repo.clear(_householdId);
@@ -122,6 +127,9 @@ class ChefChatNotifier extends StateNotifier<ChefChatState> {
 }
 
 final chefChatProvider =
-    StateNotifierProvider.family<ChefChatNotifier, ChefChatState, String>((ref, householdId) {
-  return ChefChatNotifier(ref.watch(chefRepositoryProvider), householdId);
-});
+    StateNotifierProvider.family<ChefChatNotifier, ChefChatState, String>((
+      ref,
+      householdId,
+    ) {
+      return ChefChatNotifier(ref.watch(chefRepositoryProvider), householdId);
+    });

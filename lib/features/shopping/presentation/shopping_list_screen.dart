@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/error/api_error.dart';
 import '../../../core/haptics.dart';
 import '../../../core/ui/app_dialog.dart';
+import '../../../core/ui/app_progress.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/async_view.dart';
@@ -176,7 +177,11 @@ class ShoppingListScreen extends ConsumerWidget {
         if (info != null) {
           final controllerAsync = ref.read(paywallControllerProvider);
           controllerAsync.whenData((controller) {
-            controller.maybeShow(context, trigger: PaywallTrigger.quotaExceeded, info: info);
+            controller.maybeShow(
+              context,
+              trigger: PaywallTrigger.quotaExceeded,
+              info: info,
+            );
           });
           return;
         }
@@ -361,21 +366,27 @@ class ShoppingListScreen extends ConsumerWidget {
     // 402 (misafir/kota dolu) -> AsyncValue.guard hatayı state.error'a
     // sarıyor, buradan yakalayıp metin hatası yerine paywall gösteriyoruz.
     ref.listen(aiShoppingSuggestionsProvider(householdId), (previous, next) {
-      next.whenOrNull(error: (error, _) {
-        final info = PlanLimitInfo.tryParse(error);
-        if (info != null) {
-          final controllerAsync = ref.read(paywallControllerProvider);
-          controllerAsync.whenData((controller) {
-            controller.maybeShow(context, trigger: PaywallTrigger.quotaExceeded, info: info);
-          });
-          return;
-        }
-        // 402 dışı hatalar eskiden sessizce yutuluyordu — kullanıcı AI
-        // önerisinin neden gelmediğini hiç göremiyordu.
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(describeApiError(error))),
-        );
-      });
+      next.whenOrNull(
+        error: (error, _) {
+          final info = PlanLimitInfo.tryParse(error);
+          if (info != null) {
+            final controllerAsync = ref.read(paywallControllerProvider);
+            controllerAsync.whenData((controller) {
+              controller.maybeShow(
+                context,
+                trigger: PaywallTrigger.quotaExceeded,
+                info: info,
+              );
+            });
+            return;
+          }
+          // 402 dışı hatalar eskiden sessizce yutuluyordu — kullanıcı AI
+          // önerisinin neden gelmediğini hiç göremiyordu.
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        },
+      );
     });
 
     maybeStartCoachTour(
@@ -387,6 +398,12 @@ class ShoppingListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        // Bu ekran AppShell'de bir sekme kökü olarak gösteriliyor (bkz.
+        // app_shell.dart _bodyFor) — otomatik geri oku burada 'önceki
+        // sekmeye dön' izlenimi veriyordu, oysa gerçekte PopScope her zaman
+        // Alanım sekmesine (index 0) döndürüyor. Tab bar konvansiyonunda
+        // sekme köklerinde geri oku olmamalı.
+        automaticallyImplyLeading: false,
         title: const Text('Alışveriş'),
         actions: [
           IconButton(
@@ -413,7 +430,12 @@ class ShoppingListScreen extends ConsumerWidget {
           return Column(
             children: [
               const Padding(
-                padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                  0,
+                ),
                 child: QuotaUpsellBanner(feature: 'shopping'),
               ),
               if (total > 0)
@@ -447,11 +469,15 @@ class ShoppingListScreen extends ConsumerWidget {
                         aiSuggestionsAsync.valueOrNull?.isEmpty != false)
                     ? const SizedBox.shrink()
                     : SizedBox(
+                        // Önceki 44 + dikey AppSpacing.sm (8) padding
+                        // efektif dokunma yüksekliğini 44-16=28px'e
+                        // düşürüyordu (iOS 44pt / Android 48dp minimumunun
+                        // altında). Padding yalnızca yatayda kalıyor, dış
+                        // yükseklik çipin tamamına ayrılıyor.
                         height: 44,
                         child: ListView.separated(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.md,
-                            vertical: AppSpacing.sm,
                           ),
                           scrollDirection: Axis.horizontal,
                           itemCount:
@@ -494,9 +520,7 @@ class ShoppingListScreen extends ConsumerWidget {
                                   ? const SizedBox(
                                       width: 14,
                                       height: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
+                                      child: AppProgress(strokeWidth: 2),
                                     )
                                   : const Icon(
                                       Icons.auto_awesome_rounded,

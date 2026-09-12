@@ -9,7 +9,7 @@ class AppL10nEn extends AppL10n {
   AppL10nEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Fridge';
+  String get appTitle => 'Elde';
 
   @override
   String get navAreas => 'My Spaces';
@@ -132,7 +132,7 @@ class AppL10nEn extends AppL10n {
   String get nutritionApprox => 'approx.';
 
   @override
-  String get updateAvailableMessage => 'A new version of Fridge is available.';
+  String get updateAvailableMessage => 'A new version of Elde is available.';
 
   @override
   String get updateAction => 'Update';
@@ -141,7 +141,7 @@ class AppL10nEn extends AppL10n {
   String get dismissAction => 'Dismiss';
 
   @override
-  String get forceUpdateTitle => 'You need to update to keep using Fridge';
+  String get forceUpdateTitle => 'You need to update to keep using Elde';
 
   @override
   String get forceUpdateAction => 'Update now';

@@ -17,11 +17,11 @@ class PremiumStatusCard extends ConsumerWidget {
   const PremiumStatusCard({super.key});
 
   String _planLabel(PlanTier plan) => switch (plan) {
-        PlanTier.guest => 'Misafir modu',
-        PlanTier.free => 'Ücretsiz plan',
-        PlanTier.trial => 'Deneme (Premium)',
-        PlanTier.premium => 'Premium',
-      };
+    PlanTier.guest => 'Misafir modu',
+    PlanTier.free => 'Ücretsiz plan',
+    PlanTier.trial => 'Deneme (Premium)',
+    PlanTier.premium => 'Premium',
+  };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -33,21 +33,27 @@ class PremiumStatusCard extends ConsumerWidget {
     return Card(
       child: ListTile(
         leading: Icon(
-          isPremiumLike ? Icons.workspace_premium_rounded : Icons.workspace_premium_outlined,
-          color: isPremiumLike ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+          isPremiumLike
+              ? Icons.workspace_premium_rounded
+              : Icons.workspace_premium_outlined,
+          color: isPremiumLike
+              ? theme.colorScheme.primary
+              : theme.colorScheme.onSurfaceVariant,
         ),
         title: Text(_planLabel(entitlements.plan)),
         subtitle: Text(
           isGuest
               ? 'Premium\'u görmek için hesabını kalıcı yap'
               : isPremiumLike
-                  ? 'Aboneliğini yönet'
-                  : 'Planları karşılaştır, Premium\'a geç',
+              ? 'Aboneliğini yönet'
+              : 'Planları karşılaştır, Premium\'a geç',
         ),
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => isGuest ? const UpgradeAccountScreen() : const SubscriptionScreen(),
+            builder: (_) => isGuest
+                ? const UpgradeAccountScreen()
+                : const SubscriptionScreen(),
           ),
         ),
       ),

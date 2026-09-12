@@ -2,9 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../haptics.dart';
-import '../theme/app_theme.dart';
-import '../widgets/form_error_text.dart';
 import 'adaptive.dart';
+import 'app_prompt_sheet.dart';
 
 /// Uygulamadaki TÜM basit dialog ihtiyaçları için tek çağrı noktası.
 /// Platform ayrışması (iOS -> Cupertino, Android -> Material) burada
@@ -34,7 +33,10 @@ abstract final class AppDialog {
             // kapatmak beklenmez, kullanıcı bir aksiyon seçmeli.
             barrierDismissible: false,
             builder: (dialogContext) => CupertinoAlertDialog(
-              title: Text(title, style: cupertinoDialogTitleStyle(dialogContext)),
+              title: Text(
+                title,
+                style: cupertinoDialogTitleStyle(dialogContext),
+              ),
               content: message == null
                   ? null
                   : Text(
@@ -83,10 +85,10 @@ abstract final class AppDialog {
                     // algılatıp butonları dikey moda düşürür. Burada ez.
                     style: FilledButton.styleFrom(
                       minimumSize: const Size(0, 44),
-                      backgroundColor:
-                          isDestructive ? colorScheme.error : null,
-                      foregroundColor:
-                          isDestructive ? colorScheme.onError : null,
+                      backgroundColor: isDestructive ? colorScheme.error : null,
+                      foregroundColor: isDestructive
+                          ? colorScheme.onError
+                          : null,
                     ),
                     onPressed: () => Navigator.pop(dialogContext, true),
                     child: Text(confirmLabel),
@@ -112,7 +114,10 @@ abstract final class AppDialog {
           title: Text(title, style: cupertinoDialogTitleStyle(dialogContext)),
           content: message == null
               ? null
-              : Text(message, style: cupertinoDialogMessageStyle(dialogContext)),
+              : Text(
+                  message,
+                  style: cupertinoDialogMessageStyle(dialogContext),
+                ),
           actions: [
             CupertinoDialogAction(
               isDefaultAction: true,
@@ -143,7 +148,13 @@ abstract final class AppDialog {
   /// Tek metin alanı + onay — `showSingleFieldDialog`'un yerine geçer.
   /// Kullanıcı iptal ederse `null` döner. `validator` null dönerse geçerli
   /// kabul edilir; String dönerse o metin inline hata olarak gösterilir ve
-  /// dialog KAPANMAZ. Varsayılan validator boş metni reddeder.
+  /// KAPANMAZ. Varsayılan validator boş metni reddeder.
+  ///
+  /// Gövde artık bir alert DEĞİL, bir sheet (`showAppPromptSheet`) —
+  /// kullanıcı gerçek cihazda metin girişi içeren alert'lerin ("Ne
+  /// almalıyım?" AI önerisi, Ayarlar'daki ad/şifre girişleri) UX olarak
+  /// yanlış olduğunu bildirdi. İmza aynı kaldığı için 5 çağrı yerinin
+  /// hiçbiri değişmedi, davranış tek yerden (`app_prompt_sheet.dart`) gelir.
   static Future<String?> prompt(
     BuildContext context, {
     required String title,
@@ -157,203 +168,32 @@ abstract final class AppDialog {
     Widget Function(TextEditingController controller)? suffixBuilder,
     TextInputType? keyboardType,
     String? Function(String value)? validator,
+    // Bunlar eklenmeden önce settings_screen'deki şifre değiştir/hesap
+    // sil akışları bu dialogu `autofillHints` OLMADAN kullanıyordu — iOS
+    // Keychain'in "şifreni güncelle" önerisi hiç tetiklenmiyordu.
+    Iterable<String>? autofillHints,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    bool autocorrect = true,
+    bool enableSuggestions = true,
   }) {
-    return showGeneralDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      barrierLabel: title,
-      pageBuilder: (dialogContext, animation, secondaryAnimation) {
-        return _PromptDialog(
-          title: title,
-          hintText: hintText,
-          confirmLabel: confirmLabel,
-          cancelLabel: cancelLabel,
-          message: message,
-          initialText: initialText,
-          obscureText: obscureText,
-          maxLines: maxLines,
-          suffixBuilder: suffixBuilder,
-          keyboardType: keyboardType,
-          validator: validator ??
-              (value) => value.trim().isEmpty ? 'Bir değer gir' : null,
-        );
-      },
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        // showDialog/showCupertinoDialog'un varsayılan fade+scale'ini
-        // showGeneralDialog ile birebir taklit ediyoruz (StatefulWidget
-        // içeriği barındırabilmek için showGeneralDialog'a geçtik).
-        return FadeTransition(
-          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.9, end: 1).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
-            ),
-            child: child,
-          ),
-        );
-      },
-      transitionDuration: const Duration(milliseconds: 150),
-    );
-  }
-}
-
-class _PromptDialog extends StatefulWidget {
-  const _PromptDialog({
-    required this.title,
-    required this.hintText,
-    required this.confirmLabel,
-    required this.cancelLabel,
-    required this.validator,
-    this.message,
-    this.initialText,
-    this.obscureText = false,
-    this.maxLines = 1,
-    this.suffixBuilder,
-    this.keyboardType,
-  });
-
-  final String title;
-  final String hintText;
-  final String confirmLabel;
-  final String cancelLabel;
-  final String? Function(String value) validator;
-  final String? message;
-  final String? initialText;
-  final bool obscureText;
-  final int maxLines;
-  final Widget Function(TextEditingController controller)? suffixBuilder;
-  final TextInputType? keyboardType;
-
-  @override
-  State<_PromptDialog> createState() => _PromptDialogState();
-}
-
-class _PromptDialogState extends State<_PromptDialog> {
-  late final TextEditingController _controller;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialText);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _confirm() {
-    final error = widget.validator(_controller.text);
-    if (error != null) {
-      setState(() => _error = error);
-      return;
-    }
-    Navigator.pop(context, _controller.text.trim());
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (isCupertino(context)) {
-      return CupertinoAlertDialog(
-        title: Text(widget.title, style: cupertinoDialogTitleStyle(context)),
-        content: Padding(
-          padding: const EdgeInsets.only(top: AppSpacing.sm),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (widget.message != null) ...[
-                Text(widget.message!, style: cupertinoDialogMessageStyle(context)),
-                const SizedBox(height: AppSpacing.sm),
-              ],
-              CupertinoTextField(
-                controller: _controller,
-                placeholder: widget.hintText,
-                autofocus: true,
-                obscureText: widget.obscureText,
-                maxLines: widget.maxLines,
-                keyboardType: widget.keyboardType,
-                suffix: widget.suffixBuilder?.call(_controller),
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _confirm(),
-                onChanged: (_) {
-                  if (_error != null) setState(() => _error = null);
-                },
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.sm,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: _error != null
-                        ? CupertinoColors.destructiveRed
-                        : CupertinoColors.systemGrey4,
-                  ),
-                  borderRadius: BorderRadius.circular(AppRadius.input),
-                ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: AppSpacing.xs),
-                FormErrorText(_error!),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(context),
-            child: Text(widget.cancelLabel),
-          ),
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: _confirm,
-            child: Text(widget.confirmLabel),
-          ),
-        ],
-      );
-    }
-
-    return AlertDialog(
-      title: Text(widget.title),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (widget.message != null) ...[
-            Text(widget.message!),
-            const SizedBox(height: AppSpacing.sm),
-          ],
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            obscureText: widget.obscureText,
-            maxLines: widget.maxLines,
-            keyboardType: widget.keyboardType,
-            decoration: InputDecoration(
-              hintText: widget.hintText,
-              suffixIcon: widget.suffixBuilder?.call(_controller),
-              errorText: _error,
-            ),
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _confirm(),
-            onChanged: (_) {
-              if (_error != null) setState(() => _error = null);
-            },
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(widget.cancelLabel),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-          onPressed: _confirm,
-          child: Text(widget.confirmLabel),
-        ),
-      ],
+    // cancelLabel artık kullanılmıyor (sheet'in kapatma butonu ✕) — imzada
+    // kalması geriye dönük uyumluluk için, çağıran taraflar dokunulmadı.
+    return showAppPromptSheet(
+      context,
+      title: title,
+      hintText: hintText,
+      confirmLabel: confirmLabel,
+      message: message,
+      initialText: initialText,
+      obscureText: obscureText,
+      maxLines: maxLines,
+      suffixBuilder: suffixBuilder,
+      keyboardType: keyboardType,
+      validator: validator,
+      autofillHints: autofillHints,
+      textCapitalization: textCapitalization,
+      autocorrect: autocorrect,
+      enableSuggestions: enableSuggestions,
     );
   }
 }

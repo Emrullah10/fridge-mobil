@@ -33,17 +33,38 @@ class _Row {
   final String premium;
 }
 
-String _countLabel(int? value, {String unlimited = 'Sınırsız'}) => value == null ? unlimited : '$value';
+String _countLabel(int? value, {String unlimited = 'Sınırsız'}) =>
+    value == null ? unlimited : '$value';
 
 List<_Row> _rowsFor(PlanCatalog catalog) {
   final free = catalog.free;
   final premium = catalog.premium;
   return [
-    _Row(label: 'Fiş tarama / ay', free: _countLabel(free.aiReceipt), premium: _countLabel(premium.aiReceipt)),
-    _Row(label: 'Tarif üretimi / ay', free: _countLabel(free.aiRecipe), premium: _countLabel(premium.aiRecipe)),
-    _Row(label: 'AI Chef / ay', free: _countLabel(free.aiChef), premium: _countLabel(premium.aiChef)),
-    _Row(label: 'Alışveriş önerisi / ay', free: _countLabel(free.aiShopping), premium: _countLabel(premium.aiShopping)),
-    _Row(label: 'Alan sayısı', free: _countLabel(free.householdCount), premium: _countLabel(premium.householdCount)),
+    _Row(
+      label: 'Fiş tarama / ay',
+      free: _countLabel(free.aiReceipt),
+      premium: _countLabel(premium.aiReceipt),
+    ),
+    _Row(
+      label: 'Tarif üretimi / ay',
+      free: _countLabel(free.aiRecipe),
+      premium: _countLabel(premium.aiRecipe),
+    ),
+    _Row(
+      label: 'AI Chef / ay',
+      free: _countLabel(free.aiChef),
+      premium: _countLabel(premium.aiChef),
+    ),
+    _Row(
+      label: 'Alışveriş önerisi / ay',
+      free: _countLabel(free.aiShopping),
+      premium: _countLabel(premium.aiShopping),
+    ),
+    _Row(
+      label: 'Alan sayısı',
+      free: _countLabel(free.householdCount),
+      premium: _countLabel(premium.householdCount),
+    ),
     _Row(
       label: 'Bölüm / alan',
       free: _countLabel(free.locationPerHousehold),
@@ -56,11 +77,23 @@ List<_Row> _rowsFor(PlanCatalog catalog) {
     ),
     _Row(
       label: 'İçgörü geçmişi',
-      free: free.insightsWindowDays == null ? 'Tüm zamanlar' : '${free.insightsWindowDays} gün',
-      premium: premium.insightsWindowDays == null ? 'Tüm zamanlar' : '${premium.insightsWindowDays} gün',
+      free: free.insightsWindowDays == null
+          ? 'Tüm zamanlar'
+          : '${free.insightsWindowDays} gün',
+      premium: premium.insightsWindowDays == null
+          ? 'Tüm zamanlar'
+          : '${premium.insightsWindowDays} gün',
     ),
-    _Row(label: 'Barkod okuma', free: free.barcode ? '✓' : '—', premium: premium.barcode ? '✓' : '—'),
-    _Row(label: 'CSV dışa aktarma', free: free.export ? '✓' : '—', premium: premium.export ? '✓' : '—'),
+    _Row(
+      label: 'Barkod okuma',
+      free: free.barcode ? '✓' : '—',
+      premium: premium.barcode ? '✓' : '—',
+    ),
+    _Row(
+      label: 'CSV dışa aktarma',
+      free: free.export ? '✓' : '—',
+      premium: premium.export ? '✓' : '—',
+    ),
   ];
 }
 
@@ -82,16 +115,26 @@ class _BenefitsCardContent extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.workspace_premium_rounded, color: theme.colorScheme.primary),
+                Icon(
+                  Icons.workspace_premium_rounded,
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: AppSpacing.sm),
-                Expanded(child: Text('Fridge Premium', style: theme.textTheme.titleMedium)),
+                Expanded(
+                  child: Text(
+                    'Elde Premium',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
               ],
             ),
             if (catalog.familySeats != null) ...[
               const SizedBox(height: AppSpacing.xs),
               Text(
                 '${catalog.familySeats} kişiye kadar aile paketiyle paylaş',
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
             const SizedBox(height: AppSpacing.md),
@@ -103,7 +146,9 @@ class _BenefitsCardContent extends StatelessWidget {
                   child: Text(
                     'Ücretsiz',
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
                 Expanded(
@@ -128,7 +173,11 @@ class _BenefitsCardContent extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             for (var i = 0; i < rows.length; i++)
-              _AnimatedBenefitRow(index: i, row: rows[i], showDivider: i != rows.length - 1),
+              _AnimatedBenefitRow(
+                index: i,
+                row: rows[i],
+                showDivider: i != rows.length - 1,
+              ),
           ],
         ),
       ),
@@ -137,7 +186,11 @@ class _BenefitsCardContent extends StatelessWidget {
 }
 
 class _AnimatedBenefitRow extends StatelessWidget {
-  const _AnimatedBenefitRow({required this.index, required this.row, required this.showDivider});
+  const _AnimatedBenefitRow({
+    required this.index,
+    required this.row,
+    required this.showDivider,
+  });
 
   final int index;
   final _Row row;
@@ -156,7 +209,10 @@ class _AnimatedBenefitRow extends StatelessWidget {
           // verilmez, ama burada kalıcı bir soluk durum değil, geçici bir
           // giriş efekti (animasyon bitince value=1, opacity=1'e döner).
           opacity: value,
-          child: Transform.translate(offset: Offset(0, (1 - value) * 6), child: child),
+          child: Transform.translate(
+            offset: Offset(0, (1 - value) * 6),
+            child: child,
+          ),
         );
       },
       child: _BenefitRow(row: row, showDivider: showDivider),
@@ -178,13 +234,18 @@ class _BenefitRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Row(
             children: [
-              Expanded(flex: 3, child: Text(row.label, style: theme.textTheme.bodyMedium)),
+              Expanded(
+                flex: 3,
+                child: Text(row.label, style: theme.textTheme.bodyMedium),
+              ),
               Expanded(
                 flex: 2,
                 child: Text(
                   row.free,
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               Expanded(
@@ -201,7 +262,11 @@ class _BenefitRow extends StatelessWidget {
             ],
           ),
         ),
-        if (showDivider) Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
+        if (showDivider)
+          Divider(
+            height: 1,
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+          ),
       ],
     );
   }
@@ -219,10 +284,18 @@ class _BenefitsCardSkeleton extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(height: 20, width: 160, color: theme.colorScheme.surfaceContainerHighest),
+            Container(
+              height: 20,
+              width: 160,
+              color: theme.colorScheme.surfaceContainerHighest,
+            ),
             const SizedBox(height: AppSpacing.md),
             for (var i = 0; i < 4; i++) ...[
-              Container(height: 14, width: double.infinity, color: theme.colorScheme.surfaceContainerHighest),
+              Container(
+                height: 14,
+                width: double.infinity,
+                color: theme.colorScheme.surfaceContainerHighest,
+              ),
               const SizedBox(height: AppSpacing.sm),
             ],
           ],

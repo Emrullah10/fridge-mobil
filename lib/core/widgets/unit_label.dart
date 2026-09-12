@@ -20,7 +20,14 @@ const _unitShortLabels = <String, String>{
   'package': 'paket',
 };
 
-const unitOptions = ['piece', 'gram', 'kilogram', 'milliliter', 'liter', 'package'];
+const unitOptions = [
+  'piece',
+  'gram',
+  'kilogram',
+  'milliliter',
+  'liter',
+  'package',
+];
 
 String unitLabel(String unit) => _unitLabels[unit] ?? unit;
 

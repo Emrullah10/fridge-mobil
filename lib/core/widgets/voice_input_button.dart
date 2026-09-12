@@ -54,7 +54,9 @@ class _VoiceInputButtonState extends State<VoiceInputButton> {
     if (!_available) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sesli giriş bu cihazda kullanılamıyor')),
+          const SnackBar(
+            content: Text('Sesli giriş bu cihazda kullanılamıyor'),
+          ),
         );
       }
       return;
@@ -75,7 +77,9 @@ class _VoiceInputButtonState extends State<VoiceInputButton> {
       ),
       onResult: (r) {
         widget.controller.text = r.recognizedWords;
-        widget.controller.selection = TextSelection.collapsed(offset: widget.controller.text.length);
+        widget.controller.selection = TextSelection.collapsed(
+          offset: widget.controller.text.length,
+        );
       },
     );
   }

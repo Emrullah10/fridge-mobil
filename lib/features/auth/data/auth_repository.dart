@@ -3,25 +3,32 @@ import 'package:dio/dio.dart';
 import '../../../core/api/api_client.dart';
 
 class DietProfile {
-  const DietProfile({this.allergens = const [], this.diet = 'none', this.dailyKcalTarget});
+  const DietProfile({
+    this.allergens = const [],
+    this.diet = 'none',
+    this.dailyKcalTarget,
+  });
 
   final List<String> allergens;
   final String diet;
   final int? dailyKcalTarget;
 
-  bool get isEmpty => allergens.isEmpty && diet == 'none' && dailyKcalTarget == null;
+  bool get isEmpty =>
+      allergens.isEmpty && diet == 'none' && dailyKcalTarget == null;
 
   factory DietProfile.fromJson(Map<String, dynamic> json) => DietProfile(
-        allergens: (json['allergens'] as List?)?.map((e) => e.toString()).toList() ?? const [],
-        diet: json['diet'] as String? ?? 'none',
-        dailyKcalTarget: (json['dailyKcalTarget'] as num?)?.toInt(),
-      );
+    allergens:
+        (json['allergens'] as List?)?.map((e) => e.toString()).toList() ??
+        const [],
+    diet: json['diet'] as String? ?? 'none',
+    dailyKcalTarget: (json['dailyKcalTarget'] as num?)?.toInt(),
+  );
 
   Map<String, dynamic> toJson() => {
-        'allergens': allergens,
-        'diet': diet,
-        'dailyKcalTarget': dailyKcalTarget,
-      };
+    'allergens': allergens,
+    'diet': diet,
+    'dailyKcalTarget': dailyKcalTarget,
+  };
 }
 
 class AppUser {
@@ -45,15 +52,15 @@ class AppUser {
   final bool isGuest;
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
-        id: json['id'] as String,
-        email: json['email'] as String,
-        displayName: json['displayName'] as String,
-        locale: json['locale'] as String? ?? 'tr',
-        dietProfile: json['dietProfile'] != null
-            ? DietProfile.fromJson(json['dietProfile'] as Map<String, dynamic>)
-            : null,
-        isGuest: json['isGuest'] as bool? ?? false,
-      );
+    id: json['id'] as String,
+    email: json['email'] as String,
+    displayName: json['displayName'] as String,
+    locale: json['locale'] as String? ?? 'tr',
+    dietProfile: json['dietProfile'] != null
+        ? DietProfile.fromJson(json['dietProfile'] as Map<String, dynamic>)
+        : null,
+    isGuest: json['isGuest'] as bool? ?? false,
+  );
 }
 
 class AuthRepository {
@@ -67,22 +74,28 @@ class AuthRepository {
     required String displayName,
     String? deviceId,
   }) async {
-    final response = await _client.dio.post('/auth/register', data: {
-      'email': email,
-      'password': password,
-      'displayName': displayName,
-      // 14 günlük ters deneme aynı cihazdan ikinci kez alınmasın diye —
-      // backend zaten bilmiyorsa (eski sürüm) sessizce yok sayar.
-      if (deviceId != null) 'deviceId': deviceId,
-    });
+    final response = await _client.dio.post(
+      '/auth/register',
+      data: {
+        'email': email,
+        'password': password,
+        'displayName': displayName,
+        // 14 günlük ters deneme aynı cihazdan ikinci kez alınmasın diye —
+        // backend zaten bilmiyorsa (eski sürüm) sessizce yok sayar.
+        if (deviceId != null) 'deviceId': deviceId,
+      },
+    );
     return AppUser.fromJson(response.data['user'] as Map<String, dynamic>);
   }
 
-  Future<AppUser> login({required String email, required String password}) async {
-    final response = await _client.dio.post('/auth/login', data: {
-      'email': email,
-      'password': password,
-    });
+  Future<AppUser> login({
+    required String email,
+    required String password,
+  }) async {
+    final response = await _client.dio.post(
+      '/auth/login',
+      data: {'email': email, 'password': password},
+    );
     final data = response.data as Map<String, dynamic>;
     await _client.tokenStorage.saveTokens(
       accessToken: data['accessToken'] as String,
@@ -94,7 +107,10 @@ class AuthRepository {
   /// Misafir hesap açar (ya da aynı deviceId için mevcut misafiri döndürür)
   /// — kayıt duvarı olmadan uygulamanın tamamını kullanabilme.
   Future<AppUser> createGuest(String deviceId) async {
-    final response = await _client.dio.post('/auth/guest', data: {'deviceId': deviceId});
+    final response = await _client.dio.post(
+      '/auth/guest',
+      data: {'deviceId': deviceId},
+    );
     final data = response.data as Map<String, dynamic>;
     await _client.tokenStorage.saveTokens(
       accessToken: data['accessToken'] as String,
@@ -111,19 +127,25 @@ class AuthRepository {
     required String displayName,
     String? deviceId,
   }) async {
-    final response = await _client.dio.post('/auth/upgrade', data: {
-      'email': email,
-      'password': password,
-      'displayName': displayName,
-      if (deviceId != null) 'deviceId': deviceId,
-    });
+    final response = await _client.dio.post(
+      '/auth/upgrade',
+      data: {
+        'email': email,
+        'password': password,
+        'displayName': displayName,
+        if (deviceId != null) 'deviceId': deviceId,
+      },
+    );
     return AppUser.fromJson(response.data['user'] as Map<String, dynamic>);
   }
 
   Future<void> logout() async {
     final refreshToken = await _client.tokenStorage.readRefreshToken();
     try {
-      await _client.dio.post('/auth/logout', data: {'refreshToken': refreshToken});
+      await _client.dio.post(
+        '/auth/logout',
+        data: {'refreshToken': refreshToken},
+      );
     } on DioException {
       // Sunucuya ulaşamasak bile yerel token'ları temizlemek yeterli.
     }
@@ -149,22 +171,30 @@ class AuthRepository {
     // sentinel: alan hiç geçilmezse dokunulmaz; null geçilirse temizlenir.
     Object? dietProfile = _noDietProfile,
   }) async {
-    final response = await _client.dio.patch('/auth/me', data: {
-      'displayName': displayName,
-      if (locale != null) 'locale': locale,
-      if (!identical(dietProfile, _noDietProfile))
-        'dietProfile': dietProfile is DietProfile ? dietProfile.toJson() : null,
-    });
+    final response = await _client.dio.patch(
+      '/auth/me',
+      data: {
+        'displayName': displayName,
+        if (locale != null) 'locale': locale,
+        if (!identical(dietProfile, _noDietProfile))
+          'dietProfile': dietProfile is DietProfile
+              ? dietProfile.toJson()
+              : null,
+      },
+    );
     return AppUser.fromJson(response.data['user'] as Map<String, dynamic>);
   }
 
   static const _noDietProfile = Object();
 
-  Future<void> changePassword({required String currentPassword, required String newPassword}) async {
-    await _client.dio.post('/auth/change-password', data: {
-      'currentPassword': currentPassword,
-      'newPassword': newPassword,
-    });
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _client.dio.post(
+      '/auth/change-password',
+      data: {'currentPassword': currentPassword, 'newPassword': newPassword},
+    );
   }
 
   Future<void> deleteAccount({required String password}) async {
@@ -185,10 +215,9 @@ class AuthRepository {
     required String code,
     required String newPassword,
   }) async {
-    await _client.dio.post('/auth/reset-password', data: {
-      'email': email,
-      'code': code,
-      'newPassword': newPassword,
-    });
+    await _client.dio.post(
+      '/auth/reset-password',
+      data: {'email': email, 'code': code, 'newPassword': newPassword},
+    );
   }
 }

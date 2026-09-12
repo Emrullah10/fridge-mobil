@@ -74,21 +74,27 @@ class PurchaseProduct {
 
   /// İndirimli giriş fiyatı sunuluyor mu (ücretsiz deneme HARİÇ).
   bool get hasIntroDiscount =>
-      (introPhase != null && introPhase!.offerPaymentMode != OfferPaymentMode.freeTrial) ||
+      (introPhase != null &&
+          introPhase!.offerPaymentMode != OfferPaymentMode.freeTrial) ||
       (introductoryPrice != null && introductoryPrice!.price > 0);
 
   /// İndirimli/deneme fiyatının yerelleştirilmiş metni.
-  String? get introPriceString => introPhase?.price.formatted ?? introductoryPrice?.priceString;
+  String? get introPriceString =>
+      introPhase?.price.formatted ?? introductoryPrice?.priceString;
 
   /// İndirimli/deneme fiyatının kaç faturalama döngüsü sürdüğü.
-  int? get introCycles => introPhase?.billingCycleCount ?? introductoryPrice?.cycles;
+  int? get introCycles =>
+      introPhase?.billingCycleCount ?? introductoryPrice?.cycles;
 
   /// Deneme/giriş fiyatı süresinin TR etiketi (ör. "7 gün", "1 ay").
   String? get trialPeriodLabel {
     final period = freePhase?.billingPeriod ?? introPhase?.billingPeriod;
     if (period != null) return _periodLabel(period.unit, period.value);
     if (introductoryPrice != null) {
-      return _periodLabel(introductoryPrice!.periodUnit, introductoryPrice!.periodNumberOfUnits);
+      return _periodLabel(
+        introductoryPrice!.periodUnit,
+        introductoryPrice!.periodNumberOfUnits,
+      );
     }
     return null;
   }
@@ -107,7 +113,8 @@ class PurchaseProduct {
   /// Bu paket (yıllık) karşısındaki aylık pakete göre kaç yüzde tasarruf
   /// sağlıyor — ikisi de `price` taşımıyorsa (mağazadan gelmediyse) null.
   int? discountPercentAgainst(PurchaseProduct? monthly) {
-    if (price == null || monthly?.price == null || monthly!.price == 0) return null;
+    if (price == null || monthly?.price == null || monthly!.price == 0)
+      return null;
     final yearlyEquivalentOfMonthly = monthly.price! * 12;
     if (yearlyEquivalentOfMonthly <= 0) return null;
     final percent = (1 - (price! / yearlyEquivalentOfMonthly)) * 100;
@@ -116,7 +123,11 @@ class PurchaseProduct {
 }
 
 class PurchaseResult {
-  const PurchaseResult({required this.success, this.cancelled = false, this.errorMessage});
+  const PurchaseResult({
+    required this.success,
+    this.cancelled = false,
+    this.errorMessage,
+  });
   final bool success;
   final bool cancelled;
   final String? errorMessage;
@@ -139,8 +150,11 @@ enum OfferingsFailure {
 }
 
 class OfferingsResult {
-  const OfferingsResult.success(this.products) : failure = null, debugMessage = null;
-  const OfferingsResult.failed(this.failure, {this.debugMessage}) : products = const [];
+  const OfferingsResult.success(this.products)
+    : failure = null,
+      debugMessage = null;
+  const OfferingsResult.failed(this.failure, {this.debugMessage})
+    : products = const [];
 
   final List<PurchaseProduct> products;
   final OfferingsFailure? failure;
@@ -158,12 +172,17 @@ class PurchaseRepository {
   /// bu KRİTİK: webhook'un appUserId'si bizim backend'deki kullanıcıyı
   /// bulabilmesi için Purchases.logIn ile aynı id kullanılmalı (plan
   /// §Faz 5 "RC app_user_id == bizim user.id").
-  static Future<void> configure({required String apiKey, String? userId}) async {
+  static Future<void> configure({
+    required String apiKey,
+    String? userId,
+  }) async {
     if (_configured) return;
     if (apiKey.isEmpty) {
       // Anahtar yoksa (henüz kurulmadı / dev ortamı) sessizce atla — boot
       // asla çökmemeli (config/index.js'teki no-op adaptör ilkesiyle aynı).
-      debugPrint('PurchaseRepository: REVENUECAT_API_KEY boş, RevenueCat devre dışı.');
+      debugPrint(
+        'PurchaseRepository: REVENUECAT_API_KEY boş, RevenueCat devre dışı.',
+      );
       return;
     }
     await Purchases.setLogLevel(kDebugMode ? LogLevel.debug : LogLevel.info);
@@ -197,7 +216,8 @@ class PurchaseRepository {
   /// getOfferings() bir exception fırlatırsa hiç yakalanmıyordu, bu da
   /// paywall'da sonsuz spinner'a sebep oluyordu.
   Future<OfferingsResult> fetchOfferings() async {
-    if (!_configured) return const OfferingsResult.failed(OfferingsFailure.notConfigured);
+    if (!_configured)
+      return const OfferingsResult.failed(OfferingsFailure.notConfigured);
     try {
       final offerings = await Purchases.getOfferings();
       final current = offerings.current;
@@ -223,7 +243,10 @@ class PurchaseRepository {
         }).toList(),
       );
     } catch (e) {
-      return OfferingsResult.failed(OfferingsFailure.storeError, debugMessage: e.toString());
+      return OfferingsResult.failed(
+        OfferingsFailure.storeError,
+        debugMessage: e.toString(),
+      );
     }
   }
 
@@ -236,12 +259,15 @@ class PurchaseRepository {
   /// olmayan) bir seçenek varsa onu tercih ediyoruz; yoksa `defaultOption`'a
   /// düşüyoruz (davranış aynı kalır).
   @visibleForTesting
-  SubscriptionOption? bestSubscriptionOptionForTest(StoreProduct product) => _bestSubscriptionOption(product);
+  SubscriptionOption? bestSubscriptionOptionForTest(StoreProduct product) =>
+      _bestSubscriptionOption(product);
 
   SubscriptionOption? _bestSubscriptionOption(StoreProduct product) {
     final options = product.subscriptionOptions;
     if (options != null && options.isNotEmpty) {
-      final withOffer = options.where((o) => !o.isBasePlan && (o.freePhase != null || o.introPhase != null));
+      final withOffer = options.where(
+        (o) => !o.isBasePlan && (o.freePhase != null || o.introPhase != null),
+      );
       if (withOffer.isNotEmpty) return withOffer.first;
     }
     return product.defaultOption;
@@ -255,7 +281,10 @@ class PurchaseRepository {
   /// invalidate() çağrısı biraz gecikmeli olabilir (webhook round-trip).
   Future<PurchaseResult> purchase(String productIdentifier) async {
     if (!_configured) {
-      return const PurchaseResult(success: false, errorMessage: 'Satın alma şu anda kullanılamıyor.');
+      return const PurchaseResult(
+        success: false,
+        errorMessage: 'Satın alma şu anda kullanılamıyor.',
+      );
     }
     try {
       final offerings = await Purchases.getOfferings();
@@ -263,16 +292,23 @@ class PurchaseRepository {
           .where((p) => p.storeProduct.identifier == productIdentifier)
           .firstOrNull;
       if (package == null) {
-        return const PurchaseResult(success: false, errorMessage: 'Ürün bulunamadı.');
+        return const PurchaseResult(
+          success: false,
+          errorMessage: 'Ürün bulunamadı.',
+        );
       }
       // Android'de görüntülemede seçtiğimiz aynı subscription option ile
       // satın al — `PurchaseParams.package()` RC'nin kendi `defaultOption`'ını
       // kullanır, bu bazı paketlerde offer'sız taban plana düşüyordu
       // (kartta indirim görünse bile ödemede uygulanmama riski). iOS'ta bu
       // API yok (Google Play-only), package ile devam edilir.
-      final option = Platform.isAndroid ? _bestSubscriptionOption(package.storeProduct) : null;
+      final option = Platform.isAndroid
+          ? _bestSubscriptionOption(package.storeProduct)
+          : null;
       await Purchases.purchase(
-        option != null ? PurchaseParams.subscriptionOption(option) : PurchaseParams.package(package),
+        option != null
+            ? PurchaseParams.subscriptionOption(option)
+            : PurchaseParams.package(package),
       );
       return const PurchaseResult(success: true);
     } on PlatformException catch (e) {
@@ -280,7 +316,10 @@ class PurchaseRepository {
       if (errorCode == PurchasesErrorCode.purchaseCancelledError) {
         return const PurchaseResult(success: false, cancelled: true);
       }
-      return PurchaseResult(success: false, errorMessage: e.message ?? 'Satın alma başarısız oldu.');
+      return PurchaseResult(
+        success: false,
+        errorMessage: e.message ?? 'Satın alma başarısız oldu.',
+      );
     }
   }
 

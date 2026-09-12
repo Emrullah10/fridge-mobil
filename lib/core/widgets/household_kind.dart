@@ -10,7 +10,11 @@ import 'package:flutter/material.dart';
 /// yoksa alanın eski `kind` değerinin ikonu gösterilir (bir "Ofis" alanı
 /// `business_rounded` görünümünü korur).
 class HouseholdKindStyle {
-  const HouseholdKindStyle({required this.kind, required this.icon, required this.label});
+  const HouseholdKindStyle({
+    required this.kind,
+    required this.icon,
+    required this.label,
+  });
 
   final String kind;
   final IconData icon;
@@ -19,14 +23,46 @@ class HouseholdKindStyle {
 
 const householdKinds = <HouseholdKindStyle>[
   HouseholdKindStyle(kind: 'home', icon: Icons.home_rounded, label: 'Ev'),
-  HouseholdKindStyle(kind: 'office', icon: Icons.business_rounded, label: 'Ofis'),
-  HouseholdKindStyle(kind: 'summerhouse', icon: Icons.beach_access_rounded, label: 'Yazlık'),
-  HouseholdKindStyle(kind: 'cottage', icon: Icons.cabin_rounded, label: 'Dağ/Bağ Evi'),
-  HouseholdKindStyle(kind: 'workshop', icon: Icons.handyman_rounded, label: 'Atölye'),
-  HouseholdKindStyle(kind: 'shop', icon: Icons.storefront_rounded, label: 'Dükkan'),
-  HouseholdKindStyle(kind: 'dorm', icon: Icons.apartment_rounded, label: 'Yurt'),
-  HouseholdKindStyle(kind: 'garage', icon: Icons.garage_rounded, label: 'Garaj'),
-  HouseholdKindStyle(kind: 'boat', icon: Icons.directions_boat_rounded, label: 'Tekne'),
+  HouseholdKindStyle(
+    kind: 'office',
+    icon: Icons.business_rounded,
+    label: 'Ofis',
+  ),
+  HouseholdKindStyle(
+    kind: 'summerhouse',
+    icon: Icons.beach_access_rounded,
+    label: 'Yazlık',
+  ),
+  HouseholdKindStyle(
+    kind: 'cottage',
+    icon: Icons.cabin_rounded,
+    label: 'Dağ/Bağ Evi',
+  ),
+  HouseholdKindStyle(
+    kind: 'workshop',
+    icon: Icons.handyman_rounded,
+    label: 'Atölye',
+  ),
+  HouseholdKindStyle(
+    kind: 'shop',
+    icon: Icons.storefront_rounded,
+    label: 'Dükkan',
+  ),
+  HouseholdKindStyle(
+    kind: 'dorm',
+    icon: Icons.apartment_rounded,
+    label: 'Yurt',
+  ),
+  HouseholdKindStyle(
+    kind: 'garage',
+    icon: Icons.garage_rounded,
+    label: 'Garaj',
+  ),
+  HouseholdKindStyle(
+    kind: 'boat',
+    icon: Icons.directions_boat_rounded,
+    label: 'Tekne',
+  ),
   HouseholdKindStyle(kind: 'other', icon: Icons.place_rounded, label: 'Diğer'),
 ];
 

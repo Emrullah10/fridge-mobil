@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_providers.dart';
+import '../../../core/ui/app_progress.dart';
 import '../../../core/ui/app_dialog.dart';
 import '../../../core/ui/app_switch.dart';
 import '../../auth/application/auth_providers.dart';
@@ -46,7 +47,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _loadPreferences() async {
     try {
-      final preferences = await ref.read(notificationRepositoryProvider).listPreferences();
+      final preferences = await ref
+          .read(notificationRepositoryProvider)
+          .listPreferences();
       if (!mounted) return;
       setState(() {
         for (final preference in preferences) {
@@ -64,15 +67,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _togglePreference(String type, bool value) async {
     setState(() => _pushEnabledByType[type] = value);
     try {
-      await ref.read(notificationRepositoryProvider).updatePreference(type, pushEnabled: value);
+      await ref
+          .read(notificationRepositoryProvider)
+          .updatePreference(type, pushEnabled: value);
     } catch (error) {
       if (!mounted) return;
       setState(() => _pushEnabledByType[type] = !value);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
     }
   }
 
-  Future<void> _editProfile(BuildContext context, WidgetRef ref, String currentName) async {
+  Future<void> _editProfile(
+    BuildContext context,
+    WidgetRef ref,
+    String currentName,
+  ) async {
     final newName = await AppDialog.prompt(
       context,
       title: 'Adını düzenle',
@@ -80,14 +91,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       confirmLabel: 'Kaydet',
       initialText: currentName,
       keyboardType: TextInputType.name,
+      textCapitalization: TextCapitalization.words,
+      autofillHints: const [AutofillHints.name],
     );
     if (newName == null || !context.mounted) return;
 
     try {
-      await ref.read(authControllerProvider.notifier).updateProfile(displayName: newName.trim());
+      await ref
+          .read(authControllerProvider.notifier)
+          .updateProfile(displayName: newName.trim());
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
@@ -99,6 +116,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       hintText: 'Mevcut şifre',
       confirmLabel: 'Devam et',
       obscureText: true,
+      autofillHints: const [AutofillHints.password],
     );
     if (currentPassword == null || !context.mounted) return;
 
@@ -108,22 +126,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       hintText: 'Yeni şifre (en az 8 karakter)',
       confirmLabel: 'Şifreyi değiştir',
       obscureText: true,
+      autofillHints: const [AutofillHints.newPassword],
       validator: (value) =>
           value.trim().length < 8 ? 'Şifre en az 8 karakter olmalı' : null,
     );
     if (newPassword == null || !context.mounted) return;
 
     try {
-      await ref.read(authControllerProvider.notifier).changePassword(
+      await ref
+          .read(authControllerProvider.notifier)
+          .changePassword(
             currentPassword: currentPassword,
             newPassword: newPassword,
           );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Şifren güncellendi')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Şifren güncellendi')));
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
@@ -138,8 +163,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       title: 'Çıkış yap',
       message: isGuest
           ? 'Misafir hesabındasın. Çıkış yaparsan alanların, envanterin ve '
-            'fiş geçmişin GERİ ALINAMAZ şekilde kaybolur. Önce hesabını '
-            'kalıcı yapmanı öneririz.'
+                'fiş geçmişin GERİ ALINAMAZ şekilde kaybolur. Önce hesabını '
+                'kalıcı yapmanı öneririz.'
           : 'Hesabından çıkış yapmak istediğine emin misin?',
       confirmLabel: isGuest ? 'Yine de çık' : 'Çıkış yap',
       isDestructive: isGuest,
@@ -149,27 +174,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
+  Future<void> _confirmDeleteAccount(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     // Aktif Premium/deneme abonesiyse hesap silmenin aboneliği İPTAL
     // ETMEDİĞİNİ ayrıca vurgula — aksi halde kullanıcı hesabını silip
     // Google Play üzerinden ücretlendirilmeye devam edebilir (plan §Faz 6).
     final entitlements = ref.read(entitlementsProvider);
-    final hasActiveSubscription = entitlements.isPremium || entitlements.isTrial;
+    final hasActiveSubscription =
+        entitlements.isPremium || entitlements.isTrial;
 
     final proceed = await AppDialog.confirm(
       context,
       title: 'Hesabını sil',
       message: hasActiveSubscription
           ? 'Bu işlem geri alınamaz. Hesabın ve yalnızca senin sahibi olduğun '
-            'alanlardaki tüm envanter/fiş verisi kalıcı olarak silinir. '
-            'Paylaşımlı alanlarda sahiplik başka bir üyeye devredilir.\n\n'
-            'DİKKAT: Aktif bir aboneliğin var. Hesabını silmek aboneliğini '
-            'iptal ETMEZ — Google Play üzerinden ödeme almaya devam edilebilir. '
-            'Önce Ayarlar → Abonelik → Aboneliği Yönet / İptal Et yolundan '
-            'aboneliğini iptal etmeni öneririz.'
+                'alanlardaki tüm envanter/fiş verisi kalıcı olarak silinir. '
+                'Paylaşımlı alanlarda sahiplik başka bir üyeye devredilir.\n\n'
+                'DİKKAT: Aktif bir aboneliğin var. Hesabını silmek aboneliğini '
+                'iptal ETMEZ — Google Play üzerinden ödeme almaya devam edilebilir. '
+                'Önce Ayarlar → Abonelik → Aboneliği Yönet / İptal Et yolundan '
+                'aboneliğini iptal etmeni öneririz.'
           : 'Bu işlem geri alınamaz. Hesabın ve yalnızca senin sahibi olduğun '
-            'alanlardaki tüm envanter/fiş verisi kalıcı olarak silinir. '
-            'Paylaşımlı alanlarda sahiplik başka bir üyeye devredilir.',
+                'alanlardaki tüm envanter/fiş verisi kalıcı olarak silinir. '
+                'Paylaşımlı alanlarda sahiplik başka bir üyeye devredilir.',
       confirmLabel: 'Devam et',
       isDestructive: true,
       icon: Icons.warning_amber_rounded,
@@ -183,14 +212,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       hintText: 'Şifre',
       confirmLabel: 'Hesabı sil',
       obscureText: true,
+      autofillHints: const [AutofillHints.password],
     );
     if (password == null || !context.mounted) return;
 
     try {
-      await ref.read(authControllerProvider.notifier).deleteAccount(password: password);
+      await ref
+          .read(authControllerProvider.notifier)
+          .deleteAccount(password: password);
     } catch (error) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
     }
   }
 
@@ -202,7 +236,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final user = ref.watch(authControllerProvider).user;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ayarlar')),
+      // bkz. shopping_list_screen.dart'taki aynı not — sekme kökü.
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: const Text('Ayarlar'),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.md,
@@ -218,8 +256,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   radius: 22,
                   backgroundColor: colorScheme.primaryContainer,
                   child: Text(
-                    user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : '?',
-                    style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w700),
+                    user.displayName.isNotEmpty
+                        ? user.displayName[0].toUpperCase()
+                        : '?',
+                    style: TextStyle(
+                      color: colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 title: Text(user.displayName, style: textTheme.titleSmall),
@@ -242,7 +285,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   (user.dietProfile == null || user.dietProfile!.isEmpty)
                       ? 'Tarif önerileri için ayarla'
                       : [
-                          if (user.dietProfile!.diet != 'none') user.dietProfile!.diet,
+                          if (user.dietProfile!.diet != 'none')
+                            user.dietProfile!.diet,
                           if (user.dietProfile!.allergens.isNotEmpty)
                             '${user.dietProfile!.allergens.length} alerjen',
                         ].join(' · '),
@@ -256,16 +300,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: AppSpacing.lg),
           ],
           Padding(
-            padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: AppSpacing.sm),
+            padding: const EdgeInsets.only(
+              left: AppSpacing.xs,
+              bottom: AppSpacing.sm,
+            ),
             child: Text(
               'GÖRÜNÜM',
-              style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant, letterSpacing: 0.3),
+              style: textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                letterSpacing: 0.3,
+              ),
             ),
           ),
           Card(
             child: RadioGroup<ThemeMode>(
               groupValue: themeMode,
-              onChanged: (mode) => ref.read(themeModeProvider.notifier).setThemeMode(mode!),
+              onChanged: (mode) =>
+                  ref.read(themeModeProvider.notifier).setThemeMode(mode!),
               child: const Column(
                 children: [
                   RadioListTile<ThemeMode>(
@@ -290,10 +341,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: AppSpacing.lg),
           Padding(
-            padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: AppSpacing.sm),
+            padding: const EdgeInsets.only(
+              left: AppSpacing.xs,
+              bottom: AppSpacing.sm,
+            ),
             child: Text(
               'BİLDİRİMLER',
-              style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant, letterSpacing: 0.3),
+              style: textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                letterSpacing: 0.3,
+              ),
             ),
           ),
           Card(
@@ -304,23 +361,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         AppSwitchTile(
                           title: entry.value,
                           value: _pushEnabledByType[entry.key] ?? true,
-                          onChanged: (value) => _togglePreference(entry.key, value),
+                          onChanged: (value) =>
+                              _togglePreference(entry.key, value),
                         ),
-                        if (entry.key != _notificationTypeLabels.keys.last) const Divider(height: 1),
+                        if (entry.key != _notificationTypeLabels.keys.last)
+                          const Divider(height: 1),
                       ],
                     ],
                   )
                 : const Padding(
                     padding: EdgeInsets.all(AppSpacing.lg),
-                    child: Center(child: CircularProgressIndicator()),
+                    child: Center(child: AppProgress()),
                   ),
           ),
           const SizedBox(height: AppSpacing.lg),
           Padding(
-            padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: AppSpacing.sm),
+            padding: const EdgeInsets.only(
+              left: AppSpacing.xs,
+              bottom: AppSpacing.sm,
+            ),
             child: Text(
               'HESAP',
-              style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant, letterSpacing: 0.3),
+              style: textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                letterSpacing: 0.3,
+              ),
             ),
           ),
           Card(
@@ -328,11 +393,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               children: [
                 if (user?.isGuest ?? false) ...[
                   ListTile(
-                    leading: Icon(Icons.person_add_alt_1_rounded, color: colorScheme.primary),
-                    title: Text('Hesabını kalıcı yap', style: TextStyle(color: colorScheme.primary)),
-                    subtitle: const Text('Verilerini kaybetmemek için e-posta/şifre ekle'),
+                    leading: Icon(
+                      Icons.person_add_alt_1_rounded,
+                      color: colorScheme.primary,
+                    ),
+                    title: Text(
+                      'Hesabını kalıcı yap',
+                      style: TextStyle(color: colorScheme.primary),
+                    ),
+                    subtitle: const Text(
+                      'Verilerini kaybetmemek için e-posta/şifre ekle',
+                    ),
                     onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const UpgradeAccountScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const UpgradeAccountScreen(),
+                      ),
                     ),
                   ),
                   const Divider(height: 1),
@@ -347,14 +422,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
                 ListTile(
                   leading: Icon(Icons.logout_rounded, color: colorScheme.error),
-                  title: Text('Çıkış yap', style: TextStyle(color: colorScheme.error)),
+                  title: Text(
+                    'Çıkış yap',
+                    style: TextStyle(color: colorScheme.error),
+                  ),
                   onTap: () => _confirmLogout(context, ref),
                 ),
                 if (!(user?.isGuest ?? false)) ...[
                   const Divider(height: 1),
                   ListTile(
-                    leading: Icon(Icons.delete_forever_rounded, color: colorScheme.error),
-                    title: Text('Hesabımı sil', style: TextStyle(color: colorScheme.error)),
+                    leading: Icon(
+                      Icons.delete_forever_rounded,
+                      color: colorScheme.error,
+                    ),
+                    title: Text(
+                      'Hesabımı sil',
+                      style: TextStyle(color: colorScheme.error),
+                    ),
                     onTap: () => _confirmDeleteAccount(context, ref),
                   ),
                 ],
@@ -373,17 +457,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ref.read(tourSeenProvider(id).notifier).reset();
                 }
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Ekranları tekrar gezdiğinde tanıtımlar yeniden gösterilecek')),
+                  const SnackBar(
+                    content: Text(
+                      'Ekranları tekrar gezdiğinde tanıtımlar yeniden gösterilecek',
+                    ),
+                  ),
                 );
               },
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
           Padding(
-            padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: AppSpacing.sm),
+            padding: const EdgeInsets.only(
+              left: AppSpacing.xs,
+              bottom: AppSpacing.sm,
+            ),
             child: Text(
               'HAKKINDA',
-              style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant, letterSpacing: 0.3),
+              style: textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                letterSpacing: 0.3,
+              ),
             ),
           ),
           Card(

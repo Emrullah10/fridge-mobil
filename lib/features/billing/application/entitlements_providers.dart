@@ -5,7 +5,9 @@ import '../data/entitlements_repository.dart';
 import '../data/purchase_repository.dart';
 import '../domain/entitlements.dart';
 
-final purchaseRepositoryProvider = Provider<PurchaseRepository>((ref) => PurchaseRepository());
+final purchaseRepositoryProvider = Provider<PurchaseRepository>(
+  (ref) => PurchaseRepository(),
+);
 
 final entitlementsRepositoryProvider = Provider<EntitlementsRepository>((ref) {
   return EntitlementsRepository(ref.watch(apiClientProvider));
@@ -26,7 +28,9 @@ class EntitlementsController extends StateNotifier<AsyncValue<Entitlements>> {
   static const _cacheTtl = Duration(minutes: 5);
 
   Future<void> refresh({bool force = false}) async {
-    if (!force && _lastFetchedAt != null && DateTime.now().difference(_lastFetchedAt!) < _cacheTtl) {
+    if (!force &&
+        _lastFetchedAt != null &&
+        DateTime.now().difference(_lastFetchedAt!) < _cacheTtl) {
       return;
     }
     try {
@@ -53,24 +57,28 @@ class EntitlementsController extends StateNotifier<AsyncValue<Entitlements>> {
 }
 
 final entitlementsControllerProvider =
-    StateNotifierProvider<EntitlementsController, AsyncValue<Entitlements>>((ref) {
-  // authControllerProvider'ı izler — kullanıcı değişince (login/logout/
-  // misafirden yükseltme) entitlements da otomatik yeniden çekilir.
-  ref.watch(authControllerProvider);
-  final controller = EntitlementsController(ref.watch(entitlementsRepositoryProvider));
+    StateNotifierProvider<EntitlementsController, AsyncValue<Entitlements>>((
+      ref,
+    ) {
+      // authControllerProvider'ı izler — kullanıcı değişince (login/logout/
+      // misafirden yükseltme) entitlements da otomatik yeniden çekilir.
+      ref.watch(authControllerProvider);
+      final controller = EntitlementsController(
+        ref.watch(entitlementsRepositoryProvider),
+      );
 
-  // 402 geldiğinde (api_client.dart'taki interceptor, planLimitNotifier'a
-  // yazar) cache'i hemen invalidate et — kullanıcı kotayı doldurduğu anda
-  // /me/entitlements TTL'i beklemeden tazelenir, paywall doğru "used/limit"
-  // gösterir.
-  void listener() {
-    if (planLimitNotifier.value != null) controller.invalidate();
-  }
+      // 402 geldiğinde (api_client.dart'taki interceptor, planLimitNotifier'a
+      // yazar) cache'i hemen invalidate et — kullanıcı kotayı doldurduğu anda
+      // /me/entitlements TTL'i beklemeden tazelenir, paywall doğru "used/limit"
+      // gösterir.
+      void listener() {
+        if (planLimitNotifier.value != null) controller.invalidate();
+      }
 
-  planLimitNotifier.addListener(listener);
-  ref.onDispose(() => planLimitNotifier.removeListener(listener));
-  return controller;
-});
+      planLimitNotifier.addListener(listener);
+      ref.onDispose(() => planLimitNotifier.removeListener(listener));
+      return controller;
+    });
 
 /// Ekranların çoğu sadece son bilinen değeri okumak ister (yükleniyor/hata
 /// durumunda UI'ı bloklamadan) — AsyncValue.data(...).value ?? empty deseni

@@ -103,7 +103,9 @@ int _findOverlap(List<String> prevLines, List<String> nextLines) {
   for (var k = maxK; k >= 1; k--) {
     final tail = prevLines.sublist(prevLines.length - k);
     final head = nextLines.sublist(0, k);
-    final threshold = k == 1 ? _minSingleAnchorLineLength : _minAnchorLineLength;
+    final threshold = k == 1
+        ? _minSingleAnchorLineLength
+        : _minAnchorLineLength;
 
     var allMatch = true;
     var hasAnchorLine = false;
@@ -129,10 +131,18 @@ int _findOverlap(List<String> prevLines, List<String> nextLines) {
 StitchResult stitchPages(List<List<String>> pages) {
   final nonEmptyPages = pages.where((p) => p.isNotEmpty).toList();
   if (nonEmptyPages.isEmpty) {
-    return const StitchResult(lines: [], overlapFound: false, duplicatesRemoved: 0);
+    return const StitchResult(
+      lines: [],
+      overlapFound: false,
+      duplicatesRemoved: 0,
+    );
   }
   if (nonEmptyPages.length == 1) {
-    return StitchResult(lines: nonEmptyPages.first, overlapFound: false, duplicatesRemoved: 0);
+    return StitchResult(
+      lines: nonEmptyPages.first,
+      overlapFound: false,
+      duplicatesRemoved: 0,
+    );
   }
 
   final result = <String>[...nonEmptyPages.first];
@@ -152,5 +162,9 @@ StitchResult stitchPages(List<List<String>> pages) {
     }
   }
 
-  return StitchResult(lines: result, overlapFound: overlapFound, duplicatesRemoved: duplicatesRemoved);
+  return StitchResult(
+    lines: result,
+    overlapFound: overlapFound,
+    duplicatesRemoved: duplicatesRemoved,
+  );
 }

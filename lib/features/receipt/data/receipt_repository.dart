@@ -49,9 +49,12 @@ class ReceiptLineItem {
   /// oluşturduğu ürünler (matchMethod: 'model') her zaman düşük güven sayılır
   /// — kimse doğrulamadı, kullanıcının göz atması gerekir.
   bool get isHighConfidence =>
-      matchedProductId != null && (matchMethod == 'alias' || (matchMethod == 'trigram' && (confidence ?? 0) >= 0.6));
+      matchedProductId != null &&
+      (matchMethod == 'alias' ||
+          (matchMethod == 'trigram' && (confidence ?? 0) >= 0.6));
 
-  factory ReceiptLineItem.fromJson(Map<String, dynamic> json) => ReceiptLineItem(
+  factory ReceiptLineItem.fromJson(Map<String, dynamic> json) =>
+      ReceiptLineItem(
         id: json['id'] as String,
         rawText: json['rawText'] as String,
         parsedName: json['parsedName'] as String? ?? json['rawText'] as String,
@@ -69,7 +72,12 @@ class ReceiptLineItem {
 }
 
 class ReceiptScanResult {
-  const ReceiptScanResult({required this.status, required this.lineItems, this.totalAmount, this.errorMessage});
+  const ReceiptScanResult({
+    required this.status,
+    required this.lineItems,
+    this.totalAmount,
+    this.errorMessage,
+  });
   final String status;
   final List<ReceiptLineItem> lineItems;
 
@@ -101,7 +109,8 @@ class ReceiptScanSummary {
   final double? totalAmount;
   final String? errorMessage;
 
-  factory ReceiptScanSummary.fromJson(Map<String, dynamic> json) => ReceiptScanSummary(
+  factory ReceiptScanSummary.fromJson(Map<String, dynamic> json) =>
+      ReceiptScanSummary(
         id: json['id'] as String,
         status: json['status'] as String,
         createdAt: DateTime.parse(json['createdAt'] as String),
@@ -120,7 +129,9 @@ class ReceiptRepository {
   Future<List<ReceiptScanSummary>> listScans(String householdId) async {
     final response = await _client.dio.get('/households/$householdId/receipts');
     final scans = response.data['scans'] as List;
-    return scans.map((s) => ReceiptScanSummary.fromJson(s as Map<String, dynamic>)).toList();
+    return scans
+        .map((s) => ReceiptScanSummary.fromJson(s as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> retry(String householdId, String scanId) async {
@@ -138,12 +149,16 @@ class ReceiptRepository {
   }
 
   Future<ReceiptScanResult> getScan(String householdId, String scanId) async {
-    final response = await _client.dio.get('/households/$householdId/receipts/$scanId');
+    final response = await _client.dio.get(
+      '/households/$householdId/receipts/$scanId',
+    );
     final scan = response.data['scan'] as Map<String, dynamic>;
     final items = response.data['lineItems'] as List;
     return ReceiptScanResult(
       status: scan['status'] as String,
-      lineItems: items.map((i) => ReceiptLineItem.fromJson(i as Map<String, dynamic>)).toList(),
+      lineItems: items
+          .map((i) => ReceiptLineItem.fromJson(i as Map<String, dynamic>))
+          .toList(),
       totalAmount: (scan['totalAmount'] as num?)?.toDouble(),
       errorMessage: scan['errorMessage'] as String?,
     );
@@ -195,13 +210,15 @@ class ReceiptRepository {
       '/households/$householdId/receipts/$scanId/confirm',
       data: {
         'itemSelections': items
-            .map((item) => {
-                  'lineItemId': item.id,
-                  'matchedProductId': item.matchedProductId,
-                  'storageLocationId': locationIdByItemId[item.id],
-                  if (expiresAtByItemId[item.id] != null)
-                    'expiresAt': expiresAtByItemId[item.id]!.toIso8601String(),
-                })
+            .map(
+              (item) => {
+                'lineItemId': item.id,
+                'matchedProductId': item.matchedProductId,
+                'storageLocationId': locationIdByItemId[item.id],
+                if (expiresAtByItemId[item.id] != null)
+                  'expiresAt': expiresAtByItemId[item.id]!.toIso8601String(),
+              },
+            )
             .toList(),
       },
     );

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_number_field.dart';
 import '../../../core/ui/app_sheet.dart';
+import '../../../core/ui/app_text_field.dart';
+import '../../../core/validation/validators.dart';
 import '../../../core/widgets/unit_label.dart';
 import '../data/shopping_repository.dart';
 
@@ -24,7 +27,7 @@ Future<ShoppingItemEdit?> showShoppingItemSheet(
 }) {
   return showAppSheet<ShoppingItemEdit>(
     context,
-    builder: (_) => _ShoppingItemSheet(existing: existing),
+    builder: (_, __) => _ShoppingItemSheet(existing: existing),
   );
 }
 
@@ -55,8 +58,8 @@ class _ShoppingItemSheetState extends State<_ShoppingItemSheet> {
   }
 
   void _submit() {
-    final quantity =
-        double.tryParse(_quantityController.text.replaceAll(',', '.')) ?? 1;
+    FocusScope.of(context).unfocus();
+    final quantity = Validators.parseDecimal(_quantityController.text) ?? 1;
     Navigator.of(context).pop(
       ShoppingItemEdit(
         quantity: quantity,
@@ -70,69 +73,59 @@ class _ShoppingItemSheetState extends State<_ShoppingItemSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: AppSpacing.md,
-        right: AppSpacing.md,
-        top: AppSpacing.md,
-        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.md,
-      ),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.existing?.name ?? 'Ürün Düzenle',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _quantityController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    textInputAction: TextInputAction.next,
-                    onSubmitted: (_) => _noteFocus.requestFocus(),
-                    decoration: const InputDecoration(labelText: 'Miktar'),
-                  ),
+    // Önceden elle yazılmış Padding+SafeArea; `AppSheetScaffold` kullanmayan
+    // tek sheet'ti — SingleChildScrollView olmadığı için küçük ekranda
+    // (iPhone SE) klavye + 2 alan + dropdown + buton overflow riski
+    // taşıyordu. Diğer 6 sheet'le aynı kabuğa taşındı.
+    return AppSheetScaffold(
+      title: widget.existing?.name ?? 'Ürün Düzenle',
+      onClose: () => Navigator.of(context).pop(),
+      onConfirm: _submit,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: AppNumberField(
+                  controller: _quantityController,
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) => _noteFocus.requestFocus(),
+                  decoration: const InputDecoration(labelText: 'Miktar'),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _unit,
-                    decoration: const InputDecoration(labelText: 'Birim'),
-                    items: [
-                      for (final u in unitOptions)
-                        DropdownMenuItem(value: u, child: Text(unitLabel(u))),
-                    ],
-                    onChanged: (value) =>
-                        setState(() => _unit = value ?? _unit),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
-              controller: _noteController,
-              focusNode: _noteFocus,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _submit(),
-              decoration: const InputDecoration(labelText: 'Not (opsiyonel)'),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _submit,
-                child: const Text('Kaydet'),
               ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: _unit,
+                  decoration: const InputDecoration(labelText: 'Birim'),
+                  items: [
+                    for (final u in unitOptions)
+                      DropdownMenuItem(value: u, child: Text(unitLabel(u))),
+                  ],
+                  onChanged: (value) => setState(() => _unit = value ?? _unit),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          AppTextField(
+            controller: _noteController,
+            focusNode: _noteFocus,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _submit(),
+            decoration: const InputDecoration(labelText: 'Not (opsiyonel)'),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _submit,
+              child: const Text('Kaydet'),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -40,7 +40,9 @@ class _SavingsMockupState extends OnboardingMockupState<SavingsMockup> {
                   padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
                     color: colorScheme.primary.withValues(alpha: 0.10),
-                    border: Border.all(color: colorScheme.primary.withValues(alpha: 0.25)),
+                    border: Border.all(
+                      color: colorScheme.primary.withValues(alpha: 0.25),
+                    ),
                     borderRadius: BorderRadius.circular(AppRadius.card),
                   ),
                   child: Column(
@@ -49,17 +51,32 @@ class _SavingsMockupState extends OnboardingMockupState<SavingsMockup> {
                       const SizedBox(height: AppSpacing.xs),
                       Text(
                         '₺${saved.toStringAsFixed(2).replaceAll('.', ',')}',
-                        style: textTheme.headlineMedium?.copyWith(color: colorScheme.primary),
+                        style: textTheme.headlineMedium?.copyWith(
+                          color: colorScheme.primary,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                _bar('Kurtarılan', t, colorScheme.primary, '₺${saved.toStringAsFixed(0)}', textTheme, colorScheme),
+                _bar(
+                  'Kurtarılan',
+                  t,
+                  colorScheme.primary,
+                  '₺${saved.toStringAsFixed(0)}',
+                  textTheme,
+                  colorScheme,
+                ),
                 const SizedBox(height: AppSpacing.sm),
-                _bar('İsraf', wasted / 342.50 * t.clamp(0.0, 1.0), colorScheme.error, '₺${wasted.toStringAsFixed(0)}',
-                    textTheme, colorScheme,
-                    fullWidthFraction: 0.28),
+                _bar(
+                  'İsraf',
+                  wasted / 342.50 * t.clamp(0.0, 1.0),
+                  colorScheme.error,
+                  '₺${wasted.toStringAsFixed(0)}',
+                  textTheme,
+                  colorScheme,
+                  fullWidthFraction: 0.28,
+                ),
               ],
             ),
           ),
@@ -68,8 +85,15 @@ class _SavingsMockupState extends OnboardingMockupState<SavingsMockup> {
     );
   }
 
-  Widget _bar(String label, double fill, Color color, String value, TextTheme textTheme, ColorScheme colorScheme,
-      {double fullWidthFraction = 1.0}) {
+  Widget _bar(
+    String label,
+    double fill,
+    Color color,
+    String value,
+    TextTheme textTheme,
+    ColorScheme colorScheme, {
+    double fullWidthFraction = 1.0,
+  }) {
     return Row(
       children: [
         SizedBox(width: 72, child: Text(label, style: textTheme.bodySmall)),

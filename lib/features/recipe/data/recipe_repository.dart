@@ -7,10 +7,10 @@ class RecipeStep {
   final int? minutes;
 
   factory RecipeStep.fromJson(Map<String, dynamic> json) => RecipeStep(
-        order: json['order'] as int,
-        text: json['text'] as String,
-        minutes: json['minutes'] as int?,
-      );
+    order: json['order'] as int,
+    text: json['text'] as String,
+    minutes: json['minutes'] as int?,
+  );
 }
 
 // 'available' | 'partial' | 'missing' | 'unit_mismatch'
@@ -36,7 +36,8 @@ class RecipeIngredient {
   final bool isOptional;
   final String? matchStatus;
 
-  factory RecipeIngredient.fromJson(Map<String, dynamic> json) => RecipeIngredient(
+  factory RecipeIngredient.fromJson(Map<String, dynamic> json) =>
+      RecipeIngredient(
         productId: json['productId'] as String?,
         productName: json['productName'] as String? ?? 'Bilinmeyen ürün',
         quantity: (json['quantity'] as num).toDouble(),
@@ -84,27 +85,32 @@ class Recipe {
   final RecipeNutrition? nutrition;
 
   factory Recipe.fromJson(Map<String, dynamic> json) => Recipe(
-        id: json['id'] as String,
-        title: json['title'] as String,
-        description: json['description'] as String?,
-        steps: (json['steps'] as List?)?.map((s) => RecipeStep.fromJson(s as Map<String, dynamic>)).toList() ?? [],
-        instructions: json['instructions'] as String? ?? '',
-        servings: json['servings'] as int?,
-        prepMinutes: json['prepMinutes'] as int?,
-        cookMinutes: json['cookMinutes'] as int?,
-        difficulty: json['difficulty'] as String?,
-        generatedBy: json['generatedBy'] as String? ?? 'user',
-        totalIngredients: json['totalIngredients'] as int?,
-        availableIngredients: json['availableIngredients'] as int?,
-        missingCount: json['missingCount'] as int?,
-        ingredients: (json['ingredients'] as List?)
-                ?.map((i) => RecipeIngredient.fromJson(i as Map<String, dynamic>))
-                .toList() ??
-            [],
-        nutrition: json['nutrition'] != null
-            ? RecipeNutrition.fromJson(json['nutrition'] as Map<String, dynamic>)
-            : null,
-      );
+    id: json['id'] as String,
+    title: json['title'] as String,
+    description: json['description'] as String?,
+    steps:
+        (json['steps'] as List?)
+            ?.map((s) => RecipeStep.fromJson(s as Map<String, dynamic>))
+            .toList() ??
+        [],
+    instructions: json['instructions'] as String? ?? '',
+    servings: json['servings'] as int?,
+    prepMinutes: json['prepMinutes'] as int?,
+    cookMinutes: json['cookMinutes'] as int?,
+    difficulty: json['difficulty'] as String?,
+    generatedBy: json['generatedBy'] as String? ?? 'user',
+    totalIngredients: json['totalIngredients'] as int?,
+    availableIngredients: json['availableIngredients'] as int?,
+    missingCount: json['missingCount'] as int?,
+    ingredients:
+        (json['ingredients'] as List?)
+            ?.map((i) => RecipeIngredient.fromJson(i as Map<String, dynamic>))
+            .toList() ??
+        [],
+    nutrition: json['nutrition'] != null
+        ? RecipeNutrition.fromJson(json['nutrition'] as Map<String, dynamic>)
+        : null,
+  );
 }
 
 class RecipeNutrition {
@@ -146,8 +152,8 @@ class CookResult {
   final int insufficientCount;
 
   factory CookResult.fromJson(Map<String, dynamic> json) => CookResult(
-        insufficientCount: (json['insufficient'] as List?)?.length ?? 0,
-      );
+    insufficientCount: (json['insufficient'] as List?)?.length ?? 0,
+  );
 }
 
 class RecipeRepository {
@@ -159,12 +165,16 @@ class RecipeRepository {
 
   Future<List<Recipe>> listSuggestions(String householdId) async {
     final response = await _client.dio.get('${_base(householdId)}/suggestions');
-    return (response.data['suggestions'] as List).map((r) => Recipe.fromJson(r as Map<String, dynamic>)).toList();
+    return (response.data['suggestions'] as List)
+        .map((r) => Recipe.fromJson(r as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<Recipe>> listAll(String householdId) async {
     final response = await _client.dio.get(_base(householdId));
-    return (response.data['recipes'] as List).map((r) => Recipe.fromJson(r as Map<String, dynamic>)).toList();
+    return (response.data['recipes'] as List)
+        .map((r) => Recipe.fromJson(r as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<String>> listFavoriteIds(String householdId) async {
@@ -177,20 +187,31 @@ class RecipeRepository {
     return Recipe.fromJson(response.data['recipe'] as Map<String, dynamic>);
   }
 
-  Future<List<Recipe>> generateAiRecipes(String householdId, {Map<String, dynamic>? preferences}) async {
+  Future<List<Recipe>> generateAiRecipes(
+    String householdId, {
+    Map<String, dynamic>? preferences,
+  }) async {
     final response = await _client.dio.post(
       '${_base(householdId)}/generate',
       data: {'preferences': preferences ?? {}},
     );
-    return (response.data['recipes'] as List).map((r) => Recipe.fromJson(r as Map<String, dynamic>)).toList();
+    return (response.data['recipes'] as List)
+        .map((r) => Recipe.fromJson(r as Map<String, dynamic>))
+        .toList();
   }
 
   Future<CookResult> cook(String householdId, String recipeId) async {
-    final response = await _client.dio.post('${_base(householdId)}/$recipeId/cook');
+    final response = await _client.dio.post(
+      '${_base(householdId)}/$recipeId/cook',
+    );
     return CookResult.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<void> setFavorite(String householdId, String recipeId, bool favorite) async {
+  Future<void> setFavorite(
+    String householdId,
+    String recipeId,
+    bool favorite,
+  ) async {
     if (favorite) {
       await _client.dio.post('${_base(householdId)}/$recipeId/favorite');
     } else {

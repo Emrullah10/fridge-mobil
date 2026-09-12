@@ -49,4 +49,17 @@ class Validators {
     }
     return null;
   }
+
+  /// TR klavyede ondalık tuşu VİRGÜLdür — kullanıcı "1,5" yazar.
+  /// `double.tryParse` bunu doğrudan kabul etmez ve bazı ekranlarda
+  /// (add_inventory_item_screen, receipt_line_edit_screen) bu yüzden
+  /// girdi sessizce reddediliyor veya eski değere düşülüyordu. Tüm
+  /// sayısal alan ayrıştırmaları BUNDAN geçmeli, çıplak `double.tryParse`
+  /// kullanılmamalı.
+  static double? parseDecimal(String? value) {
+    if (value == null) return null;
+    final normalized = value.trim().replaceAll(',', '.');
+    if (normalized.isEmpty) return null;
+    return double.tryParse(normalized);
+  }
 }

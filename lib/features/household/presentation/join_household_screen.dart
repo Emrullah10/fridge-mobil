@@ -284,9 +284,9 @@ class _CodeGroupInput extends StatelessWidget {
           ),
           LayoutBuilder(
             builder: (context, constraints) {
-              final boxSize = ((constraints.maxWidth - 2 * AppSpacing.md) /
-                      _codeLength)
-                  .clamp(24.0, 36.0);
+              final boxSize =
+                  ((constraints.maxWidth - 2 * AppSpacing.md) / _codeLength)
+                      .clamp(24.0, 36.0);
               return ValueListenableBuilder<TextEditingValue>(
                 valueListenable: controller,
                 builder: (context, value, _) {
@@ -353,10 +353,7 @@ class _CodeBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(AppRadius.input),
-        border: Border.all(
-          color: borderColor,
-          width: isActive ? 1.5 : 1,
-        ),
+        border: Border.all(color: borderColor, width: isActive ? 1.5 : 1),
       ),
       child: Text(
         char,

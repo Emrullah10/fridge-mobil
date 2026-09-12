@@ -5,21 +5,26 @@ import 'package:dio/dio.dart';
 import '../api/api_client.dart';
 
 class AppConfig {
-  const AppConfig({required this.latestVersion, required this.minSupportedVersion, required this.storeUrl});
+  const AppConfig({
+    required this.latestVersion,
+    required this.minSupportedVersion,
+    required this.storeUrl,
+  });
 
   final String latestVersion;
   final String minSupportedVersion;
   final String storeUrl;
 
   factory AppConfig.fromJson(Map<String, dynamic> json) => AppConfig(
-        latestVersion: json['latestVersion'] as String,
-        minSupportedVersion: json['minSupportedVersion'] as String,
-        storeUrl: json['storeUrl'] as String,
-      );
+    latestVersion: json['latestVersion'] as String,
+    minSupportedVersion: json['minSupportedVersion'] as String,
+    storeUrl: json['storeUrl'] as String,
+  );
 }
 
 class AppConfigRepository {
-  AppConfigRepository(this._client, {bool? isIos}) : _isIos = isIos ?? Platform.isIOS;
+  AppConfigRepository(this._client, {bool? isIos})
+    : _isIos = isIos ?? Platform.isIOS;
 
   final ApiClient _client;
   // Testte gerçek Platform.isIOS değiştirilemediği için enjekte edilebilir

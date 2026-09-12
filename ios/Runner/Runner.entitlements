@@ -4,5 +4,17 @@
 <dict>
 	<key>aps-environment</key>
 	<string>production</string>
+	<!-- Davet linkleri (https://api-fridge.emrullahbozkurt.com/join/KOD) iOS'ta
+	     bunsuz açılmıyordu: uygulama tetiklenmiyor, Safari'de kalıyordu.
+	     Android tarafı AndroidManifest.xml'de autoVerify intent-filter ile zaten
+	     çalışıyordu (bkz. satır ~52). Bu girişin çalışması için ayrıca sunucuda
+	     https://api-fridge.emrullahbozkurt.com/.well-known/apple-app-site-association
+	     dosyasının yayınlanması GEREKİR (bkz. ios/apple-app-site-association.json
+	     bu depoda — sunucuya deploy edilmeli). Team ID (TGD69378DX) ve Bundle ID
+	     (com.fridge.fridgeMobil) Xcode projesinden alındı. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:api-fridge.emrullahbozkurt.com</string>
+	</array>
 </dict>
 </plist>

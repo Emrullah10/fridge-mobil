@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_sheet.dart';
 import '../../../core/ui/app_switch.dart';
+import '../../../core/ui/app_text_field.dart';
 import '../../../core/widgets/household_kind.dart';
 import '../data/household_repository.dart';
 
@@ -33,7 +34,7 @@ Future<HouseholdFormResult?> showHouseholdFormDialog(
 }) {
   return showAppSheet<HouseholdFormResult>(
     context,
-    builder: (_) => _HouseholdFormSheet(existing: existing),
+    builder: (_, __) => _HouseholdFormSheet(existing: existing),
   );
 }
 
@@ -91,11 +92,13 @@ class _HouseholdFormSheetState extends State<_HouseholdFormSheet> {
   Widget build(BuildContext context) {
     return AppSheetScaffold(
       title: _isEdit ? 'Alanı Düzenle' : 'Yeni Alan',
+      onClose: () => Navigator.pop(context),
+      onConfirm: _confirm,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
+          AppTextField(
             controller: _controller,
             decoration: InputDecoration(
               hintText: 'Örn. Evimiz, Ofis, Yazlık, Sığınak',

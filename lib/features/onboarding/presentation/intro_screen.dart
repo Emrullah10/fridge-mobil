@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/page_dots.dart';
 import '../../auth/presentation/widgets/auth_cta_block.dart';
+import '../../auth/presentation/widgets/auth_hero_header.dart';
 import '../application/onboarding_providers.dart';
 import 'mockups/receipt_scan_mockup.dart';
 import 'mockups/savings_mockup.dart';
@@ -58,11 +59,16 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
 
   void _next() {
     if (_page.round() >= _contentPages - 1) {
-      _controller.animateToPage(_totalPages - 1,
-          duration: const Duration(milliseconds: 400), curve: Curves.easeOutCubic);
+      _controller.animateToPage(
+        _totalPages - 1,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
     } else {
       _controller.nextPage(
-          duration: const Duration(milliseconds: 400), curve: Curves.easeOutCubic);
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
     }
   }
 
@@ -133,7 +139,8 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
                     page: _page,
                     index: 0,
                     title: 'Fiş Tara',
-                    body: 'Market fişinin fotoğrafını çek — ürünler, fiyatlarıyla birlikte envanterine kendiliğinden düşsün.',
+                    body:
+                        'Market fişinin fotoğrafını çek — ürünler, fiyatlarıyla birlikte envanterine kendiliğinden düşsün.',
                     accent: _accentFor(0, appColors, scheme),
                     mockup: ReceiptScanMockup(active: _page.round() == 0),
                   ),
@@ -141,7 +148,8 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
                     page: _page,
                     index: 1,
                     title: 'Bölümler',
-                    body: 'Buzdolabı, dondurucu, kiler — ya da atölyene özel raflar. Her ürün doğru yere otursun.',
+                    body:
+                        'Buzdolabı, dondurucu, kiler — ya da atölyene özel raflar. Her ürün doğru yere otursun.',
                     accent: _accentFor(1, appColors, scheme),
                     mockup: StorageTilesMockup(active: _page.round() == 1),
                   ),
@@ -149,7 +157,8 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
                     page: _page,
                     index: 2,
                     title: 'Alışveriş',
-                    body: 'Eksikleri listeye ekle, markette tek dokunuşla işaretle, dönüşte envantere aktar.',
+                    body:
+                        'Eksikleri listeye ekle, markette tek dokunuşla işaretle, dönüşte envantere aktar.',
                     accent: _accentFor(2, appColors, scheme),
                     mockup: ShoppingCheckMockup(active: _page.round() == 2),
                   ),
@@ -157,7 +166,8 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
                     page: _page,
                     index: 3,
                     title: 'Para',
-                    body: 'Ne kadar biriktirdiğini, ne kadar israf ettiğini net gör — ay ay, üye üye.',
+                    body:
+                        'Ne kadar biriktirdiğini, ne kadar israf ettiğini net gör — ay ay, üye üye.',
                     accent: _accentFor(3, appColors, scheme),
                     mockup: SavingsMockup(active: _page.round() == 3),
                   ),
@@ -166,7 +176,12 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.lg),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.lg,
+                AppSpacing.lg,
+              ),
               child: Column(
                 children: [
                   PageDots(
@@ -184,8 +199,14 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
                         width: double.infinity,
                         child: FilledButton(
                           onPressed: _next,
-                          style: FilledButton.styleFrom(backgroundColor: blendedAccent),
-                          child: Text(_page.round() == _contentPages - 1 ? 'Başla' : 'İleri'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: blendedAccent,
+                          ),
+                          child: Text(
+                            _page.round() == _contentPages - 1
+                                ? 'Başla'
+                                : 'İleri',
+                          ),
                         ),
                       ),
                     ),
@@ -245,11 +266,17 @@ class _ContentPage extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(title, style: textTheme.titleLarge?.copyWith(color: accent), textAlign: TextAlign.center),
+                    Text(
+                      title,
+                      style: textTheme.titleLarge?.copyWith(color: accent),
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
                       body,
-                      style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -271,8 +298,6 @@ class _CtaPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
     final delta = (page - index).clamp(-1.0, 1.0);
 
     return Center(
@@ -280,33 +305,15 @@ class _CtaPage extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         child: Transform.translate(
           offset: Offset(delta * -60, 0),
-          child: Column(
+          child: const Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Align(
-                alignment: Alignment.center,
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(AppRadius.logo),
-                  ),
-                  child: Icon(Icons.kitchen_rounded, size: 36, color: colorScheme.onPrimaryContainer),
-                ),
+              AuthHeroHeader(
+                subtitle: 'Elindeki her şey tek yerde',
               ),
-              const SizedBox(height: AppSpacing.md),
-              Text('Fridge', style: textTheme.headlineMedium, textAlign: TextAlign.center),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Dolabındaki, depondaki, atölyendeki her şey tek yerde',
-                style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              const AuthCtaBlock(),
-              const SizedBox(height: AppSpacing.lg),
+              SizedBox(height: AppSpacing.xl),
+              AuthCtaBlock(),
+              SizedBox(height: AppSpacing.lg),
             ],
           ),
         ),

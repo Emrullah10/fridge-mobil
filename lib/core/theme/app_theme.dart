@@ -1,5 +1,8 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:google_fonts/google_fonts.dart';
 
 import '../navigation/app_page_transitions.dart';
@@ -127,8 +130,27 @@ class AppTheme {
     final colorScheme = isDark ? _darkColorScheme : _lightColorScheme;
     final appColors = isDark ? AppColors.dark : AppColors.light;
 
-    final baseTextTheme = GoogleFonts.interTextTheme();
+    // iOS'ta (ve macOS'ta) sistem fontuna (SF Pro) geçilir — Inter Android
+    // ve web'de kalır. Ayrıca yan fayda: GoogleFonts Inter'i runtime'da
+    // İNDİRİYOR (bundle'lanmış değil) — iOS'ta sistem fontu kullanmak
+    // offline ilk açılıştaki fallback-font anını da ortadan kaldırıyor.
+    // `defaultTargetPlatform` build-time gerçek platformu yansıtır — burada
+    // bilinçli olarak `isCupertino(context)`'in test-override edilebilen
+    // ekseni DEĞİL, bu kullanılıyor: font seçimi bir görsel build kararı,
+    // widget testlerinde platform simülasyonuyla değiştirilmesi gereken bir
+    // davranış değil.
+    final isApplePlatform =
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+    final baseTextTheme = isApplePlatform
+        ? (isDark
+              ? Typography.material2021().white
+              : Typography.material2021().black)
+        : GoogleFonts.interTextTheme();
     final textTheme = _buildTextTheme(baseTextTheme, colorScheme);
+    final fontFamily = isApplePlatform
+        ? '.SF Pro Text'
+        : GoogleFonts.inter().fontFamily;
 
     return ThemeData(
       useMaterial3: true,
@@ -137,7 +159,7 @@ class AppTheme {
       extensions: [appColors],
       scaffoldBackgroundColor: colorScheme.surface,
       textTheme: textTheme,
-      fontFamily: GoogleFonts.inter().fontFamily,
+      fontFamily: fontFamily,
       appBarTheme: AppBarTheme(
         backgroundColor: colorScheme.surface,
         foregroundColor: colorScheme.onSurface,
@@ -145,6 +167,22 @@ class AppTheme {
         scrolledUnderElevation: 1,
         centerTitle: false,
         titleTextStyle: textTheme.titleMedium,
+        // SystemChrome hiç çağrılmıyordu — durum çubuğu ikon parlaklığı
+        // (Android) / stili (iOS) OS varsayılanına kalıyor, dark/light
+        // tema değişiminde kontrast bozulabiliyordu. AppBarTheme üzerinden
+        // vermek her AppBar'da otomatik uygulanmasını sağlıyor, ayrıca
+        // SystemChrome.setSystemUIOverlayStyle çağrısına gerek kalmıyor.
+        systemOverlayStyle: isDark
+            ? SystemUiOverlayStyle.light.copyWith(
+                statusBarColor: Colors.transparent,
+                systemNavigationBarColor: colorScheme.surface,
+                systemNavigationBarIconBrightness: Brightness.light,
+              )
+            : SystemUiOverlayStyle.dark.copyWith(
+                statusBarColor: Colors.transparent,
+                systemNavigationBarColor: colorScheme.surface,
+                systemNavigationBarIconBrightness: Brightness.dark,
+              ),
       ),
       cardTheme: CardThemeData(
         elevation: 0,
@@ -256,8 +294,9 @@ class AppTheme {
       // alanlar (ör. barBackgroundColor detayları) Material'dan türetilmeye
       // devam etsin — bkz. MaterialBasedCupertinoThemeData. Dialog/action
       // sheet zemin rengine/blur'una BİLİNÇLİ olarak dokunmuyoruz: iOS'ta
-      // "Fridge'e benzemek" değil "iOS'a benzemek" hedefi. Sadece tipografiyi
-      // (Inter) ve aksiyon rengini (primary) token'a bağlıyoruz.
+      // "Fridge'e benzemek" değil "iOS'a benzemek" hedefi. Tipografi zaten
+      // `textTheme` üzerinden SF Pro'ya bağlı (yukarıdaki isApplePlatform
+      // dalı); burada ayrıca aksiyon rengi (primary) token'a bağlanıyor.
       cupertinoOverrideTheme: NoDefaultCupertinoThemeData(
         brightness: brightness,
         primaryColor: colorScheme.primary,
@@ -345,7 +384,7 @@ class AppTheme {
       decorationColor: colorScheme.onSurface,
     );
     return tinted.copyWith(
-      // hero-display: 28/700 — Giriş ekranı "Fridge" başlığı.
+      // hero-display: 28/700 — Giriş ekranı "Elde" başlığı.
       headlineMedium: base.headlineMedium?.copyWith(
         fontSize: 28,
         fontWeight: FontWeight.w700,

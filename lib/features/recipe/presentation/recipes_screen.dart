@@ -66,7 +66,11 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen>
       if (planLimitInfo != null && mounted) {
         final controllerAsync = ref.read(paywallControllerProvider);
         controllerAsync.whenData((controller) {
-          controller.maybeShow(context, trigger: PaywallTrigger.quotaExceeded, info: planLimitInfo);
+          controller.maybeShow(
+            context,
+            trigger: PaywallTrigger.quotaExceeded,
+            info: planLimitInfo,
+          );
         });
       } else if (mounted) {
         ScaffoldMessenger.of(
@@ -272,6 +276,8 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen>
 
     return Scaffold(
       appBar: AppBar(
+        // bkz. shopping_list_screen.dart'taki aynı not — sekme kökü.
+        automaticallyImplyLeading: false,
         title: const Text('Tarifler'),
         bottom: TabBar(
           key: recipesTabsKey,
@@ -286,7 +292,12 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen>
       body: Column(
         children: [
           const Padding(
-            padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
+              0,
+            ),
             child: QuotaUpsellBanner(feature: 'recipe'),
           ),
           Expanded(

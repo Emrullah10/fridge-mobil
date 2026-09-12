@@ -30,9 +30,7 @@ class _FakeHouseholdRepository extends HouseholdRepository {
 Widget _wrap(_FakeHouseholdRepository repo, {String? initialCode}) {
   return ProviderScope(
     overrides: [householdRepositoryProvider.overrideWithValue(repo)],
-    child: MaterialApp(
-      home: JoinHouseholdScreen(initialCode: initialCode),
-    ),
+    child: MaterialApp(home: JoinHouseholdScreen(initialCode: initialCode)),
   );
 }
 
@@ -92,9 +90,7 @@ void main() {
     expect(field.controller!.text, isEmpty);
   });
 
-  testWidgets('13. karakter kabul edilmez, 12 hanede kırpılır', (
-    tester,
-  ) async {
+  testWidgets('13. karakter kabul edilmez, 12 hanede kırpılır', (tester) async {
     final repo = _FakeHouseholdRepository();
     await tester.pumpWidget(_wrap(repo));
     await tester.pumpAndSettle();
@@ -121,23 +117,22 @@ void main() {
     expect(repo.acceptedCodes, isEmpty);
   });
 
-  testWidgets(
-    'acceptInvite hata atarsa ekran kapanmaz ve hata metni görünür',
-    (tester) async {
-      final repo = _FakeHouseholdRepository()..errorMessage = 'geçersiz kod';
-      await tester.pumpWidget(_wrap(repo));
-      await tester.pumpAndSettle();
+  testWidgets('acceptInvite hata atarsa ekran kapanmaz ve hata metni görünür', (
+    tester,
+  ) async {
+    final repo = _FakeHouseholdRepository()..errorMessage = 'geçersiz kod';
+    await tester.pumpWidget(_wrap(repo));
+    await tester.pumpAndSettle();
 
-      await tester.enterText(codeField(), 'a3f9c1d0e2b7');
-      await tester.pumpAndSettle();
+    await tester.enterText(codeField(), 'a3f9c1d0e2b7');
+    await tester.pumpAndSettle();
 
-      // Ekran hâlâ açık: kod alanı hâlâ bulunabilir olmalı, ayrıca hata
-      // metni inline gösterilir (SnackBar değil).
-      expect(codeField(), findsOneWidget);
-      expect(find.byType(JoinHouseholdScreen), findsOneWidget);
-      expect(find.byType(FormErrorText), findsOneWidget);
-    },
-  );
+    // Ekran hâlâ açık: kod alanı hâlâ bulunabilir olmalı, ayrıca hata
+    // metni inline gösterilir (SnackBar değil).
+    expect(codeField(), findsOneWidget);
+    expect(find.byType(JoinHouseholdScreen), findsOneWidget);
+    expect(find.byType(FormErrorText), findsOneWidget);
+  });
 
   testWidgets(
     'initialCode ile açılınca kutular dolu gelir ama otomatik gönderilmez',

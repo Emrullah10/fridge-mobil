@@ -28,7 +28,7 @@ class WelcomeScreen extends StatelessWidget {
               const SizedBox(height: AppSpacing.xl),
               const AuthHeroHeader(
                 subtitle:
-                    'Dolabındaki, depondaki, atölyendeki her şey tek yerde',
+                    'Elindeki her şey tek yerde',
               ),
               const SizedBox(height: AppSpacing.xl),
               const AuthCtaBlock(),

@@ -26,22 +26,30 @@ void main() {
       expect(result.export, isFalse);
     });
 
-    test('sınırsız alanlar (null) korunur — UI "Sınırsız" göstermeli, 0 değil', () {
-      final json = {
-        'ai': {'receipt': null, 'recipe': null, 'chef': null, 'shopping': null},
-        'household': {'count': null},
-        'location': {'perHousehold': null},
-        'member': {'perHousehold': null},
-        'insights': {'windowDays': null},
-        'features': {'barcode': true, 'export': true},
-      };
+    test(
+      'sınırsız alanlar (null) korunur — UI "Sınırsız" göstermeli, 0 değil',
+      () {
+        final json = {
+          'ai': {
+            'receipt': null,
+            'recipe': null,
+            'chef': null,
+            'shopping': null,
+          },
+          'household': {'count': null},
+          'location': {'perHousehold': null},
+          'member': {'perHousehold': null},
+          'insights': {'windowDays': null},
+          'features': {'barcode': true, 'export': true},
+        };
 
-      final result = PlanLimits.fromJson(json);
+        final result = PlanLimits.fromJson(json);
 
-      expect(result.aiReceipt, isNull);
-      expect(result.householdCount, isNull);
-      expect(result.insightsWindowDays, isNull);
-    });
+        expect(result.aiReceipt, isNull);
+        expect(result.householdCount, isNull);
+        expect(result.insightsWindowDays, isNull);
+      },
+    );
 
     test('eksik alt objeler çökmez, güvenli varsayılana düşer', () {
       final result = PlanLimits.fromJson(const {});
@@ -65,7 +73,12 @@ void main() {
             'features': {'barcode': true, 'export': false},
           },
           'premium': {
-            'ai': {'receipt': 300, 'recipe': 500, 'chef': 1000, 'shopping': 500},
+            'ai': {
+              'receipt': 300,
+              'recipe': 500,
+              'chef': 1000,
+              'shopping': 500,
+            },
             'household': {'count': 10},
             'location': {'perHousehold': null},
             'member': {'perHousehold': 10},
@@ -85,7 +98,9 @@ void main() {
     });
 
     test('familySeats yoksa null döner (aile paketi satılmıyor)', () {
-      final catalog = PlanCatalog.fromJson(const {'plans': <String, dynamic>{}});
+      final catalog = PlanCatalog.fromJson(const {
+        'plans': <String, dynamic>{},
+      });
       expect(catalog.familySeats, isNull);
     });
   });

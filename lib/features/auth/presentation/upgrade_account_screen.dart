@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_icons.dart';
+import '../../../core/ui/app_text_form_field.dart';
 import '../../../core/validation/validators.dart';
 import '../../../core/widgets/button_progress.dart';
 import '../../../core/widgets/form_error_text.dart';
@@ -59,6 +61,7 @@ class _UpgradeAccountScreenState extends ConsumerState<UpgradeAccountScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -143,7 +146,7 @@ class _UpgradeAccountScreenState extends ConsumerState<UpgradeAccountScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  TextFormField(
+                  AppTextFormField(
                     controller: _nameController,
                     keyboardType: TextInputType.name,
                     textCapitalization: TextCapitalization.words,
@@ -157,21 +160,21 @@ class _UpgradeAccountScreenState extends ConsumerState<UpgradeAccountScreen> {
                     validator: (value) => Validators.required(value, 'Ad'),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  TextFormField(
+                  AppTextFormField(
                     controller: _emailController,
                     focusNode: _emailFocus,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
                     autofillHints: const [AutofillHints.email],
                     onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'E-posta',
-                      prefixIcon: Icon(Icons.mail_outline),
+                      prefixIcon: Icon(AppIcons.mail(context)),
                     ),
                     validator: Validators.email,
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  TextFormField(
+                  AppTextFormField(
                     controller: _passwordController,
                     focusNode: _passwordFocus,
                     obscureText: _obscurePassword,
@@ -180,12 +183,12 @@ class _UpgradeAccountScreenState extends ConsumerState<UpgradeAccountScreen> {
                     onFieldSubmitted: (_) => _isSubmitting ? null : _submit(),
                     decoration: InputDecoration(
                       labelText: 'Şifre',
-                      prefixIcon: const Icon(Icons.lock_outline),
+                      prefixIcon: Icon(AppIcons.lock(context)),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
+                              ? AppIcons.eye(context)
+                              : AppIcons.eyeOff(context),
                         ),
                         tooltip: _obscurePassword
                             ? 'Şifreyi göster'

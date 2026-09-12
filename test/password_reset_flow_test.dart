@@ -42,72 +42,84 @@ void main() {
     dotenv.testLoad(fileInput: 'API_BASE_URL=http://localhost:4000/api');
   });
 
-  testWidgets('kod gönder -> ResetPasswordScreen\'e geçer, yığında ForgotPasswordScreen kalmaz', (tester) async {
-    final fakeRepo = _FakeAuthRepository();
+  testWidgets(
+    'kod gönder -> ResetPasswordScreen\'e geçer, yığında ForgotPasswordScreen kalmaz',
+    (tester) async {
+      final fakeRepo = _FakeAuthRepository();
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(fakeRepo),
-        ],
-        child: const MaterialApp(home: ForgotPasswordScreen(initialEmail: 'a@test.local')),
-      ),
-    );
-
-    await tester.tap(find.text('Kod Gönder'));
-    await tester.pumpAndSettle();
-
-    expect(fakeRepo.requestedEmails, ['a@test.local']);
-    expect(find.byType(ForgotPasswordScreen), findsNothing);
-    expect(find.byType(ResetPasswordScreen), findsOneWidget);
-  });
-
-  testWidgets('doğru kod + yeni şifre ile reset başarılı olursa ResetPasswordScreen yığında kalmaz', (tester) async {
-    final fakeRepo = _FakeAuthRepository();
-
-    final navKey = GlobalKey<NavigatorState>();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(fakeRepo),
-        ],
-        child: MaterialApp(
-          navigatorKey: navKey,
-          // ResetPasswordScreen'in popUntil(isFirst) çağrısını gerçekçi test
-          // etmek için altında bir kök ekran (login taklidi) olması gerekir —
-          // aksi halde screen kendisi zaten kök route olur ve pop no-op kalır.
-          home: const Scaffold(body: Text('Login (kök)')),
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [authRepositoryProvider.overrideWithValue(fakeRepo)],
+          child: const MaterialApp(
+            home: ForgotPasswordScreen(initialEmail: 'a@test.local'),
+          ),
         ),
-      ),
-    );
+      );
 
-    navKey.currentState!.push(
-      MaterialPageRoute(builder: (_) => const ResetPasswordScreen(email: 'a@test.local')),
-    );
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Kod Gönder'));
+      await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).first, '123456');
-    await tester.enterText(find.byType(TextFormField).last, 'yenisifre123');
-    await tester.tap(find.text('Şifreyi Güncelle'));
-    await tester.pumpAndSettle();
+      expect(fakeRepo.requestedEmails, ['a@test.local']);
+      expect(find.byType(ForgotPasswordScreen), findsNothing);
+      expect(find.byType(ResetPasswordScreen), findsOneWidget);
+    },
+  );
 
-    expect(fakeRepo.resetCalls, [
-      {'email': 'a@test.local', 'code': '123456', 'newPassword': 'yenisifre123'},
-    ]);
-    expect(find.byType(ResetPasswordScreen), findsNothing);
-    expect(find.text('Login (kök)'), findsOneWidget);
-  });
+  testWidgets(
+    'doğru kod + yeni şifre ile reset başarılı olursa ResetPasswordScreen yığında kalmaz',
+    (tester) async {
+      final fakeRepo = _FakeAuthRepository();
 
-  testWidgets('hatalı kodda ekran açık kalır ve hata mesajı gösterilir', (tester) async {
+      final navKey = GlobalKey<NavigatorState>();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [authRepositoryProvider.overrideWithValue(fakeRepo)],
+          child: MaterialApp(
+            navigatorKey: navKey,
+            // ResetPasswordScreen'in popUntil(isFirst) çağrısını gerçekçi test
+            // etmek için altında bir kök ekran (login taklidi) olması gerekir —
+            // aksi halde screen kendisi zaten kök route olur ve pop no-op kalır.
+            home: const Scaffold(body: Text('Login (kök)')),
+          ),
+        ),
+      );
+
+      navKey.currentState!.push(
+        MaterialPageRoute(
+          builder: (_) => const ResetPasswordScreen(email: 'a@test.local'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).first, '123456');
+      await tester.enterText(find.byType(TextFormField).last, 'yenisifre123');
+      await tester.tap(find.text('Şifreyi Güncelle'));
+      await tester.pumpAndSettle();
+
+      expect(fakeRepo.resetCalls, [
+        {
+          'email': 'a@test.local',
+          'code': '123456',
+          'newPassword': 'yenisifre123',
+        },
+      ]);
+      expect(find.byType(ResetPasswordScreen), findsNothing);
+      expect(find.text('Login (kök)'), findsOneWidget);
+    },
+  );
+
+  testWidgets('hatalı kodda ekran açık kalır ve hata mesajı gösterilir', (
+    tester,
+  ) async {
     final fakeRepo = _FakeAuthRepository()..shouldThrowOnReset = true;
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(fakeRepo),
-        ],
-        child: const MaterialApp(home: ResetPasswordScreen(email: 'a@test.local')),
+        overrides: [authRepositoryProvider.overrideWithValue(fakeRepo)],
+        child: const MaterialApp(
+          home: ResetPasswordScreen(email: 'a@test.local'),
+        ),
       ),
     );
 

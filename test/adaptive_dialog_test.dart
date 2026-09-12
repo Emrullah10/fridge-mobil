@@ -245,11 +245,8 @@ void main() {
       await tester.pumpWidget(
         _harness(TargetPlatform.android, (context) {
           return ElevatedButton(
-            onPressed: () => AppDialog.prompt(
-              context,
-              title: 'Ad',
-              hintText: 'Adını gir',
-            ),
+            onPressed: () =>
+                AppDialog.prompt(context, title: 'Ad', hintText: 'Adını gir'),
             child: const Text('aç'),
           );
         }),
@@ -266,15 +263,20 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('iOS\'ta CupertinoTextField ile açılır', (tester) async {
+    // BUG (2026-09-12 düzeltildi): kullanıcı gerçek cihazda metin girişi
+    // içeren alert'lerin ("Ne almalıyım?" AI önerisi, Ayarlar'daki ad/şifre
+    // girişleri) UX olarak yanlış olduğunu bildirdi — AppDialog.prompt
+    // artık bir alert DEĞİL, bir sheet (showAppPromptSheet) açıyor. Bu test
+    // eskiden CupertinoAlertDialog + CupertinoTextField bekliyordu, o
+    // davranış kasıtlı olarak kaldırıldı.
+    testWidgets('bir alert DEĞİL, sheet açar (platformdan bağımsız)', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _harness(TargetPlatform.iOS, (context) {
           return ElevatedButton(
-            onPressed: () => AppDialog.prompt(
-              context,
-              title: 'Ad',
-              hintText: 'Adını gir',
-            ),
+            onPressed: () =>
+                AppDialog.prompt(context, title: 'Ad', hintText: 'Adını gir'),
             child: const Text('aç'),
           );
         }),
@@ -282,8 +284,10 @@ void main() {
       await tester.tap(find.text('aç'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(CupertinoTextField), findsOneWidget);
-      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.byIcon(CupertinoIcons.xmark), findsOneWidget);
     });
   });
 }

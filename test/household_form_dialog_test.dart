@@ -7,27 +7,37 @@ import 'package:fridge_mobil/features/household/data/household_repository.dart';
 import 'package:fridge_mobil/features/household/presentation/create_household_dialog.dart';
 import 'package:fridge_mobil/features/household/presentation/edit_storage_location_dialog.dart';
 
-Future<HouseholdFormResult?> _openDialog(WidgetTester tester, {Household? existing}) async {
+Future<HouseholdFormResult?> _openDialog(
+  WidgetTester tester, {
+  Household? existing,
+}) async {
   HouseholdFormResult? result;
-  await tester.pumpWidget(MaterialApp(
-    home: Scaffold(
-      body: Builder(
-        builder: (context) => ElevatedButton(
-          onPressed: () async {
-            result = await showHouseholdFormDialog(context, existing: existing);
-          },
-          child: const Text('open'),
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () async {
+              result = await showHouseholdFormDialog(
+                context,
+                existing: existing,
+              );
+            },
+            child: const Text('open'),
+          ),
         ),
       ),
     ),
-  ));
+  );
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
   return result;
 }
 
 void main() {
-  testWidgets('isim boşken "Oluştur" hata gösterir, dialog kapanmaz', (tester) async {
+  testWidgets('isim boşken "Oluştur" hata gösterir, dialog kapanmaz', (
+    tester,
+  ) async {
     await _openDialog(tester);
 
     await tester.tap(find.text('Oluştur'));
@@ -37,20 +47,24 @@ void main() {
     expect(find.text('Yeni Alan'), findsOneWidget); // dialog hâlâ açık
   });
 
-  testWidgets('isim + varsayılan simge ile sonuç döner (yemek kapalı)', (tester) async {
+  testWidgets('isim + varsayılan simge ile sonuç döner (yemek kapalı)', (
+    tester,
+  ) async {
     HouseholdFormResult? captured;
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: Builder(
-          builder: (context) => ElevatedButton(
-            onPressed: () async {
-              captured = await showHouseholdFormDialog(context);
-            },
-            child: const Text('open'),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                captured = await showHouseholdFormDialog(context);
+              },
+              child: const Text('open'),
+            ),
           ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
@@ -64,7 +78,9 @@ void main() {
     expect(captured!.icon, householdIconKeyForIcon(householdIconChoices.first));
   });
 
-  testWidgets('düzenleme modu: başlık "Alanı Düzenle", yemek switch\'i yok', (tester) async {
+  testWidgets('düzenleme modu: başlık "Alanı Düzenle", yemek switch\'i yok', (
+    tester,
+  ) async {
     final existing = Household(
       id: 'hh-1',
       name: 'Ofisim',
@@ -77,7 +93,10 @@ void main() {
     expect(find.text('Kaydet'), findsOneWidget);
     expect(find.byType(AppSwitchTile), findsNothing);
     // controller mevcut ismi taşıyor:
-    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'Ofisim');
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'Ofisim',
+    );
   });
 
   group('showStorageLocationFormDialog', () {

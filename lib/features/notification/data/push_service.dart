@@ -29,13 +29,14 @@ class PushService {
 
   final NotificationRepository _repo;
   String? _currentToken;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
   bool _localNotificationsInitialized = false;
   PushNotificationTapHandler? _onTap;
 
   static const _androidChannel = AndroidNotificationChannel(
     'fridge_default',
-    'Fridge Bildirimleri',
+    'Elde Bildirimleri',
     description: 'Fiş, davet ve envanter bildirimleri',
     importance: Importance.high,
   );
@@ -56,14 +57,18 @@ class PushService {
       },
     );
     await _localNotifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(_androidChannel);
   }
 
   /// [onTap] payload'daki `data` map'iyle çağrılır — RECEIPT_PROCESSED gibi
   /// tiplerde `scanId`/`householdId` taşır, çağıran taraf buna göre
   /// yönlendirir (bkz. main.dart).
-  Future<void> registerForCurrentUser({PushNotificationTapHandler? onTap}) async {
+  Future<void> registerForCurrentUser({
+    PushNotificationTapHandler? onTap,
+  }) async {
     _onTap = onTap;
     await _initLocalNotifications();
 
@@ -71,7 +76,11 @@ class PushService {
 
     // iOS/web'de izin istemi zorunlu; Android 13+ için de gerekli (13
     // öncesinde otomatik granted döner).
-    final settings = await messaging.requestPermission(alert: true, badge: true, sound: true);
+    final settings = await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
     if (settings.authorizationStatus == AuthorizationStatus.denied) {
       return;
     }
@@ -139,7 +148,12 @@ class PushService {
   Future<void> _sendToken(String token) async {
     _currentToken = token;
     try {
-      await _repo.registerDevice(token, platform: defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android');
+      await _repo.registerDevice(
+        token,
+        platform: defaultTargetPlatform == TargetPlatform.iOS
+            ? 'ios'
+            : 'android',
+      );
     } catch (_) {
       // Token kaydı başarısız olsa bile uygulama akışı bloklanmasın —
       // bir sonraki açılışta / token refresh'te tekrar denenir.

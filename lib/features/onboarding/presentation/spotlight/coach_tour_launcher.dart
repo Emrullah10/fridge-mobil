@@ -28,8 +28,10 @@ void maybeStartCoachTour(
   Duration settleDelay = const Duration(milliseconds: 400),
 }) {
   final seen = ref.watch(tourSeenProvider(id));
-  if (seen != false || _tourInFlight) return; // null = prefs okunmadı, true = görüldü
-  if (!TickerMode.valuesOf(context).enabled) return; // gizli sekme (IndexedStack) tur açmasın
+  if (seen != false || _tourInFlight)
+    return; // null = prefs okunmadı, true = görüldü
+  if (!TickerMode.valuesOf(context).enabled)
+    return; // gizli sekme (IndexedStack) tur açmasın
 
   _tourInFlight = true;
   WidgetsBinding.instance.addPostFrameCallback((_) async {

@@ -12,10 +12,22 @@ class HouseholdInsights {
     required this.byCategory,
     required this.byMember,
     required this.topWasted,
+    this.windowDays,
+    this.truncated = false,
   });
 
   final DateTime periodFrom;
   final DateTime periodTo;
+
+  /// Planın izin verdiği en geniş pencere (gün) — `null` ise sınırsız
+  /// (premium/trial). Free/misafir planlarda backend bunu kırpar.
+  final int? windowDays;
+
+  /// `true` ise kullanıcının istediği aralık plan sınırına göre kırpıldı
+  /// (ör. "son 90 gün" seçildi ama free planda 30 güne indirildi) —
+  /// eskiden mobil bu alanı hiç okumuyordu, kullanıcı sessizce daha az
+  /// veri görüyordu.
+  final bool truncated;
 
   /// Zamanında kullanılan ürünlerin toplam değeri ("kurtarılan para").
   final double saved;
@@ -51,51 +63,67 @@ class HouseholdInsights {
       topWasted: (json['topWasted'] as List? ?? [])
           .map((e) => WastedProduct.fromJson(e as Map<String, dynamic>))
           .toList(),
+      windowDays: (json['windowDays'] as num?)?.toInt(),
+      truncated: json['truncated'] as bool? ?? false,
     );
   }
 }
 
 class InsightBucket {
-  const InsightBucket({required this.categoryKey, required this.saved, required this.wasted});
+  const InsightBucket({
+    required this.categoryKey,
+    required this.saved,
+    required this.wasted,
+  });
   final String categoryKey;
   final double saved;
   final double wasted;
 
   factory InsightBucket.fromJson(Map<String, dynamic> json) => InsightBucket(
-        categoryKey: json['categoryKey'] as String? ?? 'uncategorized',
-        saved: (json['saved'] as num).toDouble(),
-        wasted: (json['wasted'] as num).toDouble(),
-      );
+    categoryKey: json['categoryKey'] as String? ?? 'uncategorized',
+    saved: (json['saved'] as num).toDouble(),
+    wasted: (json['wasted'] as num).toDouble(),
+  );
 }
 
 class InsightMember {
-  const InsightMember({required this.userId, required this.displayName, required this.saved, required this.wasted});
+  const InsightMember({
+    required this.userId,
+    required this.displayName,
+    required this.saved,
+    required this.wasted,
+  });
   final String? userId;
   final String? displayName;
   final double saved;
   final double wasted;
 
   factory InsightMember.fromJson(Map<String, dynamic> json) => InsightMember(
-        userId: json['userId'] as String?,
-        displayName: json['displayName'] as String?,
-        saved: (json['saved'] as num).toDouble(),
-        wasted: (json['wasted'] as num).toDouble(),
-      );
+    userId: json['userId'] as String?,
+    displayName: json['displayName'] as String?,
+    saved: (json['saved'] as num).toDouble(),
+    wasted: (json['wasted'] as num).toDouble(),
+  );
 }
 
 class WastedProduct {
-  const WastedProduct({required this.productName, required this.productBrand, required this.wasted, required this.quantity});
+  const WastedProduct({
+    required this.productName,
+    required this.productBrand,
+    required this.wasted,
+    required this.quantity,
+  });
   final String? productName;
   final String? productBrand;
   final double wasted;
   final double quantity;
 
   factory WastedProduct.fromJson(Map<String, dynamic> json) => WastedProduct(
-        productName: json['productName'] as String?,
-        productBrand: json['productBrand'] as String?,
-        wasted: (json['wasted'] as num).toDouble(),
-        quantity: (json['quantity'] as num).toDouble(),
-      );
+    productName: json['productName'] as String?,
+    productBrand: json['productBrand'] as String?,
+    wasted: (json['wasted'] as num).toDouble(),
+    quantity: (json['quantity'] as num).toDouble(),
+  );
 }
 
 class InsightsRepository {
@@ -104,7 +132,11 @@ class InsightsRepository {
   final ApiClient _client;
 
   /// [from]/[to] verilmezse backend içinde bulunulan takvim ayını kullanır.
-  Future<HouseholdInsights> fetch(String householdId, {DateTime? from, DateTime? to}) async {
+  Future<HouseholdInsights> fetch(
+    String householdId, {
+    DateTime? from,
+    DateTime? to,
+  }) async {
     final response = await _client.dio.get(
       '/households/$householdId/insights',
       queryParameters: {

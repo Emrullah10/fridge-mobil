@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_segmented.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../onboarding/application/onboarding_providers.dart';
 import '../../onboarding/presentation/spotlight/coach_tour.dart';
@@ -14,6 +15,44 @@ import '../data/insights_repository.dart';
 final insightsRangeKey = GlobalKey();
 final insightsStatsKey = GlobalKey();
 final insightsTopWastedKey = GlobalKey();
+
+// BUG (2026-09-12 düzeltildi): bu eskiden `_InsightsScreenState` içinde bir
+// GETTER'dı ve `case 2` `DateTime.now()` okuyordu (mikrosaniye
+// hassasiyetinde) — her `build`'de farklı bir `from` değeri üretiyordu.
+// `InsightsPeriod`'un `==`/`hashCode`'u `from`'u içerdiği için her rebuild
+// YENİ bir family provider instance'ı doğuruyordu (yeni AsyncLoading →
+// spinner → veri gelince rebuild → yine yeni instance → sonsuz döngü).
+// "Bu ay"/"Geçen ay" sabit bir takvim ayı başı kullandığı için
+// etkilenmiyordu — kullanıcının "sadece 90 günde sonsuz loading"
+// şikayetinin sebebi tam olarak buydu. Artık top-level, saf ve saat
+// parametreli bir fonksiyon: `_rangeIndex` değişmedikçe (ve `now` sabit
+// tutulduğunda) her çağrıda birebir aynı değeri üretir — bu da doğrudan
+// test edilebilir kılar (bkz. test/insights_range_test.dart).
+({DateTime? from, DateTime? to}) insightsRangeFor(
+  int rangeIndex, {
+  DateTime? now,
+}) {
+  final n = (now ?? DateTime.now()).toUtc();
+  final today = DateTime.utc(n.year, n.month, n.day);
+  switch (rangeIndex) {
+    case 1:
+      return (
+        from: DateTime.utc(n.year, n.month - 1, 1),
+        to: DateTime.utc(n.year, n.month, 1),
+      );
+    case 2:
+      // `to` artık bugüne sabit — eskiden null bırakılıyordu ve backend
+      // (get-household-insights.use-case.js) bunu "ayın 1'i + 1 ay"a
+      // tamamlıyordu; "son 90 gün" etiketiyle gerçekte sorgulanan aralık
+      // uyuşmuyordu.
+      return (
+        from: today.subtract(const Duration(days: 90)),
+        to: today.add(const Duration(days: 1)),
+      );
+    default:
+      return (from: null, to: null); // backend: içinde bulunulan ay
+  }
+}
 
 /// Para & israf paneli. Frantry'nin "bu ay X TL kurtardın" kancasının
 /// karşılığı + bizde ek olan üye kırılımı ("kim ne kadar tüketti/israf etti").
@@ -30,17 +69,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
   // 0 = bu ay, 1 = geçen ay, 2 = son 90 gün
   int _rangeIndex = 0;
 
-  ({DateTime? from, DateTime? to}) get _range {
-    final now = DateTime.now().toUtc();
-    switch (_rangeIndex) {
-      case 1:
-        return (from: DateTime.utc(now.year, now.month - 1, 1), to: DateTime.utc(now.year, now.month, 1));
-      case 2:
-        return (from: now.subtract(const Duration(days: 90)), to: null);
-      default:
-        return (from: null, to: null); // backend: içinde bulunulan ay
-    }
-  }
+  ({DateTime? from, DateTime? to}) get _range => insightsRangeFor(_rangeIndex);
 
   List<CoachStep> _coachSteps() {
     final scheme = Theme.of(context).colorScheme;
@@ -50,13 +79,15 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         targetKey: insightsStatsKey,
         optional: true,
         title: 'Kurtardığın ve israf ettiğin',
-        body: 'Kullandığın ürünler “kurtarılan”, çöpe gidenler “israf” olarak buraya yazılır.',
+        body:
+            'Kullandığın ürünler “kurtarılan”, çöpe gidenler “israf” olarak buraya yazılır.',
         accent: scheme.primary,
       ),
       CoachStep(
         targetKey: insightsRangeKey,
         title: 'Dönemi değiştir',
-        body: 'Bu ay, geçen ay ya da son 90 gün — karşılaştırıp nerede sızdırdığını gör.',
+        body:
+            'Bu ay, geçen ay ya da son 90 gün — karşılaştırıp nerede sızdırdığını gör.',
         accent: appColors.storagePantry,
       ),
       CoachStep(
@@ -72,15 +103,29 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
   @override
   Widget build(BuildContext context) {
     final r = _range;
-    final period = InsightsPeriod(householdId: widget.householdId, from: r.from, to: r.to);
+    final period = InsightsPeriod(
+      householdId: widget.householdId,
+      from: r.from,
+      to: r.to,
+    );
     final value = ref.watch(householdInsightsProvider(period));
 
-    maybeStartCoachTour(context, ref, id: CoachTourId.insights, buildSteps: _coachSteps);
+    maybeStartCoachTour(
+      context,
+      ref,
+      id: CoachTourId.insights,
+      buildSteps: _coachSteps,
+    );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Para & İsraf')),
+      // bkz. shopping_list_screen.dart'taki aynı not — sekme kökü.
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: const Text('Para & İsraf'),
+      ),
       body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(householdInsightsProvider(period)),
+        onRefresh: () async =>
+            ref.invalidate(householdInsightsProvider(period)),
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.md),
           children: [
@@ -93,7 +138,16 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             AsyncView<HouseholdInsights>(
               value: value,
               onRetry: () => ref.invalidate(householdInsightsProvider(period)),
-              data: (d) => _InsightsBody(data: d, householdId: widget.householdId),
+              data: (d) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (d.truncated) ...[
+                    _TruncatedWindowNotice(windowDays: d.windowDays),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                  _InsightsBody(data: d, householdId: widget.householdId),
+                ],
+              ),
             ),
           ],
         ),
@@ -102,22 +156,68 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
   }
 }
 
+/// Free/misafir planlarda backend istenen aralığı kırpınca ("son 90 gün"
+/// seçilse de 30 güne indirilince) gösterilir — eskiden bu bilgi mobilde
+/// hiç okunmuyordu, kullanıcı sessizce daha az veri görüyordu.
+class _TruncatedWindowNotice extends StatelessWidget {
+  const _TruncatedWindowNotice({required this.windowDays});
+  final int? windowDays;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 18,
+            color: cs.onSurfaceVariant,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              windowDays != null
+                  ? 'Planın son $windowDays günü gösteriyor.'
+                  : 'Planın gösterebileceği süre sınırlı.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _RangeSelector extends StatelessWidget {
-  const _RangeSelector({super.key, required this.index, required this.onChanged});
+  const _RangeSelector({
+    super.key,
+    required this.index,
+    required this.onChanged,
+  });
   final int index;
   final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return SegmentedButton<int>(
-      segments: const [
-        ButtonSegment(value: 0, label: Text('Bu ay')),
-        ButtonSegment(value: 1, label: Text('Geçen ay')),
-        ButtonSegment(value: 2, label: Text('Son 90 gün')),
+    return AppSegmented<int>(
+      options: const [
+        AppSegmentedOption(value: 0, label: 'Bu ay'),
+        AppSegmentedOption(value: 1, label: 'Geçen ay'),
+        AppSegmentedOption(value: 2, label: 'Son 90 gün'),
       ],
-      selected: {index},
-      showSelectedIcon: false,
-      onSelectionChanged: (s) => onChanged(s.first),
+      selected: index,
+      onChanged: onChanged,
     );
   }
 }
@@ -130,7 +230,8 @@ class _InsightsBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
-    final categories = ref.watch(productCategoriesProvider(householdId)).valueOrNull ?? [];
+    final categories =
+        ref.watch(productCategoriesProvider(householdId)).valueOrNull ?? [];
     String catLabel(String key) {
       if (key == 'uncategorized') return 'Kategorisiz';
       for (final c in categories) {
@@ -152,7 +253,7 @@ class _InsightsBody extends ConsumerWidget {
                 label: 'Kurtarılan',
                 amount: data.saved,
                 color: cs.primary,
-                icon: Icons.savings_rounded,
+                icon: Icons.account_balance_wallet_rounded,
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
@@ -177,7 +278,8 @@ class _InsightsBody extends ConsumerWidget {
         if (data.missingPriceCount > 0) ...[
           const SizedBox(height: AppSpacing.sm),
           _NoticeCard(
-            text: '${data.missingPriceCount} hareket fiyatsız olduğu için '
+            text:
+                '${data.missingPriceCount} hareket fiyatsız olduğu için '
                 'toplamlara katılmadı. Eski kayıtlarda fiyat bilgisi olmayabilir.',
           ),
         ],
@@ -187,11 +289,17 @@ class _InsightsBody extends ConsumerWidget {
         ],
         if (data.topWasted.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.lg),
-          KeyedSubtree(key: insightsTopWastedKey, child: const _SectionTitle('En çok israf edilenler')),
+          KeyedSubtree(
+            key: insightsTopWastedKey,
+            child: const _SectionTitle('En çok israf edilenler'),
+          ),
           const SizedBox(height: AppSpacing.sm),
           for (final w in data.topWasted)
             _WastedRow(
-              title: [w.productBrand, w.productName].where((s) => s != null && s.isNotEmpty).join(' '),
+              title: [
+                w.productBrand,
+                w.productName,
+              ].where((s) => s != null && s.isNotEmpty).join(' '),
               amount: w.wasted,
               max: data.topWasted.first.wasted,
               color: cs.error,
@@ -231,7 +339,8 @@ class _InsightsBody extends ConsumerWidget {
   }
 
   static List<InsightBucket> _sortedByTotal(List<InsightBucket> list) {
-    final copy = [...list]..sort((a, b) => (b.saved + b.wasted).compareTo(a.saved + a.wasted));
+    final copy = [...list]
+      ..sort((a, b) => (b.saved + b.wasted).compareTo(a.saved + a.wasted));
     return copy;
   }
 
@@ -322,7 +431,12 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _WastedRow extends StatelessWidget {
-  const _WastedRow({required this.title, required this.amount, required this.max, required this.color});
+  const _WastedRow({
+    required this.title,
+    required this.amount,
+    required this.max,
+    required this.color,
+  });
   final String title;
   final double amount;
   final double max;
@@ -339,9 +453,18 @@ class _WastedRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(title.isEmpty ? 'Ürün' : title, style: tt.bodyMedium, overflow: TextOverflow.ellipsis)),
+              Expanded(
+                child: Text(
+                  title.isEmpty ? 'Ürün' : title,
+                  style: tt.bodyMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               const SizedBox(width: AppSpacing.sm),
-              Text(_money(amount), style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+              Text(
+                _money(amount),
+                style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
             ],
           ),
           const SizedBox(height: 4),
@@ -384,11 +507,21 @@ class _CategoryRow extends StatelessWidget {
           // İki ayrı bar: üstte kurtarılan, altta israf. Renk tek başına ayrım
           // taşımasın diye her satırın kendi etiketi (₺ tutar) var.
           if (saved > 0) ...[
-            _LabeledBar(fraction: savedFrac, color: savedColor, trailing: _money(saved), tag: 'kurtarılan'),
+            _LabeledBar(
+              fraction: savedFrac,
+              color: savedColor,
+              trailing: _money(saved),
+              tag: 'kurtarılan',
+            ),
             const SizedBox(height: 3),
           ],
           if (wasted > 0)
-            _LabeledBar(fraction: wastedFrac, color: wastedColor, trailing: _money(wasted), tag: 'israf'),
+            _LabeledBar(
+              fraction: wastedFrac,
+              color: wastedColor,
+              trailing: _money(wasted),
+              tag: 'israf',
+            ),
         ],
       ),
     );
@@ -396,7 +529,12 @@ class _CategoryRow extends StatelessWidget {
 }
 
 class _LabeledBar extends StatelessWidget {
-  const _LabeledBar({required this.fraction, required this.color, required this.trailing, required this.tag});
+  const _LabeledBar({
+    required this.fraction,
+    required this.color,
+    required this.trailing,
+    required this.tag,
+  });
   final double fraction;
   final Color color;
   final String trailing;
@@ -408,9 +546,14 @@ class _LabeledBar extends StatelessWidget {
     return Row(
       children: [
         SizedBox(width: 62, child: Text(tag, style: tt.bodySmall)),
-        Expanded(child: _Bar(fraction: fraction, color: color)),
+        Expanded(
+          child: _Bar(fraction: fraction, color: color),
+        ),
         const SizedBox(width: AppSpacing.sm),
-        Text(trailing, style: tt.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+        Text(
+          trailing,
+          style: tt.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+        ),
       ],
     );
   }
@@ -450,9 +593,15 @@ class _NoticeCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline_rounded, size: 18, color: cs.onSurfaceVariant),
+          Icon(
+            Icons.info_outline_rounded,
+            size: 18,
+            color: cs.onSurfaceVariant,
+          ),
           const SizedBox(width: AppSpacing.sm),
-          Expanded(child: Text(text, style: Theme.of(context).textTheme.bodySmall)),
+          Expanded(
+            child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+          ),
         ],
       ),
     );

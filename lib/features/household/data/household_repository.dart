@@ -2,7 +2,12 @@ import '../../../core/api/api_client.dart';
 import '../../../core/widgets/household_kind.dart';
 
 class Household {
-  const Household({required this.id, required this.name, this.kind = 'home', this.features = const {}});
+  const Household({
+    required this.id,
+    required this.name,
+    this.kind = 'home',
+    this.features = const {},
+  });
 
   final String id;
   final String name;
@@ -30,11 +35,11 @@ class Household {
   }
 
   factory Household.fromJson(Map<String, dynamic> json) => Household(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        kind: json['kind'] as String? ?? 'home',
-        features: (json['features'] as Map<String, dynamic>?) ?? const {},
-      );
+    id: json['id'] as String,
+    name: json['name'] as String,
+    kind: json['kind'] as String? ?? 'home',
+    features: (json['features'] as Map<String, dynamic>?) ?? const {},
+  );
 }
 
 class StorageLocation {
@@ -55,7 +60,8 @@ class StorageLocation {
   final String? icon;
   final int sortOrder;
 
-  factory StorageLocation.fromJson(Map<String, dynamic> json) => StorageLocation(
+  factory StorageLocation.fromJson(Map<String, dynamic> json) =>
+      StorageLocation(
         id: json['id'] as String,
         name: json['name'] as String,
         kind: json['kind'] as String,
@@ -72,13 +78,19 @@ class HouseholdRepository {
   Future<List<Household>> listHouseholds() async {
     final response = await _client.dio.get('/households');
     final households = response.data['households'] as List;
-    return households.map((h) => Household.fromJson(h as Map<String, dynamic>)).toList();
+    return households
+        .map((h) => Household.fromJson(h as Map<String, dynamic>))
+        .toList();
   }
 
   /// Yeni alan. Tür (`kind`) artık istemciden gönderilmez — backend 'other'e
   /// düşürür. `icon` kullanıcının seçtiği serbest simge anahtarı,
   /// `foodEnabled` "Yemek özellikleri" switch'i (varsayılan kapalı).
-  Future<Household> createHousehold(String name, {String? icon, bool? foodEnabled}) async {
+  Future<Household> createHousehold(
+    String name, {
+    String? icon,
+    bool? foodEnabled,
+  }) async {
     final response = await _client.dio.post(
       '/households',
       data: {
@@ -89,36 +101,50 @@ class HouseholdRepository {
         },
       },
     );
-    return Household.fromJson(response.data['household'] as Map<String, dynamic>);
+    return Household.fromJson(
+      response.data['household'] as Map<String, dynamic>,
+    );
   }
 
   /// Alan adı ve/veya serbest simgesini günceller (PATCH /households/:id).
   /// Yemek özelliği ayrı endpoint'te ([updateFoodFeature]).
-  Future<Household> updateHouseholdProfile(String householdId, {String? name, String? icon}) async {
+  Future<Household> updateHouseholdProfile(
+    String householdId, {
+    String? name,
+    String? icon,
+  }) async {
     final response = await _client.dio.patch(
       '/households/$householdId',
-      data: {
-        if (name != null) 'name': name,
-        if (icon != null) 'icon': icon,
-      },
+      data: {if (name != null) 'name': name, if (icon != null) 'icon': icon},
     );
-    return Household.fromJson(response.data['household'] as Map<String, dynamic>);
+    return Household.fromJson(
+      response.data['household'] as Map<String, dynamic>,
+    );
   }
 
   /// Kullanıcının household-profile.js'teki tür varsayımını elle ezmesi —
   /// ör. bir ofis alanında mutfak/tarif özelliklerini sonradan açabilir.
-  Future<Household> updateFoodFeature(String householdId, bool foodEnabled) async {
+  Future<Household> updateFoodFeature(
+    String householdId,
+    bool foodEnabled,
+  ) async {
     final response = await _client.dio.patch(
       '/households/$householdId/features',
       data: {'food': foodEnabled},
     );
-    return Household.fromJson(response.data['household'] as Map<String, dynamic>);
+    return Household.fromJson(
+      response.data['household'] as Map<String, dynamic>,
+    );
   }
 
   Future<List<StorageLocation>> listLocations(String householdId) async {
-    final response = await _client.dio.get('/households/$householdId/locations');
+    final response = await _client.dio.get(
+      '/households/$householdId/locations',
+    );
     final locations = response.data['locations'] as List;
-    return locations.map((l) => StorageLocation.fromJson(l as Map<String, dynamic>)).toList();
+    return locations
+        .map((l) => StorageLocation.fromJson(l as Map<String, dynamic>))
+        .toList();
   }
 
   Future<StorageLocation> createLocation(
@@ -129,9 +155,15 @@ class HouseholdRepository {
   }) async {
     final response = await _client.dio.post(
       '/households/$householdId/locations',
-      data: {'name': name, if (kind != null) 'kind': kind, if (icon != null) 'icon': icon},
+      data: {
+        'name': name,
+        if (kind != null) 'kind': kind,
+        if (icon != null) 'icon': icon,
+      },
     );
-    return StorageLocation.fromJson(response.data['location'] as Map<String, dynamic>);
+    return StorageLocation.fromJson(
+      response.data['location'] as Map<String, dynamic>,
+    );
   }
 
   Future<StorageLocation> updateLocation(
@@ -149,7 +181,9 @@ class HouseholdRepository {
         if (icon != null) 'icon': icon,
       },
     );
-    return StorageLocation.fromJson(response.data['location'] as Map<String, dynamic>);
+    return StorageLocation.fromJson(
+      response.data['location'] as Map<String, dynamic>,
+    );
   }
 
   /// 409 durumunda backend `itemCount` döner — çağıran taraf bunu
@@ -197,7 +231,9 @@ class HouseholdRepository {
   Future<List<HouseholdMember>> listMembers(String householdId) async {
     final response = await _client.dio.get('/households/$householdId/members');
     final members = response.data['members'] as List;
-    return members.map((m) => HouseholdMember.fromJson(m as Map<String, dynamic>)).toList();
+    return members
+        .map((m) => HouseholdMember.fromJson(m as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> leaveHousehold(String householdId) async {
@@ -224,7 +260,8 @@ class HouseholdMember {
   final String displayName;
   final String email;
 
-  factory HouseholdMember.fromJson(Map<String, dynamic> json) => HouseholdMember(
+  factory HouseholdMember.fromJson(Map<String, dynamic> json) =>
+      HouseholdMember(
         userId: json['userId'] as String,
         role: json['role'] as String,
         joinedAt: DateTime.parse(json['joinedAt'] as String),

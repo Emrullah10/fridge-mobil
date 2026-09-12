@@ -27,17 +27,17 @@ class NotificationListState {
     List<AppNotification>? notifications,
     int? unreadCount,
     bool? isLoading,
-  }) =>
-      NotificationListState(
-        notifications: notifications ?? this.notifications,
-        unreadCount: unreadCount ?? this.unreadCount,
-        isLoading: isLoading ?? this.isLoading,
-      );
+  }) => NotificationListState(
+    notifications: notifications ?? this.notifications,
+    unreadCount: unreadCount ?? this.unreadCount,
+    isLoading: isLoading ?? this.isLoading,
+  );
 }
 
 /// AppBar zil ikonu + bildirim ekranı bu tek state'i paylaşır — biri
 /// okundu işaretlerse diğeri de anında güncellensin diye.
-class NotificationListNotifier extends StateNotifier<AsyncValue<NotificationListState>> {
+class NotificationListNotifier
+    extends StateNotifier<AsyncValue<NotificationListState>> {
   NotificationListNotifier(this._repo) : super(const AsyncValue.loading()) {
     refresh();
   }
@@ -47,7 +47,12 @@ class NotificationListNotifier extends StateNotifier<AsyncValue<NotificationList
   Future<void> refresh() async {
     try {
       final (notifications, unreadCount) = await _repo.list();
-      state = AsyncValue.data(NotificationListState(notifications: notifications, unreadCount: unreadCount));
+      state = AsyncValue.data(
+        NotificationListState(
+          notifications: notifications,
+          unreadCount: unreadCount,
+        ),
+      );
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
     }
@@ -66,18 +71,23 @@ class NotificationListNotifier extends StateNotifier<AsyncValue<NotificationList
   }
 
   AppNotification _markedRead(AppNotification n) => AppNotification(
-        id: n.id,
-        type: n.type,
-        title: n.title,
-        body: n.body,
-        data: n.data,
-        householdId: n.householdId,
-        readAt: n.readAt ?? DateTime.now(),
-        createdAt: n.createdAt,
-      );
+    id: n.id,
+    type: n.type,
+    title: n.title,
+    body: n.body,
+    data: n.data,
+    householdId: n.householdId,
+    readAt: n.readAt ?? DateTime.now(),
+    createdAt: n.createdAt,
+  );
 }
 
 final notificationListProvider =
-    StateNotifierProvider<NotificationListNotifier, AsyncValue<NotificationListState>>((ref) {
-  return NotificationListNotifier(ref.watch(notificationRepositoryProvider));
-});
+    StateNotifierProvider<
+      NotificationListNotifier,
+      AsyncValue<NotificationListState>
+    >((ref) {
+      return NotificationListNotifier(
+        ref.watch(notificationRepositoryProvider),
+      );
+    });

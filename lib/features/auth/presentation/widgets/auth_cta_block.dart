@@ -52,26 +52,30 @@ class _AuthCtaBlockState extends ConsumerState<AuthCtaBlock> {
         ],
         FilledButton(
           onPressed: _isStartingGuest ? null : _startAsGuest,
-          child: _isStartingGuest ? const ButtonProgress() : const Text('Denemeye Başla'),
+          child: _isStartingGuest
+              ? const ButtonProgress()
+              : const Text('Denemeye Başla'),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
           'Kayıt olmadan hemen başla — istersen sonra hesabını kalıcı yaparsın',
-          style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+          style: textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppSpacing.lg),
         OutlinedButton(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
           child: const Text('Giriş Yap'),
         ),
         const SizedBox(height: AppSpacing.sm),
         TextButton(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const RegisterScreen()),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const RegisterScreen())),
           child: const Text('Hesabın yok mu? Kayıt ol'),
         ),
       ],

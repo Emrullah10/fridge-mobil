@@ -5,7 +5,11 @@ import 'adaptive.dart';
 
 /// `AppSegmented`'te tek bir seçeneği tanımlar.
 class AppSegmentedOption<T> {
-  const AppSegmentedOption({required this.value, required this.label, this.icon});
+  const AppSegmentedOption({
+    required this.value,
+    required this.label,
+    this.icon,
+  });
 
   final T value;
   final String label;

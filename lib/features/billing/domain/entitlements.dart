@@ -20,11 +20,13 @@ class AiQuota {
   double get usageRatio => isUnlimited || limit == 0 ? 0 : used / limit!;
 
   factory AiQuota.fromJson(Map<String, dynamic> json) => AiQuota(
-        limit: (json['limit'] as num?)?.toInt(),
-        used: (json['used'] as num?)?.toInt() ?? 0,
-        boosted: json['boosted'] as bool? ?? false,
-        resetsAt: json['resetsAt'] is String ? DateTime.tryParse(json['resetsAt'] as String) : null,
-      );
+    limit: (json['limit'] as num?)?.toInt(),
+    used: (json['used'] as num?)?.toInt() ?? 0,
+    boosted: json['boosted'] as bool? ?? false,
+    resetsAt: json['resetsAt'] is String
+        ? DateTime.tryParse(json['resetsAt'] as String)
+        : null,
+  );
 }
 
 class HouseholdLimits {
@@ -40,7 +42,8 @@ class HouseholdLimits {
   final int? maxLocations;
   final int? insightsWindowDays;
 
-  factory HouseholdLimits.fromJson(Map<String, dynamic> json) => HouseholdLimits(
+  factory HouseholdLimits.fromJson(Map<String, dynamic> json) =>
+      HouseholdLimits(
         ownerPlan: json['ownerPlan'] as String? ?? 'free',
         maxMembers: (json['maxMembers'] as num?)?.toInt(),
         maxLocations: (json['maxLocations'] as num?)?.toInt(),
@@ -53,30 +56,40 @@ class HouseholdLimits {
 /// sponsor adı/alanı UI metni için ayrıca taşınır (bkz. entitlements.js
 /// backend karşılığı).
 class FamilySeat {
-  const FamilySeat({required this.sponsorUserId, this.sponsorName, required this.householdId});
+  const FamilySeat({
+    required this.sponsorUserId,
+    this.sponsorName,
+    required this.householdId,
+  });
 
   final String sponsorUserId;
   final String? sponsorName;
   final String householdId;
 
   factory FamilySeat.fromJson(Map<String, dynamic> json) => FamilySeat(
-        sponsorUserId: json['sponsorUserId'] as String,
-        sponsorName: json['sponsorName'] as String?,
-        householdId: json['householdId'] as String,
-      );
+    sponsorUserId: json['sponsorUserId'] as String,
+    sponsorName: json['sponsorName'] as String?,
+    householdId: json['householdId'] as String,
+  );
 }
 
 /// Abonelik ekranındaki koltuk roster'ı — SADECE kullanıcı kendisi bir aile
 /// aboneliğinin sahibiyse dolu gelir ("Aile üyeleri 3/5").
 class FamilySeatMember {
-  const FamilySeatMember({required this.userId, this.displayName, required this.householdId, required this.active});
+  const FamilySeatMember({
+    required this.userId,
+    this.displayName,
+    required this.householdId,
+    required this.active,
+  });
 
   final String userId;
   final String? displayName;
   final String householdId;
   final bool active;
 
-  factory FamilySeatMember.fromJson(Map<String, dynamic> json) => FamilySeatMember(
+  factory FamilySeatMember.fromJson(Map<String, dynamic> json) =>
+      FamilySeatMember(
         userId: json['userId'] as String,
         displayName: json['displayName'] as String?,
         householdId: json['householdId'] as String,
@@ -85,19 +98,23 @@ class FamilySeatMember {
 }
 
 class FamilyRoster {
-  const FamilyRoster({required this.seats, required this.used, required this.members});
+  const FamilyRoster({
+    required this.seats,
+    required this.used,
+    required this.members,
+  });
 
   final int seats;
   final int used;
   final List<FamilySeatMember> members;
 
   factory FamilyRoster.fromJson(Map<String, dynamic> json) => FamilyRoster(
-        seats: (json['seats'] as num?)?.toInt() ?? 0,
-        used: (json['used'] as num?)?.toInt() ?? 0,
-        members: (json['members'] as List<dynamic>? ?? const [])
-            .map((m) => FamilySeatMember.fromJson(m as Map<String, dynamic>))
-            .toList(),
-      );
+    seats: (json['seats'] as num?)?.toInt() ?? 0,
+    used: (json['used'] as num?)?.toInt() ?? 0,
+    members: (json['members'] as List<dynamic>? ?? const [])
+        .map((m) => FamilySeatMember.fromJson(m as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 /// plan: guest | free | trial | premium
@@ -159,7 +176,8 @@ class Entitlements {
 
   factory Entitlements.fromJson(Map<String, dynamic> json) {
     final quotasJson = json['quotas'] as Map<String, dynamic>? ?? const {};
-    final householdsJson = json['households'] as Map<String, dynamic>? ?? const {};
+    final householdsJson =
+        json['households'] as Map<String, dynamic>? ?? const {};
     final featuresJson = json['features'] as Map<String, dynamic>? ?? const {};
     final familySeatJson = json['familySeat'] as Map<String, dynamic>?;
     final familyJson = json['family'] as Map<String, dynamic>?;
@@ -167,12 +185,28 @@ class Entitlements {
       plan: _planTierFrom(json['plan'] as String?),
       source: json['source'] as String? ?? 'signup',
       status: json['status'] as String? ?? 'active',
-      features: featuresJson.map((key, value) => MapEntry(key, value as bool? ?? false)),
-      quotas: quotasJson.map((key, value) => MapEntry(key, AiQuota.fromJson(value as Map<String, dynamic>))),
-      households: householdsJson.map((key, value) => MapEntry(key, HouseholdLimits.fromJson(value as Map<String, dynamic>))),
-      trialEndsAt: json['trialEndsAt'] is String ? DateTime.tryParse(json['trialEndsAt'] as String) : null,
-      periodEndsAt: json['periodEndsAt'] is String ? DateTime.tryParse(json['periodEndsAt'] as String) : null,
-      familySeat: familySeatJson != null ? FamilySeat.fromJson(familySeatJson) : null,
+      features: featuresJson.map(
+        (key, value) => MapEntry(key, value as bool? ?? false),
+      ),
+      quotas: quotasJson.map(
+        (key, value) =>
+            MapEntry(key, AiQuota.fromJson(value as Map<String, dynamic>)),
+      ),
+      households: householdsJson.map(
+        (key, value) => MapEntry(
+          key,
+          HouseholdLimits.fromJson(value as Map<String, dynamic>),
+        ),
+      ),
+      trialEndsAt: json['trialEndsAt'] is String
+          ? DateTime.tryParse(json['trialEndsAt'] as String)
+          : null,
+      periodEndsAt: json['periodEndsAt'] is String
+          ? DateTime.tryParse(json['periodEndsAt'] as String)
+          : null,
+      familySeat: familySeatJson != null
+          ? FamilySeat.fromJson(familySeatJson)
+          : null,
       family: familyJson != null ? FamilyRoster.fromJson(familyJson) : null,
     );
   }

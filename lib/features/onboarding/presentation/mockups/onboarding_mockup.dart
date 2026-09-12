@@ -14,14 +14,16 @@ abstract class OnboardingMockup extends StatefulWidget {
   final bool active;
 }
 
-abstract class OnboardingMockupState<T extends OnboardingMockup> extends State<T>
+abstract class OnboardingMockupState<T extends OnboardingMockup>
+    extends State<T>
     with SingleTickerProviderStateMixin {
   late final AnimationController controller;
 
   /// Alt sınıf animasyonun toplam süresini verir.
   Duration get animDuration;
 
-  bool get _reduceMotion => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+  bool get _reduceMotion =>
+      MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
   @override
   void initState() {

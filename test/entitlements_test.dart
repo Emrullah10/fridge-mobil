@@ -4,38 +4,54 @@ import 'package:fridge_mobil/features/billing/domain/entitlements.dart';
 
 void main() {
   group('Entitlements.fromJson', () {
-    test('backend gövdesini doğru ayrıştırır (trial, boosted olmayan kota)', () {
-      final json = {
-        'plan': 'trial',
-        'source': 'reverse_trial',
-        'status': 'active',
-        'trialEndsAt': '2026-09-17T12:54:10.529Z',
-        'periodEndsAt': null,
-        'features': {'barcode': true, 'export': true, 'expiryNotify': true},
-        'quotas': {
-          'receipt': {'limit': 300, 'used': 0, 'boosted': false, 'resetsAt': '2026-09-30T21:00:00.000Z'},
-        },
-        'households': {
-          'h1': {'ownerPlan': 'free', 'maxMembers': 2, 'maxLocations': 6, 'insightsWindowDays': 30},
-        },
-      };
+    test(
+      'backend gövdesini doğru ayrıştırır (trial, boosted olmayan kota)',
+      () {
+        final json = {
+          'plan': 'trial',
+          'source': 'reverse_trial',
+          'status': 'active',
+          'trialEndsAt': '2026-09-17T12:54:10.529Z',
+          'periodEndsAt': null,
+          'features': {'barcode': true, 'export': true, 'expiryNotify': true},
+          'quotas': {
+            'receipt': {
+              'limit': 300,
+              'used': 0,
+              'boosted': false,
+              'resetsAt': '2026-09-30T21:00:00.000Z',
+            },
+          },
+          'households': {
+            'h1': {
+              'ownerPlan': 'free',
+              'maxMembers': 2,
+              'maxLocations': 6,
+              'insightsWindowDays': 30,
+            },
+          },
+        };
 
-      final result = Entitlements.fromJson(json);
+        final result = Entitlements.fromJson(json);
 
-      expect(result.plan, PlanTier.trial);
-      expect(result.isTrial, isTrue);
-      expect(result.isGuest, isFalse);
-      expect(result.isPremium, isFalse);
-      expect(result.quotaFor('receipt')!.limit, 300);
-      expect(result.quotaFor('receipt')!.boosted, isFalse);
-      expect(result.households['h1']!.maxLocations, 6);
-      expect(result.trialEndsAt, isNotNull);
-    });
+        expect(result.plan, PlanTier.trial);
+        expect(result.isTrial, isTrue);
+        expect(result.isGuest, isFalse);
+        expect(result.isPremium, isFalse);
+        expect(result.quotaFor('receipt')!.limit, 300);
+        expect(result.quotaFor('receipt')!.boosted, isFalse);
+        expect(result.households['h1']!.maxLocations, 6);
+        expect(result.trialEndsAt, isNotNull);
+      },
+    );
 
-    test('bilinmeyen plan string\'i sessizce free\'ye düşer — boot asla çökmez', () {
-      final result = Entitlements.fromJson({'plan': 'something-new'});
-      expect(result.plan, PlanTier.free);
-    });
+    test(
+      'bilinmeyen plan string\'i sessizce free\'ye düşer — boot asla çökmez',
+      () {
+        final result = Entitlements.fromJson({'plan': 'something-new'});
+        expect(result.plan, PlanTier.free);
+      },
+    );
 
     test('quotas/households/features hiç yoksa boş map ile çöker değil', () {
       final result = Entitlements.fromJson({'plan': 'free'});
@@ -79,7 +95,9 @@ void main() {
     test('deneme geçmişte bitmişse negatif değil sıfır döner', () {
       final json = {
         'plan': 'free',
-        'trialEndsAt': DateTime.now().subtract(const Duration(days: 5)).toIso8601String(),
+        'trialEndsAt': DateTime.now()
+            .subtract(const Duration(days: 5))
+            .toIso8601String(),
       };
       final result = Entitlements.fromJson(json);
       expect(result.trialDaysLeft, 0);
@@ -88,7 +106,9 @@ void main() {
     test('deneme gelecekte bitiyorsa kalan gün sayısını verir', () {
       final json = {
         'plan': 'trial',
-        'trialEndsAt': DateTime.now().add(const Duration(days: 7, hours: 1)).toIso8601String(),
+        'trialEndsAt': DateTime.now()
+            .add(const Duration(days: 7, hours: 1))
+            .toIso8601String(),
       };
       final result = Entitlements.fromJson(json);
       expect(result.trialDaysLeft, 7);
@@ -105,41 +125,66 @@ void main() {
   });
 
   group('Aile koltuğu — familySeat/family ayrıştırma', () {
-    test('familySeat dolu geldiğinde isFamilyMember true, sponsor bilgisi taşınır', () {
-      final json = {
-        'plan': 'premium',
-        'source': 'family',
-        'familySeat': {'sponsorUserId': 'u1', 'sponsorName': 'Ayşe', 'householdId': 'h1'},
-      };
-      final result = Entitlements.fromJson(json);
-      expect(result.isFamilyMember, isTrue);
-      expect(result.isFamilySponsor, isFalse);
-      expect(result.familySeat!.sponsorName, 'Ayşe');
-      expect(result.isPremium, isTrue);
-    });
+    test(
+      'familySeat dolu geldiğinde isFamilyMember true, sponsor bilgisi taşınır',
+      () {
+        final json = {
+          'plan': 'premium',
+          'source': 'family',
+          'familySeat': {
+            'sponsorUserId': 'u1',
+            'sponsorName': 'Ayşe',
+            'householdId': 'h1',
+          },
+        };
+        final result = Entitlements.fromJson(json);
+        expect(result.isFamilyMember, isTrue);
+        expect(result.isFamilySponsor, isFalse);
+        expect(result.familySeat!.sponsorName, 'Ayşe');
+        expect(result.isPremium, isTrue);
+      },
+    );
 
-    test('family (roster) dolu geldiğinde isFamilySponsor true, üye listesi ayrıştırılır', () {
-      final json = {
-        'plan': 'premium',
-        'source': 'play',
-        'family': {
-          'seats': 5,
-          'used': 2,
-          'members': [
-            {'userId': 'u1', 'displayName': 'Ben', 'householdId': 'h1', 'active': true},
-            {'userId': 'u2', 'displayName': 'Eş', 'householdId': 'h1', 'active': true},
-            {'userId': 'u3', 'displayName': 'Fazla üye', 'householdId': 'h1', 'active': false},
-          ],
-        },
-      };
-      final result = Entitlements.fromJson(json);
-      expect(result.isFamilySponsor, isTrue);
-      expect(result.isFamilyMember, isFalse);
-      expect(result.family!.seats, 5);
-      expect(result.family!.used, 2);
-      expect(result.family!.members.length, 3);
-      expect(result.family!.members.last.active, isFalse);
-    });
+    test(
+      'family (roster) dolu geldiğinde isFamilySponsor true, üye listesi ayrıştırılır',
+      () {
+        final json = {
+          'plan': 'premium',
+          'source': 'play',
+          'family': {
+            'seats': 5,
+            'used': 2,
+            'members': [
+              {
+                'userId': 'u1',
+                'displayName': 'Ben',
+                'householdId': 'h1',
+                'active': true,
+              },
+              {
+                'userId': 'u2',
+                'displayName': 'Eş',
+                'householdId': 'h1',
+                'active': true,
+              },
+              {
+                'userId': 'u3',
+                'displayName': 'Fazla üye',
+                'householdId': 'h1',
+                'active': false,
+              },
+            ],
+          },
+        };
+        final result = Entitlements.fromJson(json);
+        expect(result.isFamilySponsor, isTrue);
+        expect(result.isFamilyMember, isFalse);
+        expect(result.family!.seats, 5);
+        expect(result.family!.used, 2);
+        expect(result.family!.members.length, 3);
+        expect(result.family!.members.last.active, isFalse);
+      },
+    );
 
     test('familySeat/family hiç yoksa null, ikisi de false', () {
       final result = Entitlements.fromJson({'plan': 'free'});

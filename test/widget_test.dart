@@ -10,7 +10,9 @@ void main() {
     dotenv.testLoad(fileInput: 'API_BASE_URL=http://localhost:4000/api');
   });
 
-  testWidgets('App boots and shows a loading state before auth resolves', (tester) async {
+  testWidgets('App boots and shows a loading state before auth resolves', (
+    tester,
+  ) async {
     await tester.pumpWidget(const ProviderScope(child: FridgeApp()));
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);

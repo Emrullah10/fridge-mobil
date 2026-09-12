@@ -17,7 +17,8 @@ Future<void> showPaywallSheet(
 }) {
   return showAppSheet<void>(
     context,
-    builder: (sheetContext) => _PaywallSheetContent(info: info, onUpgrade: onUpgrade),
+    builder: (sheetContext, __) =>
+        _PaywallSheetContent(info: info, onUpgrade: onUpgrade),
   );
 }
 
@@ -43,40 +44,31 @@ class _PaywallSheetContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: AppSpacing.lg,
-        right: AppSpacing.lg,
-        top: AppSpacing.lg,
-        bottom: AppSpacing.lg + bottomInset,
-      ),
+    // Eskiden burada elle çizilmiş 40x4 bir tutamaç çubuğu vardı — global
+    // sheet tutamacıyla (showAppSheet'in showDragHandle:true'su) çakışıp
+    // çift tutamaç görünümüne yol açıyordu. Global tutamaç tek kaldı, ✕
+    // AppSheetScaffold'dan geliyor.
+    return AppSheetScaffold(
+      onClose: () => Navigator.of(context).pop(),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                // Kilit ikonuna Opacity uygulamıyoruz (cerebrum kuralı) —
-                // düz bir dolgu rengi kullanılıyor.
-                color: theme.colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(AppRadius.pill),
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
           Icon(Icons.lock_rounded, size: 40, color: theme.colorScheme.primary),
           const SizedBox(height: AppSpacing.md),
-          Text(_title, style: theme.textTheme.titleLarge, textAlign: TextAlign.center),
+          Text(
+            _title,
+            style: theme.textTheme.titleLarge,
+            textAlign: TextAlign.center,
+          ),
           if (info?.message != null) ...[
             const SizedBox(height: AppSpacing.xs),
             Text(
               info!.message,
-              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -91,7 +83,11 @@ class _PaywallSheetContent extends StatelessWidget {
                 Navigator.of(context).pop();
                 onUpgrade?.call();
               },
-              child: Text(info?.code == 'SIGNUP_REQUIRED' ? 'Ücretsiz Hesap Aç' : 'Planları Gör'),
+              child: Text(
+                info?.code == 'SIGNUP_REQUIRED'
+                    ? 'Ücretsiz Hesap Aç'
+                    : 'Planları Gör',
+              ),
             ),
           const SizedBox(height: AppSpacing.sm),
           TextButton(
@@ -128,7 +124,9 @@ class _UsageMeter extends StatelessWidget {
         const SizedBox(height: AppSpacing.xs),
         Text(
           '$used / $limit kullanıldı',
-          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );

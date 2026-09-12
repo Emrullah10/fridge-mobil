@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemChrome, SystemUiMode;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -16,6 +17,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/ui/app_progress.dart';
 import 'core/theme/theme_providers.dart';
 import 'core/version/app_config_repository.dart';
 import 'core/version/in_app_updater.dart';
@@ -55,6 +57,14 @@ void main() {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+
+      // Android 15+ edge-to-edge'i zorunlu kılıyor (opt-out Android 16'da
+      // tamamen kalkıyor); Flutter 3.27'den beri targetSdk 35 olduğunda
+      // zaten opt-in oluyor ama açıkça istemek sürüm farkına bağımlı
+      // kalmamayı sağlıyor. Durum çubuğu/nav bar ikon parlaklığı
+      // AppBarTheme.systemOverlayStyle üzerinden temaya bağlanıyor
+      // (app_theme.dart) — burada yalnız mod açılıyor.
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
       FlutterError.onError = (details) {
         FlutterError.presentError(details);
@@ -100,7 +110,7 @@ class FridgeApp extends ConsumerWidget {
 
     return MaterialApp(
       navigatorKey: rootNavigatorKey,
-      title: 'Fridge',
+      title: 'Elde',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
@@ -171,7 +181,8 @@ class _AuthGate extends ConsumerStatefulWidget {
   ConsumerState<_AuthGate> createState() => _AuthGateState();
 }
 
-class _AuthGateState extends ConsumerState<_AuthGate> with WidgetsBindingObserver {
+class _AuthGateState extends ConsumerState<_AuthGate>
+    with WidgetsBindingObserver {
   AuthStatus? _lastStatus;
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSubscription;
@@ -207,7 +218,8 @@ class _AuthGateState extends ConsumerState<_AuthGate> with WidgetsBindingObserve
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       final last = _lastVersionCheck;
-      if (last == null || DateTime.now().difference(last) >= _versionCheckInterval) {
+      if (last == null ||
+          DateTime.now().difference(last) >= _versionCheckInterval) {
         _checkAppVersion();
       }
     }
@@ -260,7 +272,10 @@ class _AuthGateState extends ConsumerState<_AuthGate> with WidgetsBindingObserve
   /// Android + Play'den kurulu ise flexible indirme başlatılır — indirme
   /// başladıysa "Yeniden başlat" banner'ı gösterilir, aksi halde mevcut
   /// kapatılabilir banner + storeUrl akışına düşülür.
-  Future<void> _handleOptionalUpdate(String storeUrl, String latestVersion) async {
+  Future<void> _handleOptionalUpdate(
+    String storeUrl,
+    String latestVersion,
+  ) async {
     final updater = ref.read(inAppUpdaterProvider);
     if (await updater.isAvailable() && await updater.startFlexible()) {
       if (!mounted) return;
@@ -388,9 +403,7 @@ class _AuthGateState extends ConsumerState<_AuthGate> with WidgetsBindingObserve
     final navigator = rootNavigatorKey.currentState;
     if (navigator == null) return;
     navigator.push(
-      MaterialPageRoute(
-        builder: (_) => JoinHouseholdScreen(initialCode: code),
-      ),
+      MaterialPageRoute(builder: (_) => JoinHouseholdScreen(initialCode: code)),
     );
   }
 
@@ -414,7 +427,10 @@ class _AuthGateState extends ConsumerState<_AuthGate> with WidgetsBindingObserve
     if (context == null || !context.mounted) return;
     ref.read(premiumIntroSeenProvider.notifier).markSeen();
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const PremiumIntroScreen()),
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const PremiumIntroScreen(),
+      ),
     );
   }
 
@@ -439,14 +455,19 @@ class _AuthGateState extends ConsumerState<_AuthGate> with WidgetsBindingObserve
     if (controller == null) return;
 
     // Deneme bitmiş, ücretsiz kademeye düşmüş: bir kez tam ekran paywall.
-    final trialJustEnded = entitlements.plan == PlanTier.free &&
+    final trialJustEnded =
+        entitlements.plan == PlanTier.free &&
         entitlements.trialEndsAt != null &&
         entitlements.trialEndsAt!.isBefore(DateTime.now());
-    if (trialJustEnded && !controller.isFrequencyLimited(PaywallTrigger.trialEnded)) {
+    if (trialJustEnded &&
+        !controller.isFrequencyLimited(PaywallTrigger.trialEnded)) {
       controller.recordShown(PaywallTrigger.trialEnded);
       if (!context.mounted) return;
       await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => const PaywallScreen(),
+        ),
       );
       return;
     }
@@ -455,10 +476,12 @@ class _AuthGateState extends ConsumerState<_AuthGate> with WidgetsBindingObserve
     // win-back banner'ı — tam ekran değil, eski aboneyi modal'la
     // karşılamak agresif olur.
     final periodEndsAt = entitlements.periodEndsAt;
-    final canceledLongAgo = entitlements.status == 'canceled' &&
+    final canceledLongAgo =
+        entitlements.status == 'canceled' &&
         periodEndsAt != null &&
         DateTime.now().difference(periodEndsAt) >= const Duration(days: 7);
-    if (canceledLongAgo && !controller.isFrequencyLimited(PaywallTrigger.winBack)) {
+    if (canceledLongAgo &&
+        !controller.isFrequencyLimited(PaywallTrigger.winBack)) {
       controller.recordShown(PaywallTrigger.winBack);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -467,7 +490,10 @@ class _AuthGateState extends ConsumerState<_AuthGate> with WidgetsBindingObserve
           action: SnackBarAction(
             label: 'Görüntüle',
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const PaywallScreen()),
+              MaterialPageRoute(
+                fullscreenDialog: true,
+                builder: (_) => const PaywallScreen(),
+              ),
             ),
           ),
           duration: const Duration(seconds: 6),
@@ -492,7 +518,10 @@ class _AuthGateState extends ConsumerState<_AuthGate> with WidgetsBindingObserve
                 Text(
                   l10n.forceUpdateTitle,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 FilledButton(
@@ -570,9 +599,7 @@ class _AuthGateState extends ConsumerState<_AuthGate> with WidgetsBindingObserve
     }
 
     return switch (authState.status) {
-      AuthStatus.unknown => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
+      AuthStatus.unknown => const Scaffold(body: Center(child: AppProgress())),
       AuthStatus.unauthenticated => _resolveUnauthenticated(),
       AuthStatus.guest => const AppShell(),
       AuthStatus.authenticated => const AppShell(),
@@ -586,7 +613,7 @@ class _AuthGateState extends ConsumerState<_AuthGate> with WidgetsBindingObserve
   Widget _resolveUnauthenticated() {
     final seen = ref.watch(onboardingSeenProvider);
     return switch (seen) {
-      null => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      null => const Scaffold(body: Center(child: AppProgress())),
       false => const IntroScreen(),
       true => const WelcomeScreen(),
     };

@@ -31,11 +31,16 @@ class CookTimerService {
       ),
     );
     await _plugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(_channel);
   }
 
-  Future<void> notifyStepDone({required int stepOrder, required String recipeTitle}) async {
+  Future<void> notifyStepDone({
+    required int stepOrder,
+    required String recipeTitle,
+  }) async {
     try {
       await _ensureInit();
       await _plugin.show(

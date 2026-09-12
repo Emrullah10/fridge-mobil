@@ -23,7 +23,11 @@ class AppSwitch extends StatelessWidget {
         onChanged: onChanged,
       );
     }
-    return Switch(value: value, activeThumbColor: activeColor, onChanged: onChanged);
+    return Switch(
+      value: value,
+      activeThumbColor: activeColor,
+      onChanged: onChanged,
+    );
   }
 }
 

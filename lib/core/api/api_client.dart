@@ -22,28 +22,37 @@ class ApiClient {
     required Future<void> Function() onUnauthorized,
     void Function(PlanLimitInfo info)? onPlanLimitReached,
     void Function(String householdId)? onHouseholdNotFound,
-  })  : tokenStorage = TokenStorage(),
-        dio = Dio(BaseOptions(
-          baseUrl: ApiConfig.baseUrl,
-          connectTimeout: const Duration(seconds: 10),
-          // Fiş tarama Ollama'ya gidiyor; OLLAMA_MODEL gemma3:12b'ye
-          // geçtikten sonra (2026-08-17) tek istek ~55sn sürebiliyor
-          // (qwen2.5'te ~20-25sn'ydi, eski 45sn limiti buradan kalmaydı).
-          receiveTimeout: const Duration(seconds: 90),
-          // Backend platform bazlı limit çözüyor (bkz. plans.js §Faz D) —
-          // Android varsayılan daha cömert, iOS henüz yok ama başlık
-          // şimdiden doğru gönderilsin diye Platform.isIOS kontrol edilir.
-          headers: {'X-Client-Platform': Platform.isIOS ? 'ios' : 'android'},
-        )) {
-    dio.interceptors.add(AuthInterceptor(tokenStorage: tokenStorage, onUnauthorized: onUnauthorized));
+  }) : tokenStorage = TokenStorage(),
+       dio = Dio(
+         BaseOptions(
+           baseUrl: ApiConfig.baseUrl,
+           connectTimeout: const Duration(seconds: 10),
+           // Fiş tarama Ollama'ya gidiyor; OLLAMA_MODEL gemma3:12b'ye
+           // geçtikten sonra (2026-08-17) tek istek ~55sn sürebiliyor
+           // (qwen2.5'te ~20-25sn'ydi, eski 45sn limiti buradan kalmaydı).
+           receiveTimeout: const Duration(seconds: 90),
+           // Backend platform bazlı limit çözüyor (bkz. plans.js §Faz D) —
+           // Android varsayılan daha cömert, iOS henüz yok ama başlık
+           // şimdiden doğru gönderilsin diye Platform.isIOS kontrol edilir.
+           headers: {'X-Client-Platform': Platform.isIOS ? 'ios' : 'android'},
+         ),
+       ) {
+    dio.interceptors.add(
+      AuthInterceptor(
+        tokenStorage: tokenStorage,
+        onUnauthorized: onUnauthorized,
+      ),
+    );
     if (onPlanLimitReached != null) {
-      dio.interceptors.add(InterceptorsWrapper(
-        onError: (error, handler) {
-          final info = PlanLimitInfo.tryParse(error);
-          if (info != null) onPlanLimitReached(info);
-          return handler.next(error);
-        },
-      ));
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onError: (error, handler) {
+            final info = PlanLimitInfo.tryParse(error);
+            if (info != null) onPlanLimitReached(info);
+            return handler.next(error);
+          },
+        ),
+      );
     }
     if (onHouseholdNotFound != null) {
       // Ekranda bayat bir alan id'si kalmışsa (silinmiş alan, ya da
@@ -52,15 +61,19 @@ class ApiClient {
       // hatayı görüp takılı kalırdı — bkz. .wolf/buglog.json, 2026-09-06.
       // Bu, o durumda alan listesini tazeleyip kullanıcıyı geri çıkarmak
       // için sinyal verir.
-      dio.interceptors.add(InterceptorsWrapper(
-        onError: (error, handler) {
-          if (error.response?.statusCode == 404) {
-            final match = _householdIdInPath.firstMatch(error.requestOptions.path);
-            if (match != null) onHouseholdNotFound(match.group(1)!);
-          }
-          return handler.next(error);
-        },
-      ));
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onError: (error, handler) {
+            if (error.response?.statusCode == 404) {
+              final match = _householdIdInPath.firstMatch(
+                error.requestOptions.path,
+              );
+              if (match != null) onHouseholdNotFound(match.group(1)!);
+            }
+            return handler.next(error);
+          },
+        ),
+      );
     }
   }
 

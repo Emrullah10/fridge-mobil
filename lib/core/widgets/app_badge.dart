@@ -7,7 +7,12 @@ enum AppBadgeVariant { neutral, quantity, warning }
 /// Pill rozet — miktar, "Bitti", marka, "Kontrol et" gibi tüm hap
 /// rozetlerin tek kaynağı. Radius her zaman tam pill (999).
 class AppBadge extends StatelessWidget {
-  const AppBadge({super.key, required this.label, this.variant = AppBadgeVariant.neutral, this.strikethrough = false});
+  const AppBadge({
+    super.key,
+    required this.label,
+    this.variant = AppBadgeVariant.neutral,
+    this.strikethrough = false,
+  });
 
   final String label;
   final AppBadgeVariant variant;
@@ -19,14 +24,29 @@ class AppBadge extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     final (Color background, Color foreground) = switch (variant) {
-      AppBadgeVariant.quantity => (colorScheme.secondaryContainer, colorScheme.onSecondaryContainer),
-      AppBadgeVariant.warning => (colorScheme.errorContainer, colorScheme.onErrorContainer),
-      AppBadgeVariant.neutral => (colorScheme.surfaceContainerHighest, colorScheme.onSurfaceVariant),
+      AppBadgeVariant.quantity => (
+        colorScheme.secondaryContainer,
+        colorScheme.onSecondaryContainer,
+      ),
+      AppBadgeVariant.warning => (
+        colorScheme.errorContainer,
+        colorScheme.onErrorContainer,
+      ),
+      AppBadgeVariant.neutral => (
+        colorScheme.surfaceContainerHighest,
+        colorScheme.onSurfaceVariant,
+      ),
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(AppRadius.pill)),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
       child: Text(
         label,
         style: textTheme.labelSmall?.copyWith(

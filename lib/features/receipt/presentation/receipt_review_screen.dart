@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../../../core/error/api_error.dart';
 import '../../../core/haptics.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_date_picker.dart';
+import '../../../core/ui/app_progress.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/button_progress.dart';
@@ -214,8 +216,8 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
   }
 
   Future<void> _pickExpiryDate(String itemId) async {
-    final picked = await showDatePicker(
-      context: context,
+    final picked = await showAppDatePicker(
+      context,
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
@@ -557,7 +559,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
     if (_loadingItems) {
       return Scaffold(
         appBar: AppBar(title: const Text('Fişi Onayla')),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const Center(child: AppProgress()),
       );
     }
     if (_loadError != null) {

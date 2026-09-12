@@ -27,13 +27,23 @@ class HandDrawnArrow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _ArrowPainter(from: from, to: to, color: color, progress: progress),
+      painter: _ArrowPainter(
+        from: from,
+        to: to,
+        color: color,
+        progress: progress,
+      ),
     );
   }
 }
 
 class _ArrowPainter extends CustomPainter {
-  _ArrowPainter({required this.from, required this.to, required this.color, required this.progress});
+  _ArrowPainter({
+    required this.from,
+    required this.to,
+    required this.color,
+    required this.progress,
+  });
 
   final Offset from;
   final Offset to;
@@ -76,7 +86,8 @@ class _ArrowPainter extends CustomPainter {
 
     // Ok başı — yalnızca yol neredeyse tamamlanınca.
     if (t > 0.85) {
-      final tangent = (_quad(from, control, to, 1.0) - _quad(from, control, to, 0.92));
+      final tangent =
+          (_quad(from, control, to, 1.0) - _quad(from, control, to, 0.92));
       final ang = math.atan2(tangent.dy, tangent.dx);
       const headLen = 14.0;
       const spread = 0.5;
@@ -86,7 +97,8 @@ class _ArrowPainter extends CustomPainter {
         ..strokeWidth = 2.6
         ..color = color.withValues(alpha: 0.7);
       for (final s in [spread, -spread]) {
-        final tip = end - Offset(math.cos(ang + s), math.sin(ang + s)) * headLen;
+        final tip =
+            end - Offset(math.cos(ang + s), math.sin(ang + s)) * headLen;
         canvas.drawLine(end, tip, headPaint);
       }
     }
@@ -99,5 +111,8 @@ class _ArrowPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ArrowPainter old) =>
-      old.from != from || old.to != to || old.color != color || old.progress != progress;
+      old.from != from ||
+      old.to != to ||
+      old.color != color ||
+      old.progress != progress;
 }

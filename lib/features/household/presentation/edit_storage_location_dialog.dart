@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_sheet.dart';
+import '../../../core/ui/app_text_field.dart';
 import '../../../core/widgets/storage_kind.dart';
 import '../data/household_repository.dart';
 
@@ -29,7 +30,7 @@ Future<StorageLocationFormResult?> showStorageLocationFormDialog(
 }) {
   return showAppSheet<StorageLocationFormResult>(
     context,
-    builder: (_) => _StorageLocationFormSheet(existing: existing),
+    builder: (_, __) => _StorageLocationFormSheet(existing: existing),
   );
 }
 
@@ -43,8 +44,7 @@ class _StorageLocationFormSheet extends StatefulWidget {
       _StorageLocationFormSheetState();
 }
 
-class _StorageLocationFormSheetState
-    extends State<_StorageLocationFormSheet> {
+class _StorageLocationFormSheetState extends State<_StorageLocationFormSheet> {
   late final TextEditingController _controller;
   late String _selectedKind;
   String? _selectedIcon;
@@ -93,11 +93,13 @@ class _StorageLocationFormSheetState
   Widget build(BuildContext context) {
     return AppSheetScaffold(
       title: _isEdit ? 'Bölümü Düzenle' : 'Yeni Bölüm',
+      onClose: () => Navigator.pop(context),
+      onConfirm: _confirm,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
+          AppTextField(
             controller: _controller,
             decoration: InputDecoration(
               hintText: 'Örn. Mutfak Dolabı, Depo, Kutu 1',
@@ -148,8 +150,9 @@ class _StorageLocationFormSheetState
                 ChoiceChip(
                   selected: iconKeyForIcon(iconData) == _selectedIcon,
                   onSelected: (selected) => setState(
-                    () => _selectedIcon =
-                        selected ? iconKeyForIcon(iconData) : null,
+                    () => _selectedIcon = selected
+                        ? iconKeyForIcon(iconData)
+                        : null,
                   ),
                   label: Icon(iconData, size: 18),
                 ),

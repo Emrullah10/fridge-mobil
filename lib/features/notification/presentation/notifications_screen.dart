@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_progress.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../application/notification_providers.dart';
 
@@ -45,25 +46,31 @@ class NotificationsScreen extends ConsumerWidget {
         actions: [
           if ((stateAsync.valueOrNull?.unreadCount ?? 0) > 0)
             TextButton(
-              onPressed: () => ref.read(notificationListProvider.notifier).markAllRead(),
+              onPressed: () =>
+                  ref.read(notificationListProvider.notifier).markAllRead(),
               child: const Text('Hepsini okundu işaretle'),
             ),
         ],
       ),
       body: stateAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: AppProgress()),
         error: (error, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.wifi_off_rounded, size: 48, color: colorScheme.error),
+                Icon(
+                  Icons.wifi_off_rounded,
+                  size: 48,
+                  color: colorScheme.error,
+                ),
                 const SizedBox(height: AppSpacing.md),
                 Text(describeApiError(error), textAlign: TextAlign.center),
                 const SizedBox(height: AppSpacing.md),
                 OutlinedButton.icon(
-                  onPressed: () => ref.read(notificationListProvider.notifier).refresh(),
+                  onPressed: () =>
+                      ref.read(notificationListProvider.notifier).refresh(),
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('Yeniden dene'),
                 ),
@@ -79,7 +86,8 @@ class NotificationsScreen extends ConsumerWidget {
             );
           }
           return RefreshIndicator(
-            onRefresh: () => ref.read(notificationListProvider.notifier).refresh(),
+            onRefresh: () =>
+                ref.read(notificationListProvider.notifier).refresh(),
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
               itemCount: state.notifications.length,
@@ -93,24 +101,38 @@ class NotificationsScreen extends ConsumerWidget {
                         : colorScheme.primaryContainer,
                     child: Icon(
                       _iconForType(notification.type),
-                      color: notification.isRead ? colorScheme.onSurfaceVariant : colorScheme.onPrimaryContainer,
+                      color: notification.isRead
+                          ? colorScheme.onSurfaceVariant
+                          : colorScheme.onPrimaryContainer,
                       size: 20,
                     ),
                   ),
                   title: Text(
                     notification.title,
-                    style: TextStyle(fontWeight: notification.isRead ? FontWeight.normal : FontWeight.w700),
+                    style: TextStyle(
+                      fontWeight: notification.isRead
+                          ? FontWeight.normal
+                          : FontWeight.w700,
+                    ),
                   ),
                   subtitle: Text(notification.body),
                   trailing: Text(
                     _relativeTime(notification.createdAt),
-                    style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   onTap: notification.isRead
                       ? null
-                      : () => ref.read(notificationRepositoryProvider).markRead(ids: [notification.id]).then(
-                            (_) => ref.read(notificationListProvider.notifier).refresh(),
-                          ),
+                      : () => ref
+                            .read(notificationRepositoryProvider)
+                            .markRead(ids: [notification.id])
+                            .then(
+                              (_) => ref
+                                  .read(notificationListProvider.notifier)
+                                  .refresh(),
+                            ),
                 );
               },
             ),

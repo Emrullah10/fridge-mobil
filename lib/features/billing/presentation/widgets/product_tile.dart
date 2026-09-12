@@ -43,69 +43,91 @@ class ProductTile extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.card),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: selected ? theme.colorScheme.primary.withValues(alpha: 0.06) : null,
-            borderRadius: BorderRadius.circular(AppRadius.card),
-            border: Border.all(
-              color: selected ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
-                    color: selected ? theme.colorScheme.primary : theme.colorScheme.outline,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      product.title,
-                      style: theme.textTheme.titleSmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (badge != null) ...[
-                    const SizedBox(width: AppSpacing.xs),
-                    _Badge(label: badge),
-                  ],
-                ],
+      // `radio_button_checked/unchecked` ikonuyla tek-seçimli bir grup
+      // gibi davranıyor ama Semantics'i yoktu — ekran okuyucu "seçili" /
+      // "seçili değil" durumunu hiç duyurmuyordu.
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: selected
+                  ? theme.colorScheme.primary.withValues(alpha: 0.06)
+                  : null,
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              border: Border.all(
+                color: selected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outlineVariant,
+                width: selected ? 2 : 1,
               ),
-              Padding(
-                padding: const EdgeInsets.only(left: _indicatorGutter, top: AppSpacing.xs),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      product.description,
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Icon(
+                      selected
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      color: selected
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.outline,
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                    _PriceRow(product: product),
-                    if (_secondaryLine() case final line?) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        line,
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        product.title,
+                        style: theme.textTheme.titleSmall,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                    if (badge != null) ...[
+                      const SizedBox(width: AppSpacing.xs),
+                      _Badge(label: badge),
                     ],
                   ],
                 ),
-              ),
-            ],
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: _indicatorGutter,
+                    top: AppSpacing.xs,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.description,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      _PriceRow(product: product),
+                      if (_secondaryLine() case final line?) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          line,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -115,10 +137,14 @@ class ProductTile extends StatelessWidget {
   String? _badgeLabel() {
     if (product.hasFreeTrial) {
       final period = product.trialPeriodLabel;
-      return period != null ? '$period ÜCRETSİZ'.toUpperCase() : 'ÜCRETSİZ DENEME';
+      return period != null
+          ? '$period ÜCRETSİZ'.toUpperCase()
+          : 'ÜCRETSİZ DENEME';
     }
     if (product.hasIntroDiscount) return 'İNDİRİM';
-    final percent = monthlyForComparison != null ? product.discountPercentAgainst(monthlyForComparison) : null;
+    final percent = monthlyForComparison != null
+        ? product.discountPercentAgainst(monthlyForComparison)
+        : null;
     if (percent != null && percent > 0) return '%$percent TASARRUF';
     return null;
   }
@@ -128,7 +154,10 @@ class ProductTile extends StatelessWidget {
   /// Öncelik: aylık karşılığı > kısa deneme notu.
   String? _secondaryLine() {
     final perMonth = product.pricePerMonthString;
-    if (perMonth != null && monthlyForComparison != null && !product.hasFreeTrial && !product.hasIntroDiscount) {
+    if (perMonth != null &&
+        monthlyForComparison != null &&
+        !product.hasFreeTrial &&
+        !product.hasIntroDiscount) {
       return '≈ $perMonth/ay';
     }
     final period = product.trialPeriodLabel;
@@ -158,7 +187,9 @@ class _PriceRow extends StatelessWidget {
         children: [
           Text(
             introPrice ?? product.priceString,
-            style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: theme.colorScheme.primary,
+            ),
           ),
           if (introPrice != null && !product.hasFreeTrial) ...[
             const SizedBox(width: AppSpacing.xs),
@@ -174,10 +205,7 @@ class _PriceRow extends StatelessWidget {
       );
     }
 
-    return Text(
-      product.priceString,
-      style: theme.textTheme.titleLarge,
-    );
+    return Text(product.priceString, style: theme.textTheme.titleLarge);
   }
 }
 

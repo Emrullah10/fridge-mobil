@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_dialog.dart';
+import '../../../core/ui/app_progress.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/unit_label.dart';
 import '../../inventory/application/inventory_providers.dart';
@@ -13,7 +14,11 @@ import '../data/recipe_repository.dart';
 import 'recipe_step_screen.dart';
 
 class RecipeDetailScreen extends ConsumerStatefulWidget {
-  const RecipeDetailScreen({super.key, required this.householdId, required this.recipeId});
+  const RecipeDetailScreen({
+    super.key,
+    required this.householdId,
+    required this.recipeId,
+  });
 
   final String householdId;
   final String recipeId;
@@ -26,22 +31,34 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
   bool _isCooking = false;
   bool _isAddingMissing = false;
 
-  RecipeDetailParams get _params => RecipeDetailParams(householdId: widget.householdId, recipeId: widget.recipeId);
+  RecipeDetailParams get _params => RecipeDetailParams(
+    householdId: widget.householdId,
+    recipeId: widget.recipeId,
+  );
 
   Future<void> _addMissingToList(List<RecipeIngredient> missing) async {
     setState(() => _isAddingMissing = true);
     try {
-      final added = await ref.read(shoppingRepositoryProvider).addFromRecipe(widget.householdId, widget.recipeId);
+      final added = await ref
+          .read(shoppingRepositoryProvider)
+          .addFromRecipe(widget.householdId, widget.recipeId);
       ref.invalidate(shoppingListProvider(widget.householdId));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('$added ürün alışveriş listesine eklendi'),
-          action: SnackBarAction(label: 'Listeye git', onPressed: () => Navigator.of(context).pop()),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$added ürün alışveriş listesine eklendi'),
+            action: SnackBarAction(
+              label: 'Listeye git',
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+        );
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     } finally {
       if (mounted) setState(() => _isAddingMissing = false);
@@ -59,7 +76,9 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
 
     setState(() => _isCooking = true);
     try {
-      final result = await ref.read(recipeRepositoryProvider).cook(widget.householdId, widget.recipeId);
+      final result = await ref
+          .read(recipeRepositoryProvider)
+          .cook(widget.householdId, widget.recipeId);
       // Fiş onayı bug'ında yaşanan aynı hata sınıfı: envanteri güncelleyen
       // bir işlemden sonra inventoryItemsProvider invalidate edilmezse UI
       // stale kalır ("eklenmedi/düşmedi" sanılır). Parametresiz invalidate —
@@ -67,16 +86,22 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
       ref.invalidate(inventoryItemsProvider);
       ref.invalidate(shoppingSuggestionsProvider(widget.householdId));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(result.insufficientCount > 0
-              ? 'Pişirildi — ${result.insufficientCount} malzeme yetersizdi'
-              : 'Afiyet olsun!'),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.insufficientCount > 0
+                  ? 'Pişirildi — ${result.insufficientCount} malzeme yetersizdi'
+                  : 'Afiyet olsun!',
+            ),
+          ),
+        );
         Navigator.of(context).pop();
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     } finally {
       if (mounted) setState(() => _isCooking = false);
@@ -87,9 +112,17 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final warning = context.appColors.statusWarning;
     return switch (status) {
-      'available' => Icon(Icons.check_circle_rounded, color: colorScheme.primary, size: 20),
+      'available' => Icon(
+        Icons.check_circle_rounded,
+        color: colorScheme.primary,
+        size: 20,
+      ),
       'partial' => Icon(Icons.circle_outlined, color: warning, size: 20),
-      'unit_mismatch' => Icon(Icons.help_outline_rounded, color: warning, size: 20),
+      'unit_mismatch' => Icon(
+        Icons.help_outline_rounded,
+        color: warning,
+        size: 20,
+      ),
       _ => Icon(Icons.cancel_outlined, color: colorScheme.error, size: 20),
     };
   }
@@ -111,19 +144,31 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
           return ListView(
             padding: const EdgeInsets.all(AppSpacing.md),
             children: [
-              Text(recipe.title, style: Theme.of(context).textTheme.headlineMedium),
+              Text(
+                recipe.title,
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
               if (recipe.description != null) ...[
                 const SizedBox(height: AppSpacing.xs),
-                Text(recipe.description!, style: Theme.of(context).textTheme.bodyMedium),
+                Text(
+                  recipe.description!,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
               ],
               const SizedBox(height: AppSpacing.sm),
               Wrap(
                 spacing: AppSpacing.xs,
                 children: [
-                  if (recipe.servings != null) Chip(label: Text('${recipe.servings} porsiyon')),
+                  if (recipe.servings != null)
+                    Chip(label: Text('${recipe.servings} porsiyon')),
                   if (recipe.prepMinutes != null || recipe.cookMinutes != null)
-                    Chip(label: Text('${(recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0)} dk')),
-                  if (recipe.difficulty != null) Chip(label: Text(recipe.difficulty!)),
+                    Chip(
+                      label: Text(
+                        '${(recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0)} dk',
+                      ),
+                    ),
+                  if (recipe.difficulty != null)
+                    Chip(label: Text(recipe.difficulty!)),
                 ],
               ),
               if (recipe.nutrition != null && recipe.nutrition!.hasData) ...[
@@ -140,7 +185,9 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                       ListTile(
                         leading: _matchIcon(context, ingredient.matchStatus),
                         title: Text(ingredient.productName),
-                        trailing: Text('${ingredient.quantity.toStringAsFixed(ingredient.quantity % 1 == 0 ? 0 : 1)} ${unitShortLabel(ingredient.unit)}'),
+                        trailing: Text(
+                          '${ingredient.quantity.toStringAsFixed(ingredient.quantity % 1 == 0 ? 0 : 1)} ${unitShortLabel(ingredient.unit)}',
+                        ),
                       ),
                   ],
                 ),
@@ -150,22 +197,36 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: _isAddingMissing ? null : () => _addMissingToList(missing),
+                    onPressed: _isAddingMissing
+                        ? null
+                        : () => _addMissingToList(missing),
                     icon: _isAddingMissing
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: AppProgress(strokeWidth: 2),
+                          )
                         : const Icon(Icons.add_shopping_cart_rounded),
-                    label: Text('Eksik ${missing.length} malzemeyi listeye ekle'),
+                    label: Text(
+                      'Eksik ${missing.length} malzemeyi listeye ekle',
+                    ),
                   ),
                 ),
               ],
               if (recipe.steps.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.lg),
-                Text('Hazırlanışı', style: Theme.of(context).textTheme.titleSmall),
+                Text(
+                  'Hazırlanışı',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
                 const SizedBox(height: AppSpacing.xs),
                 OutlinedButton.icon(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => RecipeStepScreen(title: recipe.title, steps: recipe.steps),
+                      builder: (_) => RecipeStepScreen(
+                        title: recipe.title,
+                        steps: recipe.steps,
+                      ),
                     ),
                   ),
                   icon: const Icon(Icons.play_arrow_rounded),
@@ -174,12 +235,17 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                 const SizedBox(height: AppSpacing.sm),
                 for (final step in recipe.steps)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.xs,
+                    ),
                     child: Text('${step.order}. ${step.text}'),
                   ),
               ] else if (recipe.instructions.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.lg),
-                Text('Hazırlanışı', style: Theme.of(context).textTheme.titleSmall),
+                Text(
+                  'Hazırlanışı',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(recipe.instructions),
               ],
@@ -196,7 +262,11 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
             child: FilledButton.icon(
               onPressed: _isCooking ? null : _cook,
               icon: _isCooking
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: AppProgress(strokeWidth: 2),
+                    )
                   : const Icon(Icons.restaurant_rounded),
               label: const Text('Pişirdim'),
             ),
@@ -220,11 +290,14 @@ class _NutritionCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     Widget macro(String label, String value) => Column(
-          children: [
-            Text(value, style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-            Text(label, style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-          ],
-        );
+      children: [
+        Text(
+          value,
+          style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        Text(label, style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+      ],
+    );
 
     String g(double v) => '${v.toStringAsFixed(v % 1 == 0 ? 0 : 1)} g';
 
@@ -239,7 +312,10 @@ class _NutritionCard extends StatelessWidget {
                 Text('Porsiyon başına', style: tt.titleSmall),
                 const SizedBox(width: AppSpacing.sm),
                 if (!nutrition.complete)
-                  Text('· yaklaşık', style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                  Text(
+                    '· yaklaşık',
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
               ],
             ),
             const SizedBox(height: AppSpacing.sm),

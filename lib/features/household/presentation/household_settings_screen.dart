@@ -21,7 +21,11 @@ class HouseholdSettingsScreen extends ConsumerWidget {
   /// Kullanıcının household-profile.js'teki tür varsayımını elle ezmesi —
   /// ör. bir ofis alanında mutfak/tarif özelliklerini sonradan açabilir.
   /// (household_home_screen.dart'taki eski `_toggleFoodFeature`'dan taşındı.)
-  Future<void> _toggleFoodFeature(BuildContext context, WidgetRef ref, Household household) async {
+  Future<void> _toggleFoodFeature(
+    BuildContext context,
+    WidgetRef ref,
+    Household household,
+  ) async {
     final enable = !household.foodEnabled;
     final confirmed = await AppDialog.confirm(
       context,
@@ -35,11 +39,15 @@ class HouseholdSettingsScreen extends ConsumerWidget {
     if (!confirmed || !context.mounted) return;
 
     try {
-      await ref.read(householdRepositoryProvider).updateFoodFeature(household.id, enable);
+      await ref
+          .read(householdRepositoryProvider)
+          .updateFoodFeature(household.id, enable);
       ref.invalidate(householdsProvider);
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
@@ -58,17 +66,27 @@ class HouseholdSettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: AppSpacing.sm),
+            padding: const EdgeInsets.only(
+              left: AppSpacing.xs,
+              bottom: AppSpacing.sm,
+            ),
             child: Text(
               'YEMEK',
-              style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant, letterSpacing: 0.3),
+              style: textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                letterSpacing: 0.3,
+              ),
             ),
           ),
           Card(
             child: AppSwitchTile(
               value: live.foodEnabled,
               onChanged: (_) => _toggleFoodFeature(context, ref, live),
-              leading: Icon(live.foodEnabled ? Icons.restaurant_rounded : Icons.restaurant_outlined),
+              leading: Icon(
+                live.foodEnabled
+                    ? Icons.restaurant_rounded
+                    : Icons.restaurant_outlined,
+              ),
               title: 'Yemek özellikleri',
               subtitle: 'Tarifler, AI Chef ve son kullanma tarihi takibi',
             ),

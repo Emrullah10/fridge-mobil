@@ -4,6 +4,9 @@ import 'package:intl/intl.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_number_field.dart';
+import '../../../core/ui/app_date_picker.dart';
+import '../../../core/validation/validators.dart';
 import '../../../core/widgets/button_progress.dart';
 import '../../../core/widgets/form_error_text.dart';
 import '../../../core/widgets/responsive.dart';
@@ -90,7 +93,11 @@ class _AddInventoryItemScreenState
       if (planLimitInfo != null) {
         final controllerAsync = ref.read(paywallControllerProvider);
         controllerAsync.whenData((controller) {
-          controller.maybeShow(context, trigger: PaywallTrigger.lockedFeatureTap, info: planLimitInfo);
+          controller.maybeShow(
+            context,
+            trigger: PaywallTrigger.lockedFeatureTap,
+            info: planLimitInfo,
+          );
         });
       } else {
         setState(() => _errorMessage = describeApiError(error));
@@ -101,8 +108,8 @@ class _AddInventoryItemScreenState
   }
 
   Future<void> _pickExpiryDate() async {
-    final picked = await showDatePicker(
-      context: context,
+    final picked = await showAppDatePicker(
+      context,
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
@@ -111,12 +118,13 @@ class _AddInventoryItemScreenState
   }
 
   Future<void> _save() async {
+    FocusScope.of(context).unfocus();
     final product = _selectedProduct;
     if (product == null) {
       setState(() => _errorMessage = 'Önce bir ürün seç');
       return;
     }
-    final quantity = double.tryParse(_quantityController.text);
+    final quantity = Validators.parseDecimal(_quantityController.text);
     if (quantity == null || quantity <= 0) {
       setState(() => _errorMessage = 'Geçerli bir miktar gir');
       return;
@@ -127,8 +135,7 @@ class _AddInventoryItemScreenState
       _errorMessage = null;
     });
 
-    final priceText = _unitPriceController.text.trim().replaceAll(',', '.');
-    final unitPrice = priceText.isEmpty ? null : double.tryParse(priceText);
+    final unitPrice = Validators.parseDecimal(_unitPriceController.text);
 
     try {
       await ref
@@ -191,11 +198,8 @@ class _AddInventoryItemScreenState
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-              TextField(
+              AppNumberField(
                 controller: _quantityController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
                 textInputAction: TextInputAction.next,
                 onSubmitted: (_) => _unitPriceFocus.requestFocus(),
                 decoration: InputDecoration(
@@ -204,12 +208,9 @@ class _AddInventoryItemScreenState
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              TextField(
+              AppNumberField(
                 controller: _unitPriceController,
                 focusNode: _unitPriceFocus,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _isSaving ? null : _save(),
                 decoration: const InputDecoration(

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart' show PackageType;
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_icons.dart';
+import '../../../core/ui/app_progress.dart';
 import '../application/entitlements_providers.dart';
 import '../data/purchase_repository.dart';
 import 'widgets/premium_benefits_card.dart';
@@ -45,18 +47,27 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       _products.where((p) => !p.identifier.contains('family')).toList();
   List<PurchaseProduct> get _familyProducts =>
       _products.where((p) => p.identifier.contains('family')).toList();
-  List<PurchaseProduct> get _visibleProducts => _familyTab ? _familyProducts : _individualProducts;
+  List<PurchaseProduct> get _visibleProducts =>
+      _familyTab ? _familyProducts : _individualProducts;
 
   /// Aylık/yıllık ayrımı artık RC'nin `packageType`'ıyla yapılır —
   /// `identifier.contains('annual')` string tahmini yalnızca `packageType`
   /// gelmediyse (unknown/custom) yedek olarak kalır.
   PurchaseProduct? _annualOf(List<PurchaseProduct> list) =>
       list.where((p) => p.packageType == PackageType.annual).firstOrNull ??
-      list.where((p) => p.packageType == null && p.identifier.contains('annual')).firstOrNull;
+      list
+          .where(
+            (p) => p.packageType == null && p.identifier.contains('annual'),
+          )
+          .firstOrNull;
 
   PurchaseProduct? _monthlyOf(List<PurchaseProduct> list) =>
       list.where((p) => p.packageType == PackageType.monthly).firstOrNull ??
-      list.where((p) => p.packageType == null && p.identifier.contains('monthly')).firstOrNull;
+      list
+          .where(
+            (p) => p.packageType == null && p.identifier.contains('monthly'),
+          )
+          .firstOrNull;
 
   /// try/catch/finally ile sarılı — eskiden fetchOfferings() bir exception
   /// fırlatırsa hiç yakalanmıyordu, bu da _loading hiç false olmadığı için
@@ -68,14 +79,18 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       _failure = null;
     });
     try {
-      final result = await ref.read(purchaseRepositoryProvider).fetchOfferings();
+      final result = await ref
+          .read(purchaseRepositoryProvider)
+          .fetchOfferings();
       if (!mounted) return;
       setState(() {
         _products = result.products;
         _failure = result.failure;
         _debugMessage = result.debugMessage;
         // Yıllık varsayılan seçili (plan §Faz 4 "Paywall içeriği").
-        _selectedId = _annualOf(_individualProducts)?.identifier ?? _individualProducts.firstOrNull?.identifier;
+        _selectedId =
+            _annualOf(_individualProducts)?.identifier ??
+            _individualProducts.firstOrNull?.identifier;
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -93,7 +108,9 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   Future<void> _purchase() async {
     if (_selectedId == null) return;
     setState(() => _purchasing = true);
-    final result = await ref.read(purchaseRepositoryProvider).purchase(_selectedId!);
+    final result = await ref
+        .read(purchaseRepositoryProvider)
+        .purchase(_selectedId!);
     if (!mounted) return;
     setState(() => _purchasing = false);
 
@@ -107,7 +124,9 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     if (result.cancelled) return; // sessizce kapat, hata gösterme
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.errorMessage ?? 'Satın alma başarısız oldu.')),
+        SnackBar(
+          content: Text(result.errorMessage ?? 'Satın alma başarısız oldu.'),
+        ),
       );
     }
   }
@@ -117,7 +136,9 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   /// ama hiçbir ekrandan çağrılmıyordu.
   Future<void> _restore() async {
     setState(() => _restoring = true);
-    final restored = await ref.read(purchaseRepositoryProvider).restorePurchases();
+    final restored = await ref
+        .read(purchaseRepositoryProvider)
+        .restorePurchases();
     if (!mounted) return;
     setState(() => _restoring = false);
     if (restored) {
@@ -125,7 +146,11 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(restored ? 'Satın alımların geri yüklendi.' : 'Geri yüklenecek bir satın alma bulunamadı.'),
+        content: Text(
+          restored
+              ? 'Satın alımların geri yüklendi.'
+              : 'Geri yüklenecek bir satın alma bulunamadı.',
+        ),
       ),
     );
   }
@@ -134,8 +159,11 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   /// ürün deneme/indirim içeriyorsa süre ve sonraki fiyatı da anmalı —
   /// bildirimsiz deneme sürüm reddi sebebi olabilir.
   String _renewalDisclosure() {
-    final selected = _visibleProducts.where((p) => p.identifier == _selectedId).firstOrNull;
-    if (selected == null) return 'Otomatik yenilenir · İstediğin zaman iptal edebilirsin';
+    final selected = _visibleProducts
+        .where((p) => p.identifier == _selectedId)
+        .firstOrNull;
+    if (selected == null)
+      return 'Otomatik yenilenir · İstediğin zaman iptal edebilirsin';
     final period = selected.trialPeriodLabel;
     if (selected.hasFreeTrial && period != null) {
       return 'İlk $period ücretsiz, sonra ${selected.priceString} · İstediğin zaman iptal edebilirsin';
@@ -153,7 +181,8 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded),
+          tooltip: 'Kapat',
+          icon: Icon(AppIcons.close(context)),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -161,13 +190,23 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
-            Icon(Icons.workspace_premium_rounded, size: 56, color: theme.colorScheme.primary),
+            Icon(
+              Icons.workspace_premium_rounded,
+              size: 56,
+              color: theme.colorScheme.primary,
+            ),
             const SizedBox(height: AppSpacing.md),
-            Text('Fridge Premium', style: theme.textTheme.headlineSmall, textAlign: TextAlign.center),
+            Text(
+              'Elde Premium',
+              style: theme.textTheme.headlineSmall,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               'Sınırsız fiş tarama, tarif üretimi ve AI Chef',
-              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -176,10 +215,14 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
             if (_loading)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: AppProgress()),
               )
             else if (_failure != null)
-              _OfferingsProblemNotice(failure: _failure!, debugMessage: _debugMessage, onRetry: _loadProducts)
+              _OfferingsProblemNotice(
+                failure: _failure!,
+                debugMessage: _debugMessage,
+                onRetry: _loadProducts,
+              )
             else ...[
               if (_familyProducts.isNotEmpty) ...[
                 _PlanTabSelector(
@@ -192,7 +235,9 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: Text(
                       'Ev halkın tam premium olur.',
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -202,19 +247,28 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                   product: product,
                   selected: product.identifier == _selectedId,
                   onTap: () => setState(() => _selectedId = product.identifier),
-                  monthlyForComparison: product.packageType == PackageType.annual ? _monthlyOf(_visibleProducts) : null,
+                  monthlyForComparison:
+                      product.packageType == PackageType.annual
+                      ? _monthlyOf(_visibleProducts)
+                      : null,
                 ),
               const SizedBox(height: AppSpacing.lg),
               FilledButton(
                 onPressed: _purchasing ? null : _purchase,
                 child: _purchasing
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: AppProgress(strokeWidth: 2),
+                      )
                     : const Text('Devam Et'),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 _renewalDisclosure(),
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -222,7 +276,11 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                 child: TextButton(
                   onPressed: _restoring ? null : _restore,
                   child: _restoring
-                      ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: AppProgress(strokeWidth: 2),
+                        )
                       : const Text('Satın alımları geri yükle'),
                 ),
               ),
@@ -235,7 +293,10 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 }
 
 class _PlanTabSelector extends StatelessWidget {
-  const _PlanTabSelector({required this.familySelected, required this.onSelect});
+  const _PlanTabSelector({
+    required this.familySelected,
+    required this.onSelect,
+  });
 
   final bool familySelected;
   final void Function(bool family) onSelect;
@@ -251,8 +312,20 @@ class _PlanTabSelector extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(child: _TabButton(label: 'Bireysel', selected: !familySelected, onTap: () => onSelect(false))),
-          Expanded(child: _TabButton(label: 'Aile', selected: familySelected, onTap: () => onSelect(true))),
+          Expanded(
+            child: _TabButton(
+              label: 'Bireysel',
+              selected: !familySelected,
+              onTap: () => onSelect(false),
+            ),
+          ),
+          Expanded(
+            child: _TabButton(
+              label: 'Aile',
+              selected: familySelected,
+              onTap: () => onSelect(true),
+            ),
+          ),
         ],
       ),
     );
@@ -260,7 +333,11 @@ class _PlanTabSelector extends StatelessWidget {
 }
 
 class _TabButton extends StatelessWidget {
-  const _TabButton({required this.label, required this.selected, required this.onTap});
+  const _TabButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String label;
   final bool selected;
@@ -282,7 +359,9 @@ class _TabButton extends StatelessWidget {
         child: Text(
           label,
           style: theme.textTheme.labelLarge?.copyWith(
-            color: selected ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+            color: selected
+                ? theme.colorScheme.onSurface
+                : theme.colorScheme.onSurfaceVariant,
             fontWeight: selected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
@@ -295,17 +374,24 @@ class _TabButton extends StatelessWidget {
 /// suçlayıcı olmayan bir dille anlatır + "Tekrar dene" butonu — eskiden
 /// tek bir "yakında açılıyor" metni vardı, sorunun sebebi hiç görünmüyordu.
 class _OfferingsProblemNotice extends StatelessWidget {
-  const _OfferingsProblemNotice({required this.failure, required this.debugMessage, required this.onRetry});
+  const _OfferingsProblemNotice({
+    required this.failure,
+    required this.debugMessage,
+    required this.onRetry,
+  });
 
   final OfferingsFailure failure;
   final String? debugMessage;
   final VoidCallback onRetry;
 
   String get _message => switch (failure) {
-        OfferingsFailure.notConfigured => 'Abonelik satın alma şu an bu sürümde kapalı.',
-        OfferingsFailure.noOffering => 'Paketler şu anda yüklenemedi, birazdan tekrar dene.',
-        OfferingsFailure.storeError => 'Mağazaya ulaşılamadı — internet bağlantını kontrol edip tekrar dene.',
-      };
+    OfferingsFailure.notConfigured =>
+      'Abonelik satın alma şu an bu sürümde kapalı.',
+    OfferingsFailure.noOffering =>
+      'Paketler şu anda yüklenemedi, birazdan tekrar dene.',
+    OfferingsFailure.storeError =>
+      'Mağazaya ulaşılamadı — internet bağlantını kontrol edip tekrar dene.',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -314,18 +400,26 @@ class _OfferingsProblemNotice extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
       child: Column(
         children: [
-          Icon(Icons.cloud_off_rounded, size: 40, color: theme.colorScheme.onSurfaceVariant),
+          Icon(
+            Icons.cloud_off_rounded,
+            size: 40,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             _message,
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
             textAlign: TextAlign.center,
           ),
           if (kDebugMode && debugMessage != null) ...[
             const SizedBox(height: AppSpacing.xs),
             Text(
               '${failure.name}: $debugMessage',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
               textAlign: TextAlign.center,
             ),
           ],

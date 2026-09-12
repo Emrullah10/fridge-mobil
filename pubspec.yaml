@@ -1,5 +1,5 @@
 name: fridge_mobil
-description: "Fiş tarayarak envanterini otomatik güncelleyen, alanlara göre buzdolabı/dondurucu/kiler takibi yapan uygulama."
+description: "Elindeki her şey tek yerde — fiş tarayarak envanterini otomatik güncelleyen, alanlara göre buzdolabı/dondurucu/kiler takibi yapan uygulama."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: "none" # Remove this line if you wish to publish to pub.dev
@@ -75,7 +75,7 @@ dev_dependencies:
 
 flutter_launcher_icons:
   android: true
-  ios: false
+  ios: true
   image_path: "assets/icon/app_icon.png"
   adaptive_icon_background: "#096444"
   adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
@@ -93,6 +93,7 @@ flutter:
 
   assets:
     - .env
+    - assets/images/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

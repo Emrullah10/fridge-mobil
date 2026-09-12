@@ -7,20 +7,24 @@ PricingPhase _phase({
   required OfferPaymentMode mode,
   required double price,
   int? billingCycleCount,
-}) =>
-    PricingPhase(
-      const Period(PeriodUnit.month, 1, 'P1M'),
-      RecurrenceMode.finiteRecurring,
-      billingCycleCount,
-      Price('₺${price.toStringAsFixed(2)}', (price * 1000000).round(), 'TRY'),
-      mode,
-    );
+}) => PricingPhase(
+  const Period(PeriodUnit.month, 1, 'P1M'),
+  RecurrenceMode.finiteRecurring,
+  billingCycleCount,
+  Price('₺${price.toStringAsFixed(2)}', (price * 1000000).round(), 'TRY'),
+  mode,
+);
 
 void main() {
   group('OfferingsResult', () {
     test('success taşır, failure null', () {
       const products = [
-        PurchaseProduct(identifier: 'p1', priceString: '₺79,99', title: 'Aylık', description: 'desc'),
+        PurchaseProduct(
+          identifier: 'p1',
+          priceString: '₺79,99',
+          title: 'Aylık',
+          description: 'desc',
+        ),
       ];
       const result = OfferingsResult.success(products);
       expect(result.products, products);
@@ -29,7 +33,10 @@ void main() {
     });
 
     test('failed products boş liste döner, failure/debugMessage taşınır', () {
-      const result = OfferingsResult.failed(OfferingsFailure.storeError, debugMessage: 'network down');
+      const result = OfferingsResult.failed(
+        OfferingsFailure.storeError,
+        debugMessage: 'network down',
+      );
       expect(result.products, isEmpty);
       expect(result.failure, OfferingsFailure.storeError);
       expect(result.debugMessage, 'network down');
@@ -54,71 +61,130 @@ void main() {
         priceString: product.priceString,
         title: product.title,
         description: product.description,
-        freePhase: _phase(mode: OfferPaymentMode.freeTrial, price: 0, billingCycleCount: 1),
+        freePhase: _phase(
+          mode: OfferPaymentMode.freeTrial,
+          price: 0,
+          billingCycleCount: 1,
+        ),
       );
       expect(withTrial.hasFreeTrial, isTrue);
       expect(withTrial.hasIntroDiscount, isFalse);
       expect(withTrial.trialPeriodLabel, '1 ay');
     });
 
-    test('introPhase indirimli ödemeyse hasIntroDiscount true, hasFreeTrial false', () {
-      final product = PurchaseProduct(
-        identifier: 'p1',
-        priceString: '₺79,99',
-        title: 'Yıllık',
-        description: 'desc',
-        introPhase: _phase(mode: OfferPaymentMode.discountedRecurringPayment, price: 29.99, billingCycleCount: 3),
-      );
-      expect(product.hasIntroDiscount, isTrue);
-      expect(product.hasFreeTrial, isFalse);
-      expect(product.introPriceString, '₺29.99');
-      expect(product.introCycles, 3);
-    });
+    test(
+      'introPhase indirimli ödemeyse hasIntroDiscount true, hasFreeTrial false',
+      () {
+        final product = PurchaseProduct(
+          identifier: 'p1',
+          priceString: '₺79,99',
+          title: 'Yıllık',
+          description: 'desc',
+          introPhase: _phase(
+            mode: OfferPaymentMode.discountedRecurringPayment,
+            price: 29.99,
+            billingCycleCount: 3,
+          ),
+        );
+        expect(product.hasIntroDiscount, isTrue);
+        expect(product.hasFreeTrial, isFalse);
+        expect(product.introPriceString, '₺29.99');
+        expect(product.introCycles, 3);
+      },
+    );
 
-    test('hiçbir faz/introductoryPrice yoksa ikisi de false, tüm türetilmiş alanlar null', () {
-      const product = PurchaseProduct(identifier: 'p1', priceString: '₺79,99', title: 'Aylık', description: 'desc');
-      expect(product.hasFreeTrial, isFalse);
-      expect(product.hasIntroDiscount, isFalse);
-      expect(product.introPriceString, isNull);
-      expect(product.introCycles, isNull);
-      expect(product.trialPeriodLabel, isNull);
-    });
+    test(
+      'hiçbir faz/introductoryPrice yoksa ikisi de false, tüm türetilmiş alanlar null',
+      () {
+        const product = PurchaseProduct(
+          identifier: 'p1',
+          priceString: '₺79,99',
+          title: 'Aylık',
+          description: 'desc',
+        );
+        expect(product.hasFreeTrial, isFalse);
+        expect(product.hasIntroDiscount, isFalse);
+        expect(product.introPriceString, isNull);
+        expect(product.introCycles, isNull);
+        expect(product.trialPeriodLabel, isNull);
+      },
+    );
 
-    test('iOS introductoryPrice fallback — price 0 ise deneme, aksi hâlde indirim', () {
-      const trial = PurchaseProduct(
-        identifier: 'p1',
-        priceString: '₺79,99',
-        title: 'Aylık',
-        description: 'desc',
-        introductoryPrice: IntroductoryPrice(0, '₺0,00', 'P1W', 1, PeriodUnit.week, 1),
-      );
-      expect(trial.hasFreeTrial, isTrue);
-      expect(trial.trialPeriodLabel, '1 hafta');
+    test(
+      'iOS introductoryPrice fallback — price 0 ise deneme, aksi hâlde indirim',
+      () {
+        const trial = PurchaseProduct(
+          identifier: 'p1',
+          priceString: '₺79,99',
+          title: 'Aylık',
+          description: 'desc',
+          introductoryPrice: IntroductoryPrice(
+            0,
+            '₺0,00',
+            'P1W',
+            1,
+            PeriodUnit.week,
+            1,
+          ),
+        );
+        expect(trial.hasFreeTrial, isTrue);
+        expect(trial.trialPeriodLabel, '1 hafta');
 
-      const discount = PurchaseProduct(
-        identifier: 'p2',
-        priceString: '₺79,99',
-        title: 'Aylık',
-        description: 'desc',
-        introductoryPrice: IntroductoryPrice(29.99, '₺29,99', 'P1M', 3, PeriodUnit.month, 1),
-      );
-      expect(discount.hasIntroDiscount, isTrue);
-      expect(discount.hasFreeTrial, isFalse);
-      expect(discount.introPriceString, '₺29,99');
-      expect(discount.introCycles, 3);
-    });
+        const discount = PurchaseProduct(
+          identifier: 'p2',
+          priceString: '₺79,99',
+          title: 'Aylık',
+          description: 'desc',
+          introductoryPrice: IntroductoryPrice(
+            29.99,
+            '₺29,99',
+            'P1M',
+            3,
+            PeriodUnit.month,
+            1,
+          ),
+        );
+        expect(discount.hasIntroDiscount, isTrue);
+        expect(discount.hasFreeTrial, isFalse);
+        expect(discount.introPriceString, '₺29,99');
+        expect(discount.introCycles, 3);
+      },
+    );
 
     test('discountPercentAgainst — yıllık/aylık kıyaslaması', () {
-      const monthly = PurchaseProduct(identifier: 'm', priceString: '₺79,99', title: 'Aylık', description: 'd', price: 79.99);
-      const yearly = PurchaseProduct(identifier: 'y', priceString: '₺599,99', title: 'Yıllık', description: 'd', price: 599.99);
+      const monthly = PurchaseProduct(
+        identifier: 'm',
+        priceString: '₺79,99',
+        title: 'Aylık',
+        description: 'd',
+        price: 79.99,
+      );
+      const yearly = PurchaseProduct(
+        identifier: 'y',
+        priceString: '₺599,99',
+        title: 'Yıllık',
+        description: 'd',
+        price: 599.99,
+      );
       final percent = yearly.discountPercentAgainst(monthly);
       expect(percent, isNotNull);
       expect(percent, greaterThan(0));
     });
 
     test('discountPercentAgainst — price eksikse null döner', () {
-      const yearly = PurchaseProduct(identifier: 'y', priceString: '₺599,99', title: 'Yıllık', description: 'd', price: 599.99);
-      const monthlyNoPrice = PurchaseProduct(identifier: 'm', priceString: '₺79,99', title: 'Aylık', description: 'd');
+      const yearly = PurchaseProduct(
+        identifier: 'y',
+        priceString: '₺599,99',
+        title: 'Yıllık',
+        description: 'd',
+        price: 599.99,
+      );
+      const monthlyNoPrice = PurchaseProduct(
+        identifier: 'm',
+        priceString: '₺79,99',
+        title: 'Aylık',
+        description: 'd',
+      );
       expect(yearly.discountPercentAgainst(monthlyNoPrice), isNull);
       expect(yearly.discountPercentAgainst(null), isNull);
     });
@@ -132,94 +198,119 @@ void main() {
     // gözüküyor"). `subscriptionOptions` listesindeki offer'lı seçenek
     // artık `defaultOption`'a tercih ediliyor.
     SubscriptionOption basePlan({double price = 79.99}) => SubscriptionOption(
-          'base',
-          'p1',
-          'p1',
-          [],
-          const [],
-          true,
-          null,
-          false,
-          _phase(mode: OfferPaymentMode.singlePayment, price: price),
-          null,
-          null,
-          null,
-          null,
+      'base',
+      'p1',
+      'p1',
+      [],
+      const [],
+      true,
+      null,
+      false,
+      _phase(mode: OfferPaymentMode.singlePayment, price: price),
+      null,
+      null,
+      null,
+      null,
+    );
+
+    SubscriptionOption offerOption({
+      required PricingPhase? free,
+      required PricingPhase? intro,
+    }) => SubscriptionOption(
+      'offer',
+      'p1',
+      'p1',
+      [],
+      const [],
+      false,
+      null,
+      false,
+      _phase(mode: OfferPaymentMode.singlePayment, price: 79.99),
+      free,
+      intro,
+      null,
+      null,
+    );
+
+    StoreProduct storeProduct({
+      SubscriptionOption? defaultOption,
+      List<SubscriptionOption>? options,
+    }) => StoreProduct(
+      'p1',
+      'desc',
+      'Aylık',
+      79.99,
+      '₺79,99',
+      'TRY',
+      defaultOption: defaultOption,
+      subscriptionOptions: options,
+    );
+
+    test(
+      'defaultOption offer taşımıyor ama subscriptionOptions içinde offerlı seçenek varsa o tercih edilir',
+      () {
+        final base = basePlan();
+        final offer = offerOption(
+          free: null,
+          intro: _phase(
+            mode: OfferPaymentMode.discountedRecurringPayment,
+            price: 29.99,
+            billingCycleCount: 3,
+          ),
+        );
+        final product = storeProduct(
+          defaultOption: base,
+          options: [base, offer],
         );
 
-    SubscriptionOption offerOption({required PricingPhase? free, required PricingPhase? intro}) => SubscriptionOption(
-          'offer',
-          'p1',
-          'p1',
-          [],
-          const [],
-          false,
-          null,
-          false,
-          _phase(mode: OfferPaymentMode.singlePayment, price: 79.99),
-          free,
-          intro,
-          null,
-          null,
-        );
+        final repository = PurchaseRepository();
+        final chosen = repository.bestSubscriptionOptionForTest(product);
 
-    StoreProduct storeProduct({SubscriptionOption? defaultOption, List<SubscriptionOption>? options}) => StoreProduct(
-          'p1',
-          'desc',
-          'Aylık',
-          79.99,
-          '₺79,99',
-          'TRY',
-          defaultOption: defaultOption,
-          subscriptionOptions: options,
-        );
+        expect(chosen?.id, 'offer');
+        expect(chosen?.introPhase, isNotNull);
+      },
+    );
 
-    test('defaultOption offer taşımıyor ama subscriptionOptions içinde offerlı seçenek varsa o tercih edilir', () {
-      final base = basePlan();
-      final offer = offerOption(
-        free: null,
-        intro: _phase(mode: OfferPaymentMode.discountedRecurringPayment, price: 29.99, billingCycleCount: 3),
-      );
-      final product = storeProduct(defaultOption: base, options: [base, offer]);
+    test(
+      'subscriptionOptions içinde offerlı seçenek yoksa defaultOption\'a düşer',
+      () {
+        final base = basePlan();
+        final product = storeProduct(defaultOption: base, options: [base]);
 
-      final repository = PurchaseRepository();
-      final chosen = repository.bestSubscriptionOptionForTest(product);
+        final repository = PurchaseRepository();
+        final chosen = repository.bestSubscriptionOptionForTest(product);
 
-      expect(chosen?.id, 'offer');
-      expect(chosen?.introPhase, isNotNull);
-    });
+        expect(chosen?.id, 'base');
+      },
+    );
 
-    test('subscriptionOptions içinde offerlı seçenek yoksa defaultOption\'a düşer', () {
-      final base = basePlan();
-      final product = storeProduct(defaultOption: base, options: [base]);
+    test(
+      'subscriptionOptions hiç gelmemişse (null/boş) defaultOption\'a düşer',
+      () {
+        final base = basePlan();
+        final product = storeProduct(defaultOption: base, options: null);
 
-      final repository = PurchaseRepository();
-      final chosen = repository.bestSubscriptionOptionForTest(product);
+        final repository = PurchaseRepository();
+        final chosen = repository.bestSubscriptionOptionForTest(product);
 
-      expect(chosen?.id, 'base');
-    });
-
-    test('subscriptionOptions hiç gelmemişse (null/boş) defaultOption\'a düşer', () {
-      final base = basePlan();
-      final product = storeProduct(defaultOption: base, options: null);
-
-      final repository = PurchaseRepository();
-      final chosen = repository.bestSubscriptionOptionForTest(product);
-
-      expect(chosen?.id, 'base');
-    });
+        expect(chosen?.id, 'base');
+      },
+    );
   });
 
   group('PurchaseRepository.fetchOfferings — configure() hiç çağrılmadıysa', () {
-    test('notConfigured döner, RC plugin\'ına hiç dokunulmadan (boot çökmez ilkesi)', () async {
-      // configure() bu testte hiç çağrılmadı — PurchaseRepository._configured
-      // static olduğu için başka bir testte configure() çağrılmışsa bu test
-      // yanıltıcı geçebilir; şu an projede configure()'ı çağıran bir test
-      // yok, bu yüzden güvenli.
-      final repository = PurchaseRepository();
-      final result = await repository.fetchOfferings();
-      expect(result.failure, OfferingsFailure.notConfigured);
-      expect(result.products, isEmpty);
-    });
+    test(
+      'notConfigured döner, RC plugin\'ına hiç dokunulmadan (boot çökmez ilkesi)',
+      () async {
+        // configure() bu testte hiç çağrılmadı — PurchaseRepository._configured
+        // static olduğu için başka bir testte configure() çağrılmışsa bu test
+        // yanıltıcı geçebilir; şu an projede configure()'ı çağıran bir test
+        // yok, bu yüzden güvenli.
+        final repository = PurchaseRepository();
+        final result = await repository.fetchOfferings();
+        expect(result.failure, OfferingsFailure.notConfigured);
+        expect(result.products, isEmpty);
+      },
+    );
   });
 }

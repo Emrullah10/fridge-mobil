@@ -44,7 +44,9 @@ class HouseholdMembersScreen extends ConsumerWidget {
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
@@ -70,7 +72,9 @@ class HouseholdMembersScreen extends ConsumerWidget {
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
@@ -88,7 +92,9 @@ class HouseholdMembersScreen extends ConsumerWidget {
         value: membersAsync,
         onRetry: () => ref.invalidate(householdMembersProvider(household.id)),
         data: (members) {
-          final isOwner = members.any((m) => m.userId == currentUserId && m.role == 'owner');
+          final isOwner = members.any(
+            (m) => m.userId == currentUserId && m.role == 'owner',
+          );
           return ListView(
             padding: const EdgeInsets.all(AppSpacing.md),
             children: [
@@ -99,14 +105,24 @@ class HouseholdMembersScreen extends ConsumerWidget {
                     leading: CircleAvatar(
                       backgroundColor: colorScheme.primaryContainer,
                       child: Text(
-                        member.displayName.isNotEmpty ? member.displayName[0].toUpperCase() : '?',
-                        style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.w700),
+                        member.displayName.isNotEmpty
+                            ? member.displayName[0].toUpperCase()
+                            : '?',
+                        style: TextStyle(
+                          color: colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     title: Text(member.displayName),
-                    subtitle: Text('${member.email} · ${dateFormat.format(member.joinedAt.toLocal())} katıldı'),
+                    subtitle: Text(
+                      '${member.email} · ${dateFormat.format(member.joinedAt.toLocal())} katıldı',
+                    ),
                     trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: AppSpacing.xs,
+                      ),
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -121,14 +137,18 @@ class HouseholdMembersScreen extends ConsumerWidget {
               const SizedBox(height: AppSpacing.md),
               if (isOwner)
                 OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(foregroundColor: colorScheme.error),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colorScheme.error,
+                  ),
                   onPressed: () => _delete(context, ref),
                   icon: const Icon(Icons.delete_forever_rounded, size: 18),
                   label: const Text('Alanı sil'),
                 )
               else
                 OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(foregroundColor: colorScheme.error),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colorScheme.error,
+                  ),
                   onPressed: () => _leave(context, ref),
                   icon: const Icon(Icons.exit_to_app_rounded, size: 18),
                   label: const Text('Alandan ayrıl'),

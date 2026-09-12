@@ -12,9 +12,12 @@ void main() {
       expect(Validators.email('atest.local'), isNotNull);
     });
 
-    test('nokta olmadan (domain kısmında) reddeder — eski contains(\'@\') kuralı bunu geçiriyordu', () {
-      expect(Validators.email('a@testlocal'), isNotNull);
-    });
+    test(
+      'nokta olmadan (domain kısmında) reddeder — eski contains(\'@\') kuralı bunu geçiriyordu',
+      () {
+        expect(Validators.email('a@testlocal'), isNotNull);
+      },
+    );
 
     test('null reddeder', () {
       expect(Validators.email(null), isNotNull);
@@ -32,9 +35,12 @@ void main() {
   });
 
   group('Validators.requiredPassword', () {
-    test('kısa ama dolu şifreyi kabul eder — login eski kısa şifreli kullanıcıyı bloklamamalı', () {
-      expect(Validators.requiredPassword('123'), isNull);
-    });
+    test(
+      'kısa ama dolu şifreyi kabul eder — login eski kısa şifreli kullanıcıyı bloklamamalı',
+      () {
+        expect(Validators.requiredPassword('123'), isNull);
+      },
+    );
 
     test('boş şifreyi reddeder', () {
       expect(Validators.requiredPassword(''), isNotNull);

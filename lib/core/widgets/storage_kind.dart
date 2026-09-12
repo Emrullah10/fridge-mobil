@@ -11,7 +11,11 @@ import '../theme/app_theme.dart';
 /// Bilinmeyen bir `kind` (sunucu istemciden önce güncellenmişse) `_ =>`
 /// dalına düşer — "Diğer" ikonuyla nazikçe gösterilir, çökmez.
 class StorageKindStyle {
-  const StorageKindStyle({required this.icon, required this.color, required this.label});
+  const StorageKindStyle({
+    required this.icon,
+    required this.color,
+    required this.label,
+  });
 
   final IconData icon;
   final Color color;
@@ -21,7 +25,11 @@ class StorageKindStyle {
 /// Bölüm türü seçici ve ikon kataloğu için sıralı liste — hem `kind`
 /// varsayılan ikonunu hem Türkçe etiketi taşır.
 class StorageKindOption {
-  const StorageKindOption({required this.kind, required this.icon, required this.label});
+  const StorageKindOption({
+    required this.kind,
+    required this.icon,
+    required this.label,
+  });
 
   final String kind;
   final IconData icon;
@@ -29,20 +37,60 @@ class StorageKindOption {
 }
 
 const storageKindOptions = <StorageKindOption>[
-  StorageKindOption(kind: 'fridge', icon: Icons.kitchen_rounded, label: 'Buzdolabı'),
-  StorageKindOption(kind: 'freezer', icon: Icons.ac_unit_rounded, label: 'Dondurucu'),
-  StorageKindOption(kind: 'pantry', icon: Icons.inventory_2_rounded, label: 'Kiler'),
-  StorageKindOption(kind: 'cabinet', icon: Icons.door_sliding_rounded, label: 'Mutfak Dolabı'),
+  StorageKindOption(
+    kind: 'fridge',
+    icon: Icons.kitchen_rounded,
+    label: 'Buzdolabı',
+  ),
+  StorageKindOption(
+    kind: 'freezer',
+    icon: Icons.ac_unit_rounded,
+    label: 'Dondurucu',
+  ),
+  StorageKindOption(
+    kind: 'pantry',
+    icon: Icons.inventory_2_rounded,
+    label: 'Kiler',
+  ),
+  StorageKindOption(
+    kind: 'cabinet',
+    icon: Icons.door_sliding_rounded,
+    label: 'Mutfak Dolabı',
+  ),
   StorageKindOption(kind: 'drawer', icon: Icons.dns_rounded, label: 'Çekmece'),
-  StorageKindOption(kind: 'counter', icon: Icons.countertops_rounded, label: 'Tezgah'),
-  StorageKindOption(kind: 'cellar', icon: Icons.warehouse_rounded, label: 'Depo'),
+  StorageKindOption(
+    kind: 'counter',
+    icon: Icons.countertops_rounded,
+    label: 'Tezgah',
+  ),
+  StorageKindOption(
+    kind: 'cellar',
+    icon: Icons.warehouse_rounded,
+    label: 'Depo',
+  ),
   StorageKindOption(kind: 'box', icon: Icons.inventory_rounded, label: 'Kutu'),
   StorageKindOption(kind: 'shelf', icon: Icons.shelves, label: 'Raf'),
-  StorageKindOption(kind: 'wine', icon: Icons.wine_bar_rounded, label: 'Şaraplık'),
-  StorageKindOption(kind: 'medicine', icon: Icons.medical_services_rounded, label: 'İlaç Dolabı'),
-  StorageKindOption(kind: 'balcony', icon: Icons.balcony_rounded, label: 'Balkon'),
+  StorageKindOption(
+    kind: 'wine',
+    icon: Icons.wine_bar_rounded,
+    label: 'Şaraplık',
+  ),
+  StorageKindOption(
+    kind: 'medicine',
+    icon: Icons.medical_services_rounded,
+    label: 'İlaç Dolabı',
+  ),
+  StorageKindOption(
+    kind: 'balcony',
+    icon: Icons.balcony_rounded,
+    label: 'Balkon',
+  ),
   StorageKindOption(kind: 'garage', icon: Icons.garage_rounded, label: 'Garaj'),
-  StorageKindOption(kind: 'other', icon: Icons.category_rounded, label: 'Diğer'),
+  StorageKindOption(
+    kind: 'other',
+    icon: Icons.category_rounded,
+    label: 'Diğer',
+  ),
 ];
 
 /// Serbest ikon seçimi için sunulan grid — `StorageLocation.icon` alanına
@@ -107,26 +155,90 @@ IconData? iconForKey(String? key) {
   return null;
 }
 
-StorageKindStyle storageKindStyle(BuildContext context, String kind, {String? icon}) {
+StorageKindStyle storageKindStyle(
+  BuildContext context,
+  String kind, {
+  String? icon,
+}) {
   final colors = context.appColors;
   final base = switch (kind) {
-    'fridge' => StorageKindStyle(icon: Icons.kitchen_rounded, color: colors.storageFridge, label: 'Buzdolabı'),
-    'freezer' => StorageKindStyle(icon: Icons.ac_unit_rounded, color: colors.storageFreezer, label: 'Dondurucu'),
-    'pantry' => StorageKindStyle(icon: Icons.inventory_2_rounded, color: colors.storagePantry, label: 'Kiler'),
-    'cabinet' => StorageKindStyle(icon: Icons.door_sliding_rounded, color: colors.storageOther, label: 'Mutfak Dolabı'),
-    'drawer' => StorageKindStyle(icon: Icons.dns_rounded, color: colors.storageOther, label: 'Çekmece'),
-    'counter' => StorageKindStyle(icon: Icons.countertops_rounded, color: colors.storageOther, label: 'Tezgah'),
-    'cellar' => StorageKindStyle(icon: Icons.warehouse_rounded, color: colors.storageOther, label: 'Depo'),
-    'box' => StorageKindStyle(icon: Icons.inventory_rounded, color: colors.storageOther, label: 'Kutu'),
-    'shelf' => StorageKindStyle(icon: Icons.shelves, color: colors.storageOther, label: 'Raf'),
-    'wine' => StorageKindStyle(icon: Icons.wine_bar_rounded, color: colors.storageOther, label: 'Şaraplık'),
-    'medicine' => StorageKindStyle(icon: Icons.medical_services_rounded, color: colors.storageOther, label: 'İlaç Dolabı'),
-    'balcony' => StorageKindStyle(icon: Icons.balcony_rounded, color: colors.storageOther, label: 'Balkon'),
-    'garage' => StorageKindStyle(icon: Icons.garage_rounded, color: colors.storageOther, label: 'Garaj'),
-    _ => StorageKindStyle(icon: Icons.category_rounded, color: colors.storageOther, label: 'Diğer'),
+    'fridge' => StorageKindStyle(
+      icon: Icons.kitchen_rounded,
+      color: colors.storageFridge,
+      label: 'Buzdolabı',
+    ),
+    'freezer' => StorageKindStyle(
+      icon: Icons.ac_unit_rounded,
+      color: colors.storageFreezer,
+      label: 'Dondurucu',
+    ),
+    'pantry' => StorageKindStyle(
+      icon: Icons.inventory_2_rounded,
+      color: colors.storagePantry,
+      label: 'Kiler',
+    ),
+    'cabinet' => StorageKindStyle(
+      icon: Icons.door_sliding_rounded,
+      color: colors.storageOther,
+      label: 'Mutfak Dolabı',
+    ),
+    'drawer' => StorageKindStyle(
+      icon: Icons.dns_rounded,
+      color: colors.storageOther,
+      label: 'Çekmece',
+    ),
+    'counter' => StorageKindStyle(
+      icon: Icons.countertops_rounded,
+      color: colors.storageOther,
+      label: 'Tezgah',
+    ),
+    'cellar' => StorageKindStyle(
+      icon: Icons.warehouse_rounded,
+      color: colors.storageOther,
+      label: 'Depo',
+    ),
+    'box' => StorageKindStyle(
+      icon: Icons.inventory_rounded,
+      color: colors.storageOther,
+      label: 'Kutu',
+    ),
+    'shelf' => StorageKindStyle(
+      icon: Icons.shelves,
+      color: colors.storageOther,
+      label: 'Raf',
+    ),
+    'wine' => StorageKindStyle(
+      icon: Icons.wine_bar_rounded,
+      color: colors.storageOther,
+      label: 'Şaraplık',
+    ),
+    'medicine' => StorageKindStyle(
+      icon: Icons.medical_services_rounded,
+      color: colors.storageOther,
+      label: 'İlaç Dolabı',
+    ),
+    'balcony' => StorageKindStyle(
+      icon: Icons.balcony_rounded,
+      color: colors.storageOther,
+      label: 'Balkon',
+    ),
+    'garage' => StorageKindStyle(
+      icon: Icons.garage_rounded,
+      color: colors.storageOther,
+      label: 'Garaj',
+    ),
+    _ => StorageKindStyle(
+      icon: Icons.category_rounded,
+      color: colors.storageOther,
+      label: 'Diğer',
+    ),
   };
 
   final customIcon = iconForKey(icon);
   if (customIcon == null) return base;
-  return StorageKindStyle(icon: customIcon, color: base.color, label: base.label);
+  return StorageKindStyle(
+    icon: customIcon,
+    color: base.color,
+    label: base.label,
+  );
 }

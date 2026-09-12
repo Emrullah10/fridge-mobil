@@ -48,9 +48,11 @@ const _allTabItems = <AppBottomTabItem>[
     label: 'Tarifler',
   ),
   (
+    // Eskiden Icons.savings_rounded (domuz kumbarası) — kullanıcı bunu
+    // istemedi, cüzdan ikonuna geçildi.
     tab: AppBottomTab.insights,
-    icon: Icons.savings_rounded,
-    outlinedIcon: Icons.savings_outlined,
+    icon: Icons.account_balance_wallet_rounded,
+    outlinedIcon: Icons.account_balance_wallet_outlined,
     label: 'Para',
   ),
   (
@@ -298,54 +300,65 @@ class _NavTab extends StatelessWidget {
         ? colorScheme.onSecondaryContainer
         : colorScheme.onSurfaceVariant;
 
-    return Semantics(
-      selected: selected,
-      button: true,
-      label: item.label,
-      child: InkWell(
-        onTap: () {
-          AppHaptics.selection();
-          onTap();
-        },
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Seçilince ikon hafifçe büyür ve çizgiden doluya döner.
-            AnimatedScale(
-              scale: selected ? 1.12 : 1,
-              duration: _animDuration,
-              curve: Curves.easeOutBack,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                transitionBuilder: (child, animation) => ScaleTransition(
-                  scale: animation,
-                  child: FadeTransition(opacity: animation, child: child),
+    // Navbar sabit yükseklikte (kBottomNavHeight) — indicator geometrisi
+    // buna bağlı (bkz. üstteki AnimatedBuilder). Sistem yazı boyutu en
+    // büyük ayarda (iOS AX5, textScale ~3.0×) ikon+boşluk+etiket dikeyde
+    // RenderFlex overflow atıyordu. `Text` zaten `maxLines: 1` + ellipsis
+    // ile YATAY taşmayı önlüyordu ama DİKEY yükseklik satır yüksekliğiyle
+    // birlikte büyüyordu. Navbar etiketi zaten kısa/sabit Türkçe kelimeler
+    // (Alanlarım, Alışveriş, Ayarlar) — okunabilirlik kaybı olmadan
+    // 1.3×'te sınırlanabilir.
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: Semantics(
+        selected: selected,
+        button: true,
+        label: item.label,
+        child: InkWell(
+          onTap: () {
+            AppHaptics.selection();
+            onTap();
+          },
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Seçilince ikon hafifçe büyür ve çizgiden doluya döner.
+              AnimatedScale(
+                scale: selected ? 1.12 : 1,
+                duration: _animDuration,
+                curve: Curves.easeOutBack,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  transitionBuilder: (child, animation) => ScaleTransition(
+                    scale: animation,
+                    child: FadeTransition(opacity: animation, child: child),
+                  ),
+                  child: Icon(
+                    selected ? item.icon : item.outlinedIcon,
+                    // AnimatedSwitcher'ın eskiyi/yeniyi ayırt etmesi için key şart.
+                    key: ValueKey(selected),
+                    size: 24,
+                    color: color,
+                  ),
                 ),
-                child: Icon(
-                  selected ? item.icon : item.outlinedIcon,
-                  // AnimatedSwitcher'ın eskiyi/yeniyi ayırt etmesi için key şart.
-                  key: ValueKey(selected),
-                  size: 24,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              AnimatedDefaultTextStyle(
+                duration: _animDuration,
+                curve: Curves.easeOut,
+                style: (textTheme.labelSmall ?? const TextStyle()).copyWith(
                   color: color,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            AnimatedDefaultTextStyle(
-              duration: _animDuration,
-              curve: Curves.easeOut,
-              style: (textTheme.labelSmall ?? const TextStyle()).copyWith(
-                color: color,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              ),
-              child: Text(
-                item.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

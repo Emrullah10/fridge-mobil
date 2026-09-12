@@ -20,7 +20,10 @@ class OnDeviceOcr {
     final result = await _recognizer.processImage(inputImage);
     final lines = result.blocks.expand((block) => block.lines).toList()
       ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-    return lines.map((line) => line.text.trim()).where((text) => text.isNotEmpty).toList();
+    return lines
+        .map((line) => line.text.trim())
+        .where((text) => text.isNotEmpty)
+        .toList();
   }
 
   void dispose() => _recognizer.close();

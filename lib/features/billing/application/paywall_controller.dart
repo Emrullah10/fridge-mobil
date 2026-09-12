@@ -14,12 +14,12 @@ import '../presentation/paywall_sheet.dart';
 /// - "Şimdi değil" derse o tetikleyici 14 gün susar.
 /// - İlk oturumda hiç gösterilmez (kota-doldu hariç).
 enum PaywallTrigger {
-  quotaExceeded,      // her zaman gösterilir, frekans kısıtı yok
-  trialEndingSoon,    // 7 günde 1
-  trialEnded,         // 1 kez (tam ekran, ayrı akış — bu controller'ın kapsamı dışı)
-  usageWarning80,     // 24 saatte 1, banner (modal değil — burada tetiklenmez)
-  lockedFeatureTap,   // her zaman (kullanıcının doğrudan aksiyonu)
-  winBack,            // abonelik bitiminden 7 gün sonra, 1 kez
+  quotaExceeded, // her zaman gösterilir, frekans kısıtı yok
+  trialEndingSoon, // 7 günde 1
+  trialEnded, // 1 kez (tam ekran, ayrı akış — bu controller'ın kapsamı dışı)
+  usageWarning80, // 24 saatte 1, banner (modal değil — burada tetiklenmez)
+  lockedFeatureTap, // her zaman (kullanıcının doğrudan aksiyonu)
+  winBack, // abonelik bitiminden 7 gün sonra, 1 kez
 }
 
 class PaywallController {
@@ -36,30 +36,38 @@ class PaywallController {
   /// showPaywallSheet'in gerçek bir BuildContext/widget ağacı kurmadan
   /// frekans mantığını doğrudan test etmeyi sağlar (bkz.
   /// paywall_controller_test.dart).
-  bool isFrequencyLimited(PaywallTrigger trigger) => _isFrequencyLimited(trigger);
+  bool isFrequencyLimited(PaywallTrigger trigger) =>
+      _isFrequencyLimited(trigger);
 
   /// Tetikleyici başına minimum tekrar aralığı. `usageWarning80` bir banner
   /// (modal değil) — dokümantasyondaki "24 saatte 1" kuralı burada
   /// gerçekleşir. Diğerleri 7 gün.
   Duration _minInterval(PaywallTrigger trigger) =>
-      trigger == PaywallTrigger.usageWarning80 ? const Duration(hours: 24) : const Duration(days: 7);
+      trigger == PaywallTrigger.usageWarning80
+      ? const Duration(hours: 24)
+      : const Duration(days: 7);
 
   bool _isFrequencyLimited(PaywallTrigger trigger) {
-    if (trigger == PaywallTrigger.quotaExceeded || trigger == PaywallTrigger.lockedFeatureTap) {
+    if (trigger == PaywallTrigger.quotaExceeded ||
+        trigger == PaywallTrigger.lockedFeatureTap) {
       return false; // kullanıcının doğrudan aksiyonu — her zaman gösterilir
     }
     // Banner tetikleyicileri (usageWarning80) modal değil — "oturumda en
     // fazla 1" kısıtı sadece modal/tam ekran tetikleyicilere uygulanır.
-    if (_shownThisSession && trigger != PaywallTrigger.usageWarning80) return true;
+    if (_shownThisSession && trigger != PaywallTrigger.usageWarning80)
+      return true;
 
     final dismissedUntil = _prefs.getInt('$_dismissedPrefix${trigger.name}');
-    if (dismissedUntil != null && DateTime.now().millisecondsSinceEpoch < dismissedUntil) {
+    if (dismissedUntil != null &&
+        DateTime.now().millisecondsSinceEpoch < dismissedUntil) {
       return true;
     }
 
     final lastShown = _prefs.getInt('$_lastShownPrefix${trigger.name}');
     if (lastShown != null) {
-      final sinceLastShown = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(lastShown));
+      final sinceLastShown = DateTime.now().difference(
+        DateTime.fromMillisecondsSinceEpoch(lastShown),
+      );
       if (sinceLastShown < _minInterval(trigger)) return true;
     }
 
@@ -72,11 +80,16 @@ class PaywallController {
 
   void _recordShown(PaywallTrigger trigger) {
     _shownThisSession = true;
-    _prefs.setInt('$_lastShownPrefix${trigger.name}', DateTime.now().millisecondsSinceEpoch);
+    _prefs.setInt(
+      '$_lastShownPrefix${trigger.name}',
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   void _recordDismissed(PaywallTrigger trigger) {
-    final until = DateTime.now().add(const Duration(days: 14)).millisecondsSinceEpoch;
+    final until = DateTime.now()
+        .add(const Duration(days: 14))
+        .millisecondsSinceEpoch;
     _prefs.setInt('$_dismissedPrefix${trigger.name}', until);
   }
 
@@ -98,10 +111,14 @@ class PaywallController {
     await showPaywallSheet(
       context,
       info: info,
-      onUpgrade: onUpgrade ??
+      onUpgrade:
+          onUpgrade ??
           () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const PaywallScreen()),
-              ),
+            MaterialPageRoute(
+              fullscreenDialog: true,
+              builder: (_) => const PaywallScreen(),
+            ),
+          ),
     );
     // showPaywallSheet kapanınca (kullanıcı "Şimdi değil" veya dışarı
     // dokunarak kapattıysa) 14 günlük susturma başlar. "Yükselt"e bastıysa
@@ -112,9 +129,13 @@ class PaywallController {
   }
 }
 
-final _sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) => SharedPreferences.getInstance());
+final _sharedPreferencesProvider = FutureProvider<SharedPreferences>(
+  (ref) => SharedPreferences.getInstance(),
+);
 
-final paywallControllerProvider = Provider<AsyncValue<PaywallController>>((ref) {
+final paywallControllerProvider = Provider<AsyncValue<PaywallController>>((
+  ref,
+) {
   final prefsAsync = ref.watch(_sharedPreferencesProvider);
   return prefsAsync.whenData((prefs) => PaywallController(prefs));
 });

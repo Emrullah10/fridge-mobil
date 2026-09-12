@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_icons.dart';
+import '../../../core/ui/app_text_form_field.dart';
 import '../../../core/validation/validators.dart';
 import '../../../core/widgets/button_progress.dart';
 import '../../../core/widgets/form_error_text.dart';
@@ -39,6 +41,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -72,10 +75,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   const SizedBox(height: AppSpacing.xl),
                   const AuthHeroHeader(
-                    subtitle: 'Dolabındaki her şey tek yerde',
+                    subtitle: 'Elindeki her şey tek yerde',
                   ),
                   const SizedBox(height: AppSpacing.xl),
-                  TextFormField(
+                  AppTextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
@@ -84,14 +87,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       AutofillHints.email,
                     ],
                     onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'E-posta',
-                      prefixIcon: Icon(Icons.mail_outline),
+                      prefixIcon: Icon(AppIcons.mail(context)),
                     ),
                     validator: Validators.email,
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  TextFormField(
+                  AppTextFormField(
                     controller: _passwordController,
                     focusNode: _passwordFocus,
                     obscureText: _obscurePassword,
@@ -100,12 +103,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onFieldSubmitted: (_) => _isSubmitting ? null : _submit(),
                     decoration: InputDecoration(
                       labelText: 'Şifre',
-                      prefixIcon: const Icon(Icons.lock_outline),
+                      prefixIcon: Icon(AppIcons.lock(context)),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
+                              ? AppIcons.eye(context)
+                              : AppIcons.eyeOff(context),
                         ),
                         tooltip: _obscurePassword
                             ? 'Şifreyi göster'

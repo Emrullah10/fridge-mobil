@@ -129,7 +129,9 @@ class AppShellState extends ConsumerState<AppShell> {
     // silinmiş/erişimi kalkmış bir alan (bkz. householdNotFoundNotifier,
     // .wolf/buglog.json 2026-09-06). Kullanıcıyı 404'lerin içinde takılı
     // bırakmak yerine sessizce alan listesine döndürülür.
-    if (household != null && liveHousehold == null && ref.read(householdsProvider) is AsyncData) {
+    if (household != null &&
+        liveHousehold == null &&
+        ref.read(householdsProvider) is AsyncData) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && Navigator.of(context).canPop()) {
           Navigator.of(context).popUntil((route) => route.isFirst);

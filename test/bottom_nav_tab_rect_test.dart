@@ -4,7 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fridge_mobil/core/widgets/app_bottom_nav.dart';
 
 const _items = <AppBottomTabItem>[
-  (tab: AppBottomTab.areas, icon: Icons.grid_view_rounded, outlinedIcon: Icons.grid_view_outlined, label: 'Alanlarım'),
+  (
+    tab: AppBottomTab.areas,
+    icon: Icons.grid_view_rounded,
+    outlinedIcon: Icons.grid_view_outlined,
+    label: 'Alanlarım',
+  ),
   (
     tab: AppBottomTab.shopping,
     icon: Icons.shopping_cart_rounded,
@@ -17,7 +22,12 @@ const _items = <AppBottomTabItem>[
     outlinedIcon: Icons.savings_outlined,
     label: 'Para',
   ),
-  (tab: AppBottomTab.settings, icon: Icons.settings_rounded, outlinedIcon: Icons.settings_outlined, label: 'Ayarlar'),
+  (
+    tab: AppBottomTab.settings,
+    icon: Icons.settings_rounded,
+    outlinedIcon: Icons.settings_outlined,
+    label: 'Ayarlar',
+  ),
 ];
 
 void main() {
@@ -30,7 +40,9 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: MediaQuery(
-            data: const MediaQueryData(padding: EdgeInsets.only(bottom: bottomInset)),
+            data: const MediaQueryData(
+              padding: EdgeInsets.only(bottom: bottomInset),
+            ),
             child: Scaffold(
               bottomNavigationBar: AppBottomNav(
                 key: key,
@@ -57,7 +69,10 @@ void main() {
       // Ölçülen kutu tam navbar içeriği kadar (64) — SafeArea alt inset'i
       // İÇERMİYOR. Eski hesap Material'ı ölçüyordu → 64 + 34 = 98.
       expect(rect.height, closeTo(kBottomNavHeight, 1));
-      expect(rect.center.dy, lessThan(navTop + kBottomNavHeight)); // inset bölgesine taşmıyor
+      expect(
+        rect.center.dy,
+        lessThan(navTop + kBottomNavHeight),
+      ); // inset bölgesine taşmıyor
 
       // İkinci sekme (Alışveriş) yatayda kabaca 1.5/4 genişlik konumunda.
       final screenW = tester.getSize(find.byType(MaterialApp)).width;

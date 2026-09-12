@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_dialog.dart';
+import '../../../core/ui/app_icons.dart';
+import '../../../core/ui/app_progress.dart';
+import '../../../core/ui/app_text_field.dart';
 import '../../billing/application/paywall_controller.dart';
 import '../../billing/presentation/widgets/quota_upsell_banner.dart';
 import '../../shopping/application/shopping_providers.dart';
@@ -117,7 +120,11 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
       notifier.dismissPlanLimitInfo();
       final controllerAsync = ref.read(paywallControllerProvider);
       controllerAsync.whenData((controller) {
-        controller.maybeShow(context, trigger: PaywallTrigger.quotaExceeded, info: info);
+        controller.maybeShow(
+          context,
+          trigger: PaywallTrigger.quotaExceeded,
+          info: info,
+        );
       });
     });
 
@@ -150,7 +157,12 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
       body: Column(
         children: [
           const Padding(
-            padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
+              0,
+            ),
             child: QuotaUpsellBanner(feature: 'chef'),
           ),
           if (state.error != null)
@@ -165,7 +177,7 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
             ),
           Expanded(
             child: state.loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: AppProgress())
                 : state.messages.isEmpty
                 ? _EmptyChef(onQuick: _send, prompts: _quickPrompts)
                 : ListView.builder(
@@ -322,8 +334,13 @@ class _SuggestionBar extends StatelessWidget {
                 ),
               ),
               IconButton(
+                tooltip: 'Kapat',
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.close_rounded, size: 18),
+                // `compact` yoğunluğu görsel boyutu küçültüyor ama iOS'un
+                // 44×44pt minimumunun altına düşürüyordu — dokunma alanı
+                // burada ayrıca garanti ediliyor.
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                icon: Icon(AppIcons.close(context), size: 18),
                 onPressed: onDismiss,
               ),
             ],
@@ -375,11 +392,13 @@ class _Composer extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: TextField(
+              child: AppTextField(
                 controller: controller,
                 focusNode: focusNode,
                 minLines: 1,
                 maxLines: 4,
+                keyboardType: TextInputType.multiline,
+                textCapitalization: TextCapitalization.sentences,
                 textInputAction: TextInputAction.send,
                 decoration: const InputDecoration(
                   hintText: 'Mutfağınla ilgili bir şey sor...',
@@ -395,7 +414,7 @@ class _Composer extends StatelessWidget {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: AppProgress(strokeWidth: 2),
                     )
                   : const Icon(Icons.send_rounded),
             ),

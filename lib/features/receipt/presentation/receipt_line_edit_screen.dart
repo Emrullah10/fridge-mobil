@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_number_field.dart';
+import '../../../core/ui/app_text_field.dart';
+import '../../../core/validation/validators.dart';
+import '../../../core/widgets/form_error_text.dart';
 import '../../../core/widgets/responsive.dart';
 import '../../../core/widgets/unit_label.dart';
 import '../../household/data/household_repository.dart';
@@ -70,6 +74,8 @@ class _ReceiptLineEditScreenState extends State<ReceiptLineEditScreen> {
   late final TextEditingController _priceController;
   final _brandFocus = FocusNode();
   final _quantityFocus = FocusNode();
+  final _packSizeFocus = FocusNode();
+  final _priceFocus = FocusNode();
 
   late String _selectedProductId;
   late String _selectedProductName;
@@ -109,6 +115,8 @@ class _ReceiptLineEditScreenState extends State<ReceiptLineEditScreen> {
     _priceController.dispose();
     _brandFocus.dispose();
     _quantityFocus.dispose();
+    _packSizeFocus.dispose();
+    _priceFocus.dispose();
     super.dispose();
   }
 
@@ -125,8 +133,24 @@ class _ReceiptLineEditScreenState extends State<ReceiptLineEditScreen> {
     });
   }
 
+  String? _errorMessage;
+
   void _save() {
-    final priceText = _priceController.text.trim().replaceAll(',', '.');
+    FocusScope.of(context).unfocus();
+    final name = _nameController.text.trim();
+    final quantity = Validators.parseDecimal(_quantityController.text);
+    if (name.isEmpty) {
+      setState(() => _errorMessage = 'Ürün adı gerekli');
+      return;
+    }
+    if (quantity == null || quantity <= 0) {
+      setState(() => _errorMessage = 'Geçerli bir miktar gir');
+      return;
+    }
+    setState(() => _errorMessage = null);
+    final packSize = _selectedUnit == 'piece'
+        ? Validators.parseDecimal(_packSizeController.text)
+        : null;
     Navigator.pop(
       context,
       ReceiptLineEdit(
@@ -136,21 +160,15 @@ class _ReceiptLineEditScreenState extends State<ReceiptLineEditScreen> {
         brand: _brandController.text.trim().isEmpty
             ? null
             : _brandController.text.trim(),
-        quantity:
-            double.tryParse(_quantityController.text) ??
-            widget.item.parsedQuantity,
+        quantity: quantity,
         unit: _selectedUnit,
         // Paket boyutu yalnızca 'piece' birimi için anlamlı — birim
         // değiştiyse veya alan boş bırakıldıysa null gönderilir.
-        packSize: _selectedUnit == 'piece'
-            ? double.tryParse(_packSizeController.text)
+        packSize: packSize,
+        packUnit: _selectedUnit == 'piece' && packSize != null
+            ? _selectedPackUnit
             : null,
-        packUnit: _selectedUnit == 'piece'
-            ? (double.tryParse(_packSizeController.text) != null
-                  ? _selectedPackUnit
-                  : null)
-            : null,
-        price: priceText.isEmpty ? null : double.tryParse(priceText),
+        price: Validators.parseDecimal(_priceController.text),
         categoryKey: _selectedCategoryKey,
       ),
     );
@@ -162,9 +180,7 @@ class _ReceiptLineEditScreenState extends State<ReceiptLineEditScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Satırı Düzelt'),
-        actions: [
-          TextButton(onPressed: _save, child: const Text('Kaydet')),
-        ],
+        actions: [TextButton(onPressed: _save, child: const Text('Kaydet'))],
       ),
       body: SafeArea(
         child: AppFormScroll(
@@ -201,17 +217,24 @@ class _ReceiptLineEditScreenState extends State<ReceiptLineEditScreen> {
                 onPressed: _pickProduct,
               ),
               const SizedBox(height: AppSpacing.sm),
-              TextField(
+              AppTextField(
                 controller: _nameController,
                 textInputAction: TextInputAction.next,
+                textCapitalization: TextCapitalization.words,
+                // OCR'dan gelen ürün adları otokorreksiyonla bozuluyordu.
+                autocorrect: false,
+                enableSuggestions: false,
                 onSubmitted: (_) => _brandFocus.requestFocus(),
                 decoration: const InputDecoration(labelText: 'Ürün adı'),
               ),
               const SizedBox(height: AppSpacing.sm),
-              TextField(
+              AppTextField(
                 controller: _brandController,
                 focusNode: _brandFocus,
                 textInputAction: TextInputAction.next,
+                textCapitalization: TextCapitalization.words,
+                autocorrect: false,
+                enableSuggestions: false,
                 onSubmitted: (_) => _quantityFocus.requestFocus(),
                 decoration: const InputDecoration(
                   labelText: 'Marka (opsiyonel)',
@@ -219,13 +242,15 @@ class _ReceiptLineEditScreenState extends State<ReceiptLineEditScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              TextField(
+              AppNumberField(
                 controller: _quantityController,
                 focusNode: _quantityFocus,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                textInputAction: TextInputAction.done,
+                textInputAction: _selectedUnit == 'piece'
+                    ? TextInputAction.next
+                    : TextInputAction.done,
+                onSubmitted: (_) => _selectedUnit == 'piece'
+                    ? _packSizeFocus.requestFocus()
+                    : _save(),
                 decoration: const InputDecoration(labelText: 'Miktar'),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -246,11 +271,11 @@ class _ReceiptLineEditScreenState extends State<ReceiptLineEditScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: TextField(
+                      child: AppNumberField(
                         controller: _packSizeController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
+                        focusNode: _packSizeFocus,
+                        textInputAction: TextInputAction.next,
+                        onSubmitted: (_) => _priceFocus.requestFocus(),
                         decoration: const InputDecoration(
                           labelText: 'Paket boyutu (opsiyonel)',
                           helperText: 'örn. 6 adet × 200 ml için 200 yaz',
@@ -282,12 +307,11 @@ class _ReceiptLineEditScreenState extends State<ReceiptLineEditScreen> {
                 ),
               ],
               const SizedBox(height: AppSpacing.sm),
-              TextField(
+              AppNumberField(
                 controller: _priceController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
+                focusNode: _priceFocus,
                 textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _save(),
                 decoration: const InputDecoration(
                   labelText: 'Fiyat (opsiyonel)',
                   prefixText: '₺ ',
@@ -312,6 +336,10 @@ class _ReceiptLineEditScreenState extends State<ReceiptLineEditScreen> {
                 onChanged: (value) =>
                     setState(() => _selectedCategoryKey = value),
               ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                FormErrorText(_errorMessage!),
+              ],
               const SizedBox(height: AppSpacing.xl),
               FilledButton(onPressed: _save, child: const Text('Kaydet')),
             ],

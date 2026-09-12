@@ -5,7 +5,8 @@ import 'package:fridge_mobil/core/version/update_decision.dart';
 const _config = AppConfig(
   latestVersion: '1.2.0',
   minSupportedVersion: '1.0.0',
-  storeUrl: 'https://play.google.com/store/apps/details?id=com.fridge.fridge_mobil',
+  storeUrl:
+      'https://play.google.com/store/apps/details?id=com.fridge.fridge_mobil',
 );
 
 void main() {
@@ -30,14 +31,17 @@ void main() {
       expect(action, UpdateAction.forced);
     });
 
-    test('minSupported ile latest arasındaysa ve dismiss edilmemişse optional döner', () {
-      final action = decideUpdate(
-        currentVersion: '1.1.0',
-        config: _config,
-        dismissedVersion: null,
-      );
-      expect(action, UpdateAction.optional);
-    });
+    test(
+      'minSupported ile latest arasındaysa ve dismiss edilmemişse optional döner',
+      () {
+        final action = decideUpdate(
+          currentVersion: '1.1.0',
+          config: _config,
+          dismissedVersion: null,
+        );
+        expect(action, UpdateAction.optional);
+      },
+    );
 
     test('latestVersion zaten dismiss edilmişse none döner', () {
       final action = decideUpdate(
@@ -48,14 +52,17 @@ void main() {
       expect(action, UpdateAction.none);
     });
 
-    test('eski bir sürüm dismiss edilmiş ama şimdiki latest farklıysa yine optional döner', () {
-      final action = decideUpdate(
-        currentVersion: '1.1.0',
-        config: _config,
-        dismissedVersion: '1.1.5',
-      );
-      expect(action, UpdateAction.optional);
-    });
+    test(
+      'eski bir sürüm dismiss edilmiş ama şimdiki latest farklıysa yine optional döner',
+      () {
+        final action = decideUpdate(
+          currentVersion: '1.1.0',
+          config: _config,
+          dismissedVersion: '1.1.5',
+        );
+        expect(action, UpdateAction.optional);
+      },
+    );
 
     test('sürüm zaten güncelse none döner', () {
       final action = decideUpdate(

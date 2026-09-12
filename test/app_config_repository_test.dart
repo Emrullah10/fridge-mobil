@@ -20,10 +20,15 @@ class _CapturingAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     capturedUri = options.uri;
-    final body = '{"latestVersion":"1.0.5","minSupportedVersion":"1.0.0","storeUrl":"https://example.com"}';
-    return ResponseBody.fromString(body, 200, headers: {
-      Headers.contentTypeHeader: [Headers.jsonContentType],
-    });
+    final body =
+        '{"latestVersion":"1.0.5","minSupportedVersion":"1.0.0","storeUrl":"https://example.com"}';
+    return ResponseBody.fromString(
+      body,
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
   }
 
   @override
@@ -42,17 +47,23 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  test('isIos: false iken platform query eklenmez (Android/diğer davranışı)', () async {
-    final client = ApiClient(onUnauthorized: () async {});
-    final adapter = _CapturingAdapter();
-    client.dio.httpClientAdapter = adapter;
+  test(
+    'isIos: false iken platform query eklenmez (Android/diğer davranışı)',
+    () async {
+      final client = ApiClient(onUnauthorized: () async {});
+      final adapter = _CapturingAdapter();
+      client.dio.httpClientAdapter = adapter;
 
-    final config = await AppConfigRepository(client, isIos: false).fetch();
+      final config = await AppConfigRepository(client, isIos: false).fetch();
 
-    expect(config, isNotNull);
-    expect(config!.latestVersion, '1.0.5');
-    expect(adapter.capturedUri?.queryParameters.containsKey('platform'), isFalse);
-  });
+      expect(config, isNotNull);
+      expect(config!.latestVersion, '1.0.5');
+      expect(
+        adapter.capturedUri?.queryParameters.containsKey('platform'),
+        isFalse,
+      );
+    },
+  );
 
   test('isIos: true iken ?platform=ios eklenir', () async {
     final client = ApiClient(onUnauthorized: () async {});

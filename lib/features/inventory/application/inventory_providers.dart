@@ -24,9 +24,14 @@ class InventoryParams {
 }
 
 final inventoryItemsProvider =
-    FutureProvider.family<List<InventoryItem>, InventoryParams>((ref, params) async {
-  return ref.watch(inventoryRepositoryProvider).listItems(
-        params.householdId,
-        storageLocationId: params.storageLocationId,
-      );
-});
+    FutureProvider.family<List<InventoryItem>, InventoryParams>((
+      ref,
+      params,
+    ) async {
+      return ref
+          .watch(inventoryRepositoryProvider)
+          .listItems(
+            params.householdId,
+            storageLocationId: params.storageLocationId,
+          );
+    });

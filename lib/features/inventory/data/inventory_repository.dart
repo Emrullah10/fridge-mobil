@@ -22,15 +22,19 @@ class InventoryItem {
   final double? unitPrice;
 
   factory InventoryItem.fromJson(Map<String, dynamic> json) => InventoryItem(
-        id: json['id'] as String,
-        productId: json['productId'] as String,
-        productName: json['productName'] as String? ?? 'Bilinmeyen ürün',
-        storageLocationId: json['storageLocationId'] as String,
-        quantity: (json['quantity'] as num).toDouble(),
-        unit: json['unit'] as String,
-        expiresAt: json['expiresAt'] != null ? DateTime.parse(json['expiresAt'] as String) : null,
-        unitPrice: json['unitPrice'] != null ? (json['unitPrice'] as num).toDouble() : null,
-      );
+    id: json['id'] as String,
+    productId: json['productId'] as String,
+    productName: json['productName'] as String? ?? 'Bilinmeyen ürün',
+    storageLocationId: json['storageLocationId'] as String,
+    quantity: (json['quantity'] as num).toDouble(),
+    unit: json['unit'] as String,
+    expiresAt: json['expiresAt'] != null
+        ? DateTime.parse(json['expiresAt'] as String)
+        : null,
+    unitPrice: json['unitPrice'] != null
+        ? (json['unitPrice'] as num).toDouble()
+        : null,
+  );
 }
 
 class InventoryRepository {
@@ -38,13 +42,20 @@ class InventoryRepository {
 
   final ApiClient _client;
 
-  Future<List<InventoryItem>> listItems(String householdId, {String? storageLocationId}) async {
+  Future<List<InventoryItem>> listItems(
+    String householdId, {
+    String? storageLocationId,
+  }) async {
     final response = await _client.dio.get(
       '/households/$householdId/inventory',
-      queryParameters: storageLocationId != null ? {'storageLocationId': storageLocationId} : null,
+      queryParameters: storageLocationId != null
+          ? {'storageLocationId': storageLocationId}
+          : null,
     );
     final items = response.data['items'] as List;
-    return items.map((i) => InventoryItem.fromJson(i as Map<String, dynamic>)).toList();
+    return items
+        .map((i) => InventoryItem.fromJson(i as Map<String, dynamic>))
+        .toList();
   }
 
   /// [reason]: `consumed` (kullanıldı, para tasarrufu) | `expired` | `discarded`
@@ -94,6 +105,8 @@ class InventoryRepository {
         if (unitPrice != null) 'unitPrice': unitPrice,
       },
     );
-    return InventoryItem.fromJson(response.data['item'] as Map<String, dynamic>);
+    return InventoryItem.fromJson(
+      response.data['item'] as Map<String, dynamic>,
+    );
   }
 }

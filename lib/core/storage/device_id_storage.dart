@@ -14,16 +14,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// AYNI misafir hesabına dönmesini sağlar (backend `guest_device_id` unique
 /// index'i ile eşler).
 class DeviceIdStorage {
-  DeviceIdStorage([FlutterSecureStorage? secureStorage]) : _secureStorage = secureStorage ?? const FlutterSecureStorage();
+  DeviceIdStorage([FlutterSecureStorage? secureStorage])
+    : _secureStorage = secureStorage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _secureStorage;
   static const _key = 'guest_device_id';
 
-  bool get _useSecureStorage => !kIsWeb && (Platform.isIOS || Platform.isAndroid);
+  bool get _useSecureStorage =>
+      !kIsWeb && (Platform.isIOS || Platform.isAndroid);
 
   Future<String?> _read() {
     if (_useSecureStorage) return _secureStorage.read(key: _key);
-    return SharedPreferences.getInstance().then((prefs) => prefs.getString(_key));
+    return SharedPreferences.getInstance().then(
+      (prefs) => prefs.getString(_key),
+    );
   }
 
   Future<void> _write(String value) async {
@@ -39,7 +43,10 @@ class DeviceIdStorage {
     final random = Random.secure();
     // Backend en az 8 karakter istiyor (auth.routes.js /guest doğrulaması) —
     // 32 hex karakter (16 byte) hem yeterince benzersiz hem kısa.
-    return List.generate(16, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+    return List.generate(
+      16,
+      (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ).join();
   }
 
   /// Kayıtlı bir cihaz kimliği varsa onu döner, yoksa üretip kalıcı olarak

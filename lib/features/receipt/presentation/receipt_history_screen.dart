@@ -10,9 +10,11 @@ import '../application/receipt_providers.dart';
 import '../data/receipt_repository.dart';
 import 'receipt_review_screen.dart';
 
-final _receiptScansProvider = FutureProvider.family<List<ReceiptScanSummary>, String>(
-  (ref, householdId) => ref.read(receiptRepositoryProvider).listScans(householdId),
-);
+final _receiptScansProvider =
+    FutureProvider.family<List<ReceiptScanSummary>, String>(
+      (ref, householdId) =>
+          ref.read(receiptRepositoryProvider).listScans(householdId),
+    );
 
 /// Taranan tüm fişlerin geçmişi — özellikle inceleme yarım bırakılmış veya
 /// bir sebeple ("başarısız" görünüp aslında backend'de tamamlanmış) erişimi
@@ -22,7 +24,10 @@ class ReceiptHistoryScreen extends ConsumerWidget {
 
   final String householdId;
 
-  (IconData, Color, Color, String) _statusStyle(BuildContext context, String status) {
+  (IconData, Color, Color, String) _statusStyle(
+    BuildContext context,
+    String status,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
     return switch (status) {
       // BUG (2026-09-08 düzeltildi): rozet metni `primary` ile, zemini
@@ -34,27 +39,50 @@ class ReceiptHistoryScreen extends ConsumerWidget {
       // okunaklıydı) — "koyuda görünüyor, açıkta görünmüyor" şikayetinin
       // kök nedeni buydu. Doğru çift: onPrimaryContainer/primaryContainer.
       'review_pending' => (
-          Icons.rate_review_rounded,
-          colorScheme.onPrimaryContainer,
-          colorScheme.primaryContainer,
-          'İnceleme bekliyor',
-        ),
-      'completed' => (Icons.check_circle_rounded, colorScheme.primary, colorScheme.surfaceContainerHighest, 'Tamamlandı'),
-      'failed' => (Icons.error_outline_rounded, colorScheme.onErrorContainer, colorScheme.errorContainer, 'Başarısız'),
-      _ => (Icons.hourglass_top_rounded, colorScheme.onSurfaceVariant, colorScheme.surfaceContainerHighest, 'İşleniyor'),
+        Icons.rate_review_rounded,
+        colorScheme.onPrimaryContainer,
+        colorScheme.primaryContainer,
+        'İnceleme bekliyor',
+      ),
+      'completed' => (
+        Icons.check_circle_rounded,
+        colorScheme.primary,
+        colorScheme.surfaceContainerHighest,
+        'Tamamlandı',
+      ),
+      'failed' => (
+        Icons.error_outline_rounded,
+        colorScheme.onErrorContainer,
+        colorScheme.errorContainer,
+        'Başarısız',
+      ),
+      _ => (
+        Icons.hourglass_top_rounded,
+        colorScheme.onSurfaceVariant,
+        colorScheme.surfaceContainerHighest,
+        'İşleniyor',
+      ),
     };
   }
 
-  Future<void> _retry(BuildContext context, WidgetRef ref, String scanId) async {
+  Future<void> _retry(
+    BuildContext context,
+    WidgetRef ref,
+    String scanId,
+  ) async {
     try {
       await ref.read(receiptRepositoryProvider).retry(householdId, scanId);
       ref.invalidate(_receiptScansProvider(householdId));
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fiş yeniden işleniyor')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Fiş yeniden işleniyor')));
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
       }
     }
   }
@@ -77,18 +105,24 @@ class ReceiptHistoryScreen extends ConsumerWidget {
             );
           }
           return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(_receiptScansProvider(householdId)),
+            onRefresh: () async =>
+                ref.invalidate(_receiptScansProvider(householdId)),
             child: ListView.separated(
               padding: const EdgeInsets.all(AppSpacing.md),
               itemCount: scans.length,
               separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
               itemBuilder: (context, index) {
                 final scan = scans[index];
-                final (icon, iconColor, badgeColor, label) = _statusStyle(context, scan.status);
+                final (icon, iconColor, badgeColor, label) = _statusStyle(
+                  context,
+                  scan.status,
+                );
                 return Card(
                   child: InkWell(
                     borderRadius: BorderRadius.circular(AppRadius.card),
-                    onTap: scan.status == 'review_pending' || scan.status == 'completed'
+                    onTap:
+                        scan.status == 'review_pending' ||
+                            scan.status == 'completed'
                         ? () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -117,8 +151,11 @@ class ReceiptHistoryScreen extends ConsumerWidget {
                                 const SizedBox(height: AppSpacing.xs),
                                 Text(
                                   dateFormat.format(scan.createdAt.toLocal()),
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
                                       ),
                                 ),
                               ],
@@ -128,17 +165,27 @@ class ReceiptHistoryScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.sm,
+                                  vertical: AppSpacing.xs,
+                                ),
                                 decoration: BoxDecoration(
                                   color: badgeColor,
-                                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.pill,
+                                  ),
                                 ),
-                                child: Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: iconColor)),
+                                child: Text(
+                                  label,
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(color: iconColor),
+                                ),
                               ),
                               if (scan.status == 'failed') ...[
                                 const SizedBox(height: AppSpacing.xs),
                                 TextButton(
-                                  onPressed: () => _retry(context, ref, scan.id),
+                                  onPressed: () =>
+                                      _retry(context, ref, scan.id),
                                   child: const Text('Tekrar dene'),
                                 ),
                               ],

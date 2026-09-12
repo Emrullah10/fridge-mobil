@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/app_icons.dart';
+import '../../../core/ui/app_text_form_field.dart';
 import '../../../core/validation/validators.dart';
 import '../../../core/widgets/button_progress.dart';
 import '../../../core/widgets/form_error_text.dart';
@@ -42,6 +44,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -77,7 +80,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   subtitle: 'E-postana 6 haneli bir kod göndereceğiz',
                 ),
                 const SizedBox(height: AppSpacing.xl),
-                TextFormField(
+                AppTextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   autofocus:
@@ -89,9 +92,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     AutofillHints.email,
                   ],
                   onFieldSubmitted: (_) => _isSubmitting ? null : _submit(),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'E-posta',
-                    prefixIcon: Icon(Icons.mail_outline),
+                    prefixIcon: Icon(AppIcons.mail(context)),
                   ),
                   validator: Validators.email,
                 ),

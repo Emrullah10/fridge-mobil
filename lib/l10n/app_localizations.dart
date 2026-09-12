@@ -100,7 +100,7 @@ abstract class AppL10n {
   /// Uygulama adı
   ///
   /// In tr, this message translates to:
-  /// **'Fridge'**
+  /// **'Elde'**
   String get appTitle;
 
   /// No description provided for @navAreas.
@@ -340,7 +340,7 @@ abstract class AppL10n {
   /// No description provided for @updateAvailableMessage.
   ///
   /// In tr, this message translates to:
-  /// **'Fridge\'in yeni bir sürümü mevcut.'**
+  /// **'Elde\'nin yeni bir sürümü mevcut.'**
   String get updateAvailableMessage;
 
   /// No description provided for @updateAction.
@@ -358,7 +358,7 @@ abstract class AppL10n {
   /// No description provided for @forceUpdateTitle.
   ///
   /// In tr, this message translates to:
-  /// **'Fridge\'i kullanmaya devam etmek için güncellemen gerekiyor'**
+  /// **'Elde\'yi kullanmaya devam etmek için güncellemen gerekiyor'**
   String get forceUpdateTitle;
 
   /// No description provided for @forceUpdateAction.
