@@ -18,8 +18,10 @@ import '../../../core/widgets/household_kind.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/responsive.dart';
+import '../../../core/widgets/speed_dial_fab.dart';
 import '../../../core/widgets/storage_icon_box.dart';
 import '../../../core/widgets/storage_kind.dart';
+import '../../assistant/presentation/assistant_screen.dart';
 import '../../inventory/presentation/inventory_screen.dart';
 import '../../notification/application/notification_providers.dart';
 import '../../notification/presentation/notifications_screen.dart';
@@ -41,9 +43,17 @@ import 'edit_storage_location_dialog.dart';
 /// HouseholdHomeScreen görünür olduğu için modül düzeyinde tutmak güvenli;
 /// tur motoru bu key'lerin `currentContext`'inden ekran dikdörtgenini
 /// hesaplar.
+///
+/// scanFabKey artık speed-dial'ın ANA (tetikleyici) FAB'ına ait — "Fiş
+/// Tara" ve "AI Asistan" menüye taşındığı için tur bu ana butonu işaret
+/// ediyor (bkz. _coachSteps 1. adım).
 final scanFabKey = GlobalKey();
 final firstStorageCardKey = GlobalKey();
 final householdMoreMenuKey = GlobalKey();
+
+/// Speed-dial menüsünün açık/kapalı durumunu dışarıdan (coach tour'dan)
+/// kontrol edebilmek için. Aynı gerekçeyle modül düzeyinde.
+final homeSpeedDialKey = GlobalKey<SpeedDialFabState>();
 
 /// Bölüm kartına uzun basınca çıkan aksiyon sheet'inin seçenekleri.
 enum _LocationMenuAction { edit, delete }
@@ -447,9 +457,9 @@ class HouseholdHomeScreen extends ConsumerWidget {
     return <CoachStep>[
       CoachStep(
         targetKey: scanFabKey,
-        title: 'Fişini buradan tara',
+        title: 'Fiş tarama ve AI Asistan buradan',
         body:
-            'Market fişinin fotoğrafını çek — ürünler fiyatlarıyla envantere düşsün.',
+            'Dokun: fişini tara ya da AI Asistan\'a sor — envanterine bakıp sana yardımcı olur.',
         accent: scheme.primary,
       ),
       CoachStep(
@@ -563,12 +573,25 @@ class HouseholdHomeScreen extends ConsumerWidget {
 
     // İlk kez bir alana giriliyorsa spotlight turunu göster (bkz.
     // coach_tour_launcher — bayrak okuma, settle gecikmesi, çakışma kilidi
-    // ve boş-adım durumu orada).
+    // ve boş-adım durumu orada). 1. adım artık speed-dial'ın ana FAB'ını
+    // işaret ediyor (scanFabKey taşındı, bkz. _coachSteps) — o adımda
+    // menüyü karartmasız açıp (turun kendi scrim'i var) adımdan ayrılırken
+    // kapatıyoruz, ki 2. adıma (bölüm kartları) temiz ekranda geçilsin.
     maybeStartCoachTour(
       context,
       ref,
       id: CoachTourId.householdHome,
       buildSteps: () => _coachSteps(context),
+      onStepShown: (index) {
+        if (index == 0) {
+          homeSpeedDialKey.currentState?.open(suppressBarrier: true);
+        }
+      },
+      onStepLeft: (index) {
+        if (index == 0) {
+          homeSpeedDialKey.currentState?.close();
+        }
+      },
     );
 
     final areaIcon = householdIconFor(
@@ -836,27 +859,56 @@ class HouseholdHomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'scan_receipt_fab',
-        key: scanFabKey,
-        icon: const Icon(Icons.document_scanner_rounded),
-        label: const Text('Fiş Tara'),
-        // Misafirde gerçek AI hiç çağrılmaz — sıfır maliyetli demo akışı
-        // (plan §Faz 2). Backend zaten 402 SIGNUP_REQUIRED dönerdi, ama
-        // kamera açılıp OCR çalışıp EN SONDA 402 almak kötü bir deneyim
-        // olurdu — burada baştan yönlendiriyoruz.
-        onPressed: () {
-          final isGuest = ref.read(authControllerProvider).isGuest;
-          if (isGuest) {
-            showDemoReceiptFlow(context);
-            return;
-          }
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ReceiptScanScreen(householdId: household.id),
+      // İki ayrı geniş FAB yerine tek speed-dial: sağ altta dağınık/kalabalık
+      // görünümün çözümü. "AI Asistan" + "Fiş Tara" ana FAB'a basınca yay
+      // çizerek açılır (bkz. speed_dial_fab.dart). scanFabKey artık ANA
+      // FAB'ta — coach tour 1. adımı bu butonu işaret eder ve menüyü
+      // programatik açar (_coachSteps çağrısına bkz., onStepShown/onStepLeft).
+      //
+      // SpeedDialFab.location ŞART: widget kendi konumlandırmasını yapıyor,
+      // varsayılan endFloat ile yay hesabı bozulur.
+      floatingActionButtonLocation: SpeedDialFab.location,
+      floatingActionButton: SpeedDialFab(
+        key: homeSpeedDialKey,
+        fabKey: scanFabKey,
+        heroTag: 'home_speed_dial',
+        icon: Icons.document_scanner_rounded,
+        actions: [
+          SpeedDialAction(
+            icon: Icons.auto_awesome_rounded,
+            label: 'AI Asistan',
+            heroTag: 'ai_assistant_fab',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    AssistantScreen(initialHouseholdId: household.id),
+              ),
             ),
-          );
-        },
+          ),
+          SpeedDialAction(
+            // Ana FAB zaten document_scanner ikonunu taşıyor — menü öğesi
+            // ayırt edilebilsin diye kamera ikonu kullanılıyor.
+            icon: Icons.photo_camera_rounded,
+            label: 'Fiş Tara',
+            heroTag: 'scan_receipt_fab',
+            // Misafirde gerçek AI hiç çağrılmaz — sıfır maliyetli demo akışı
+            // (plan §Faz 2). Backend zaten 402 SIGNUP_REQUIRED dönerdi, ama
+            // kamera açılıp OCR çalışıp EN SONDA 402 almak kötü bir deneyim
+            // olurdu — burada baştan yönlendiriyoruz.
+            onPressed: () {
+              final isGuest = ref.read(authControllerProvider).isGuest;
+              if (isGuest) {
+                showDemoReceiptFlow(context);
+                return;
+              }
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ReceiptScanScreen(householdId: household.id),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }

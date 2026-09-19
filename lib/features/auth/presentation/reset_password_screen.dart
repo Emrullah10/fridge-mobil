@@ -194,7 +194,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                     autocorrect: false,
                     enableSuggestions: false,
                     textAlign: TextAlign.center,
-                    autofocus: true,
+                    autofocus: false,
                     textInputAction: TextInputAction.next,
                     autofillHints: const [AutofillHints.oneTimeCode],
                     onFieldSubmitted: (_) => _passwordFocus.requestFocus(),

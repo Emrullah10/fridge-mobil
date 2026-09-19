@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -35,10 +34,6 @@ Widget _wrap(_FakeHouseholdRepository repo, {String? initialCode}) {
 }
 
 void main() {
-  setUpAll(() {
-    dotenv.testLoad(fileInput: 'API_BASE_URL=http://localhost:4000/api');
-  });
-
   Finder codeField() => find.byType(TextField);
 
   testWidgets('12 hane yazınca onCompleted (submit) tetiklenir', (

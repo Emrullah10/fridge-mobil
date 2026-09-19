@@ -3,40 +3,62 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/ui/app_dialog.dart';
 import '../../../core/ui/app_icons.dart';
 import '../../../core/ui/app_progress.dart';
 import '../../../core/ui/app_text_field.dart';
 import '../../billing/application/paywall_controller.dart';
 import '../../billing/presentation/widgets/quota_upsell_banner.dart';
 import '../../shopping/application/shopping_providers.dart';
-import '../application/chef_providers.dart';
-import '../data/chef_repository.dart';
+import '../application/assistant_providers.dart';
+import '../data/assistant_repository.dart';
+import 'conversation_drawer.dart';
+import 'guide_card.dart';
+import 'mode_chips.dart';
+import 'mode_mismatch_banner.dart';
 
-/// AI Chef sohbeti. Mutfağı bilen asistan — "SKT'si yaklaşanlarla ne
-/// pişirebilirim?" gibi sorulara cevap verir. [seedPrompt] verilirse ekran
-/// açılır açılmaz o mesaj otomatik gönderilir (envanter ekranındaki kısayol).
-class ChefChatScreen extends ConsumerStatefulWidget {
-  const ChefChatScreen({super.key, required this.householdId, this.seedPrompt});
+/// AI Asistan — chef_chat_screen.dart'ın genellemesi (bkz. plan §D1). Tek
+/// ekran, ayrı Chef/Usta ekranı yok. [initialHouseholdId] verilirse alan
+/// içinden açılmıştır (yeni sohbet o alana bağlanır); verilmezse alansız
+/// (household_list_screen.dart'tan).
+class AssistantScreen extends ConsumerStatefulWidget {
+  const AssistantScreen({
+    super.key,
+    this.initialHouseholdId,
+    this.initialConversationId,
+    this.seedPrompt,
+  });
 
-  final String householdId;
+  final String? initialHouseholdId;
+  final String? initialConversationId;
   final String? seedPrompt;
 
   @override
-  ConsumerState<ChefChatScreen> createState() => _ChefChatScreenState();
+  ConsumerState<AssistantScreen> createState() => _AssistantScreenState();
 }
 
-class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
+class _AssistantScreenState extends ConsumerState<AssistantScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   final _composerFocus = FocusNode();
   bool _seedSent = false;
+  final Set<String> _savingGuideFor = {};
+  final Set<String> _savedGuideFor = {};
 
   static const _quickPrompts = [
     'Son kullanma tarihi yaklaşanlarla ne pişirebilirim?',
     'Bu akşam 30 dakikada ne yapabilirim?',
-    'Kahvaltıda ne hazırlayabilirim?',
+    'Bir şey tamir etmem lazım, yardım eder misin?',
   ];
+
+  late String? _conversationId = widget.initialConversationId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(activeConversationIdProvider.notifier).state = _conversationId;
+    });
+  }
 
   @override
   void dispose() {
@@ -60,25 +82,37 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
 
   Future<void> _send(String text) async {
     _controller.clear();
-    await ref.read(chefChatProvider(widget.householdId).notifier).send(text);
+    await ref
+        .read(conversationChatProvider(_conversationId).notifier)
+        .send(
+          text,
+          initialHouseholdId: widget.initialHouseholdId,
+          initialMode: widget.initialHouseholdId != null ? 'food' : 'general',
+        );
+    // Sohbet ilk mesajda yaratıldıysa provider'ın kendi ürettiği id'yi al.
+    final activeId = ref.read(activeConversationIdProvider);
+    if (activeId != _conversationId) {
+      setState(() => _conversationId = activeId);
+    }
     _scrollToBottom();
-    // Mesaj sonrası odağı koru — kullanıcı klavyeyi kapatıp tekrar açmadan
-    // arka arkaya soru sorabilsin.
     _composerFocus.requestFocus();
   }
 
-  Future<void> _acceptSuggestion(ChefShoppingSuggestion s) async {
+  Future<void> _acceptSuggestion(
+    AssistantShoppingSuggestion s,
+    String householdId,
+  ) async {
     try {
       await ref
           .read(shoppingRepositoryProvider)
           .addItem(
-            widget.householdId,
+            householdId,
             customName: s.name,
             quantity: s.quantity ?? 1,
             unit: s.unit ?? 'piece',
             source: 'manual',
           );
-      ref.invalidate(shoppingListProvider(widget.householdId));
+      ref.invalidate(shoppingListProvider(householdId));
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -93,12 +127,39 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
     }
   }
 
+  Future<void> _saveGuide(AssistantMessage message) async {
+    setState(() => _savingGuideFor.add(message.id));
+    try {
+      await ref
+          .read(conversationChatProvider(_conversationId).notifier)
+          .saveGuideAsRecipe(message.id, householdId: widget.initialHouseholdId);
+      if (mounted) {
+        setState(() {
+          _savingGuideFor.remove(message.id);
+          _savedGuideFor.add(message.id);
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Tarife kaydedildi')));
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _savingGuideFor.remove(message.id));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(describeApiError(e))));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(chefChatProvider(widget.householdId));
+    final state = ref.watch(conversationChatProvider(_conversationId));
     final cs = Theme.of(context).colorScheme;
+    final mode = state.conversation?.mode ??
+        (widget.initialHouseholdId != null ? 'food' : 'general');
+    final householdId = state.conversation?.householdId ?? widget.initialHouseholdId;
 
-    // seedPrompt: geçmiş yüklendikten sonra bir kez otomatik gönder.
     if (!_seedSent && widget.seedPrompt != null && !state.loading) {
       _seedSent = true;
       WidgetsBinding.instance.addPostFrameCallback(
@@ -106,17 +167,17 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
       );
     }
 
-    // Yeni mesaj gelince aşağı kaydır.
     ref.listen(
-      chefChatProvider(widget.householdId),
+      conversationChatProvider(_conversationId),
       (_, _) => _scrollToBottom(),
     );
 
     // 402 (misafir/kota dolu) geldiğinde metin hatası yerine paywall göster.
-    ref.listen(chefChatProvider(widget.householdId), (previous, next) {
+    ref.listen(conversationChatProvider(_conversationId), (previous, next) {
       final info = next.planLimitInfo;
       if (info == null) return;
-      final notifier = ref.read(chefChatProvider(widget.householdId).notifier);
+      final notifier =
+          ref.read(conversationChatProvider(_conversationId).notifier);
       notifier.dismissPlanLimitInfo();
       final controllerAsync = ref.read(paywallControllerProvider);
       controllerAsync.whenData((controller) {
@@ -129,41 +190,76 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
     });
 
     return Scaffold(
+      // endDrawer (sağdan açılır) — solda drawer varsa Flutter'ın AppBar
+      // otomatik leading mantığı hamburger ikonunu geri okunun önüne
+      // koyabiliyor, bu ekran her zaman push ile açıldığı için geri oku
+      // garanti solda kalsın diye çekmece sağa alındı, geri butonu da
+      // açıkça leading'e yazıldı (otomatik algılamaya bırakılmadı).
+      endDrawer: ConversationDrawer(
+        activeConversationId: _conversationId,
+        onSelect: (id) => setState(() {
+          _conversationId = id;
+          ref.read(activeConversationIdProvider.notifier).state = id;
+        }),
+        onNew: () => setState(() {
+          _conversationId = null;
+          ref.read(activeConversationIdProvider.notifier).state = null;
+        }),
+      ),
       appBar: AppBar(
-        title: const Text('AI Chef'),
+        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
+        title: const Text('AI Asistan'),
         actions: [
-          if (state.messages.isNotEmpty)
+          if (_conversationId != null)
             IconButton(
-              tooltip: 'Sohbeti temizle',
-              icon: const Icon(Icons.delete_sweep_outlined),
-              onPressed: () async {
-                final ok = await AppDialog.confirm(
-                  context,
-                  title: 'Sohbeti temizle',
-                  message: 'Tüm sohbet geçmişi silinsin mi?',
-                  confirmLabel: 'Temizle',
-                  isDestructive: true,
-                  icon: Icons.delete_sweep_outlined,
-                );
-                if (ok) {
-                  await ref
-                      .read(chefChatProvider(widget.householdId).notifier)
-                      .clear();
-                }
-              },
+              tooltip: 'Yeni sohbet',
+              icon: const Icon(Icons.add_comment_outlined),
+              onPressed: () => setState(() {
+                _conversationId = null;
+                ref.read(activeConversationIdProvider.notifier).state = null;
+              }),
             ),
+          Builder(
+            builder: (context) => IconButton(
+              tooltip: 'Sohbet geçmişi',
+              icon: const Icon(Icons.menu_rounded),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
+          ),
         ],
       ),
       body: Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(
+          if (householdId != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.md,
+                0,
+              ),
+              child: QuotaUpsellBanner(feature: 'chef'),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
               AppSpacing.md,
               AppSpacing.sm,
               AppSpacing.md,
               0,
             ),
-            child: QuotaUpsellBanner(feature: 'chef'),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: ModeChips(
+                mode: mode,
+                onChanged: (newMode) {
+                  if (_conversationId != null) {
+                    ref
+                        .read(conversationChatProvider(_conversationId).notifier)
+                        .changeMode(newMode);
+                  }
+                },
+              ),
+            ),
           ),
           if (state.error != null)
             Container(
@@ -179,7 +275,7 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
             child: state.loading
                 ? const Center(child: AppProgress())
                 : state.messages.isEmpty
-                ? _EmptyChef(onQuick: _send, prompts: _quickPrompts)
+                ? _EmptyAssistant(onQuick: _send, prompts: _quickPrompts)
                 : ListView.builder(
                     controller: _scrollController,
                     keyboardDismissBehavior:
@@ -190,16 +286,41 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
                       if (index >= state.messages.length) {
                         return const _TypingBubble();
                       }
-                      return _MessageBubble(message: state.messages[index]);
+                      final message = state.messages[index];
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (!message.isUser && message.modeMismatch != null)
+                            ModeMismatchBanner(
+                              mismatchMode: message.modeMismatch!,
+                              onSwitch: () {
+                                if (_conversationId != null) {
+                                  ref
+                                      .read(conversationChatProvider(_conversationId)
+                                          .notifier)
+                                      .changeMode(message.modeMismatch!);
+                                }
+                              },
+                            ),
+                          _MessageBubble(message: message),
+                          if (!message.isUser && message.guide != null)
+                            GuideCard(
+                              guide: message.guide!,
+                              saving: _savingGuideFor.contains(message.id),
+                              saved: _savedGuideFor.contains(message.id),
+                              onSave: () => _saveGuide(message),
+                            ),
+                        ],
+                      );
                     },
                   ),
           ),
-          if (state.pendingSuggestions.isNotEmpty)
+          if (state.pendingSuggestions.isNotEmpty && householdId != null)
             _SuggestionBar(
               suggestions: state.pendingSuggestions,
-              onAccept: _acceptSuggestion,
+              onAccept: (s) => _acceptSuggestion(s, householdId),
               onDismiss: () => ref
-                  .read(chefChatProvider(widget.householdId).notifier)
+                  .read(conversationChatProvider(_conversationId).notifier)
                   .dismissSuggestions(),
             ),
           _Composer(
@@ -216,7 +337,7 @@ class _ChefChatScreenState extends ConsumerState<ChefChatScreen> {
 
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({required this.message});
-  final ChefMessage message;
+  final AssistantMessage message;
 
   @override
   Widget build(BuildContext context) {
@@ -300,8 +421,8 @@ class _SuggestionBar extends StatelessWidget {
     required this.onDismiss,
   });
 
-  final List<ChefShoppingSuggestion> suggestions;
-  final void Function(ChefShoppingSuggestion) onAccept;
+  final List<AssistantShoppingSuggestion> suggestions;
+  final void Function(AssistantShoppingSuggestion) onAccept;
   final VoidCallback onDismiss;
 
   @override
@@ -336,9 +457,6 @@ class _SuggestionBar extends StatelessWidget {
               IconButton(
                 tooltip: 'Kapat',
                 visualDensity: VisualDensity.compact,
-                // `compact` yoğunluğu görsel boyutu küçültüyor ama iOS'un
-                // 44×44pt minimumunun altına düşürüyordu — dokunma alanı
-                // burada ayrıca garanti ediliyor.
                 constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 icon: Icon(AppIcons.close(context), size: 18),
                 onPressed: onDismiss,
@@ -401,7 +519,7 @@ class _Composer extends StatelessWidget {
                 textCapitalization: TextCapitalization.sentences,
                 textInputAction: TextInputAction.send,
                 decoration: const InputDecoration(
-                  hintText: 'Mutfağınla ilgili bir şey sor...',
+                  hintText: 'Bir şey sor...',
                   isDense: true,
                 ),
                 onSubmitted: sending ? null : onSend,
@@ -425,8 +543,8 @@ class _Composer extends StatelessWidget {
   }
 }
 
-class _EmptyChef extends StatelessWidget {
-  const _EmptyChef({required this.onQuick, required this.prompts});
+class _EmptyAssistant extends StatelessWidget {
+  const _EmptyAssistant({required this.onQuick, required this.prompts});
   final void Function(String) onQuick;
   final List<String> prompts;
 
@@ -440,11 +558,11 @@ class _EmptyChef extends StatelessWidget {
         const SizedBox(height: AppSpacing.xl),
         Icon(Icons.auto_awesome_rounded, size: 48, color: cs.primary),
         const SizedBox(height: AppSpacing.sm),
-        Text('AI Chef', textAlign: TextAlign.center, style: tt.titleMedium),
+        Text('AI Asistan', textAlign: TextAlign.center, style: tt.titleMedium),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          'Dolabındakileri, son kullanma tarihi yaklaşanları ve alışveriş listeni biliyorum. '
-          'Ne pişireceğini birlikte bulalım.',
+          'Yemek, tamir/bakım ya da genel bir soru — ne istersen sorabilirsin. '
+          'Bir alana bağlıysan envanterini de biliyorum.',
           textAlign: TextAlign.center,
           style: tt.bodySmall,
         ),

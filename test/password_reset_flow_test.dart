@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -38,10 +37,6 @@ class _FakeAuthRepository extends AuthRepository {
 }
 
 void main() {
-  setUpAll(() {
-    dotenv.testLoad(fileInput: 'API_BASE_URL=http://localhost:4000/api');
-  });
-
   testWidgets(
     'kod gönder -> ResetPasswordScreen\'e geçer, yığında ForgotPasswordScreen kalmaz',
     (tester) async {

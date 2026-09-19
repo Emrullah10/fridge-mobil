@@ -7,6 +7,7 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/household_kind.dart';
+import '../../assistant/presentation/assistant_screen.dart';
 import '../../auth/application/auth_providers.dart';
 import '../../auth/presentation/upgrade_account_screen.dart';
 import '../application/household_providers.dart';
@@ -60,6 +61,15 @@ class HouseholdListScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Alanlarım'),
         actions: [
+          // Alansız AI Asistan girişi — kök shell household bağlamı dışında
+          // olduğu için doğru yer burası (bkz. plan §D3 madde 2).
+          IconButton(
+            icon: const Icon(Icons.auto_awesome_rounded),
+            tooltip: 'AI Asistan',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AssistantScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
             tooltip: 'Çıkış yap',

@@ -42,6 +42,14 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
+      if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.5
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+      end
+    end
+  end
+  installer.pods_project.build_configurations.each do |config|
+    if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.5
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
     end
   end
   Dir.glob("Pods/Target Support Files/**/*.xcconfig").each do |file|

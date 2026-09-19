@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Önceden manifest'te android:usesCleartextTraffic="true" ile TÜM hostlara
+  düz metin HTTP izinliydi — bu bayrak yalnızca .env'deki yorum satırı dev
+  URL'lerini (10.0.2.2 emülatör, LAN IP) çalıştırmak için vardı, ama prod
+  build'e de sızıyordu. Prod base URL zaten HTTPS (bkz.
+  lib/core/config/app_env.dart), yani normal trafik etkilenmiyordu —
+  kaldırılan şey yalnızca OS seviyesindeki emniyet ağıydı.
+
+  base-config: varsayılan olarak cleartext YASAK (üretim davranışı).
+  debug-overrides: yalnızca debuggable=true build'lerde etkili — Android
+  bunu otomatik uygular, release APK/AAB'de bu blok devre dışı kalır.
+  Android lint, debug-overrides'ın kendi altına DOĞRUDAN bir domain-config
+  koymayı "nested <domain-config>" sayıp reddediyor (debug-overrides zaten
+  örtük bir domain-config gibi davranır) — bu yüzden domain kısıtlaması
+  YAPMADAN, debug build'lerde TÜM cleartext trafiği açıyoruz. Bu release'e
+  hiç sızmıyor (yalnızca debuggable=true'da etkili) ve zaten yerel
+  geliştirme dışında hiçbir isteğin gideceği bir yer yok.
+
+  Gerçek telefondan Mac'in LAN IP'sine test ederken (aynı Wi-Fi ağı) bu
+  zaten çalışır — debug-overrides tüm hostlara cleartext izni veriyor.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <debug-overrides cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

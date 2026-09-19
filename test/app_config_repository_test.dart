@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fridge_mobil/core/api/api_client.dart';
 import 'package:fridge_mobil/core/version/app_config_repository.dart';
@@ -39,7 +38,6 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() {
-    dotenv.testLoad(fileInput: 'API_BASE_URL=http://localhost:4000/api');
     // ApiClient -> AuthInterceptor -> TokenStorage, macOS test ortamında
     // (Platform.isIOS/isAndroid false) SharedPreferences'a düşüyor —
     // mock'lanmazsa MissingPluginException fırlatıp isteği DioException'a

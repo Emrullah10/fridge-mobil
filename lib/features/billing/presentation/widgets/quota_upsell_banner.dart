@@ -127,7 +127,7 @@ class _BannerContentState extends State<_BannerContent> {
             tooltip: 'Kapat',
             icon: Icon(AppIcons.close(context), size: 18),
             visualDensity: VisualDensity.compact,
-            // bkz. chef_chat_screen.dart'taki aynı not — compact yoğunluk
+            // bkz. assistant_screen.dart'taki aynı not — compact yoğunluk
             // dokunma alanını iOS 44×44pt minimumunun altına düşürüyordu.
             constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
             onPressed: () {

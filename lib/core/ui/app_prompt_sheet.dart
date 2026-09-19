@@ -128,7 +128,7 @@ class _PromptSheetContentState extends State<_PromptSheetContent> {
           ],
           AppTextField(
             controller: _controller,
-            autofocus: true,
+            autofocus: false,
             obscureText: widget.obscureText,
             maxLines: widget.obscureText ? 1 : widget.maxLines,
             keyboardType: widget.keyboardType,

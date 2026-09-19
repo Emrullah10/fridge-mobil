@@ -13,8 +13,9 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 /// `PurchaseRepository.configure(apiKey: ...)` çağrılmalı — apiKey
 /// RevenueCat Dashboard > Project Settings > API Keys'ten alınır (Google
 /// Play projesi için "Public app-specific API key"). API anahtarı
-/// .env'e `REVENUECAT_API_KEY` olarak eklenir (flutter_dotenv zaten
-/// projede kurulu, api_config.dart'taki desenle aynı). Anahtar olmadan
+/// derleme zamanında --dart-define=REVENUECAT_API_KEY=... ile geçirilir
+/// (bkz. lib/core/config/app_env.dart — önceden .env dosyasından
+/// okunuyordu). Anahtar olmadan
 /// bu sınıf hiçbir şeyi çökertmez — configure() çağrılmazsa her satın
 /// alma denemesi PurchaseException fırlatır, UI bunu describeApiError
 /// benzeri bir mesaja çevirir (bkz. subscription_screen.dart).

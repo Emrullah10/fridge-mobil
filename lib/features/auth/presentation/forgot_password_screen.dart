@@ -83,9 +83,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 AppTextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  autofocus:
-                      widget.initialEmail == null ||
-                      widget.initialEmail!.isEmpty,
+                  autofocus: false,
                   textInputAction: TextInputAction.done,
                   autofillHints: const [
                     AutofillHints.username,

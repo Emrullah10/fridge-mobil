@@ -268,7 +268,15 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
                       child: AppProgress(strokeWidth: 2),
                     )
                   : const Icon(Icons.restaurant_rounded),
-              label: const Text('Pişirdim'),
+              // kind=='task' (tamir/bakım kılavuzu) ise "Tamamladım" — backend
+              // /cook UÇU AYNI (cook-recipe.use-case.js malzemeyi stoktan
+              // düşer, tamirde de malzeme tükenir, semantik doğru, bkz.
+              // plan §D6).
+              label: Text(
+                recipeAsync.valueOrNull?.kind == 'task'
+                    ? 'Tamamladım'
+                    : 'Pişirdim',
+              ),
             ),
           ),
         ),

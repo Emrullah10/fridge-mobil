@@ -104,7 +104,7 @@ class _HouseholdFormSheetState extends State<_HouseholdFormSheet> {
               hintText: 'Örn. Evimiz, Ofis, Yazlık, Sığınak',
               errorText: _nameError,
             ),
-            autofocus: !_isEdit,
+            autofocus: false,
             textCapitalization: TextCapitalization.sentences,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _confirm(),

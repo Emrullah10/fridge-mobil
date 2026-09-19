@@ -59,6 +59,7 @@ class Recipe {
     required this.cookMinutes,
     required this.difficulty,
     required this.generatedBy,
+    this.kind = 'food',
     this.totalIngredients,
     this.availableIngredients,
     this.missingCount,
@@ -76,6 +77,11 @@ class Recipe {
   final int? cookMinutes;
   final String? difficulty;
   final String generatedBy;
+
+  /// 'food' | 'task' — AI Asistan genellemesi (bkz. plan §A3). Task tarifleri
+  /// (tamir/bakım kılavuzları) yalnızca asistandan erişilir, Tarifler
+  /// sekmesi (food-only) bunları listelemez.
+  final String kind;
   final int? totalIngredients;
   final int? availableIngredients;
   final int? missingCount;
@@ -99,6 +105,8 @@ class Recipe {
     cookMinutes: json['cookMinutes'] as int?,
     difficulty: json['difficulty'] as String?,
     generatedBy: json['generatedBy'] as String? ?? 'user',
+    // Eski yanıtlarda 'kind' alanı yoktu — food varsayılana düşer (kırılmaz).
+    kind: json['kind'] as String? ?? 'food',
     totalIngredients: json['totalIngredients'] as int?,
     availableIngredients: json['availableIngredients'] as int?,
     missingCount: json['missingCount'] as int?,

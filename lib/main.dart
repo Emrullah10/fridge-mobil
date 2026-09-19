@@ -6,7 +6,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show SystemChrome, SystemUiMode;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'l10n/app_localizations.dart';
@@ -16,6 +15,7 @@ import 'package:app_links/app_links.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'core/config/app_env.dart';
 import 'core/theme/app_theme.dart';
 import 'core/ui/app_progress.dart';
 import 'core/theme/theme_providers.dart';
@@ -75,7 +75,6 @@ void main() {
         return true;
       };
 
-      await dotenv.load(fileName: '.env');
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
@@ -85,8 +84,8 @@ void main() {
       // Anahtar boşsa (o platform için henüz kurulmadı) configure() sessizce
       // no-op yapar — boot asla çökmez, paywall kapanır.
       final revenueCatApiKey = !kIsWeb && Platform.isIOS
-          ? (dotenv.env['REVENUECAT_API_KEY_IOS'] ?? '')
-          : (dotenv.env['REVENUECAT_API_KEY'] ?? '');
+          ? AppEnv.revenueCatApiKeyIos
+          : AppEnv.revenueCatApiKey;
       await PurchaseRepository.configure(apiKey: revenueCatApiKey);
       runApp(const ProviderScope(child: FridgeApp()));
     },

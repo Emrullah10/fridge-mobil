@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -57,7 +56,6 @@ class _FakeAuthController extends AuthController {
 
 void main() {
   setUpAll(() {
-    dotenv.testLoad(fileInput: 'API_BASE_URL=http://localhost:4000/api');
     SharedPreferences.setMockInitialValues({'onboarding_seen_v1': true});
   });
 

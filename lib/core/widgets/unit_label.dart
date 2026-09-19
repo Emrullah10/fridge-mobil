@@ -9,6 +9,9 @@ const _unitLabels = <String, String>{
   'milliliter': 'Mililitre',
   'liter': 'Litre',
   'package': 'Paket',
+  'meter': 'Metre',
+  'centimeter': 'Santimetre',
+  'square_meter': 'Metrekare',
 };
 
 const _unitShortLabels = <String, String>{
@@ -18,6 +21,9 @@ const _unitShortLabels = <String, String>{
   'milliliter': 'ml',
   'liter': 'L',
   'package': 'paket',
+  'meter': 'm',
+  'centimeter': 'cm',
+  'square_meter': 'm²',
 };
 
 const unitOptions = [
@@ -27,6 +33,9 @@ const unitOptions = [
   'milliliter',
   'liter',
   'package',
+  'meter',
+  'centimeter',
+  'square_meter',
 ];
 
 String unitLabel(String unit) => _unitLabels[unit] ?? unit;

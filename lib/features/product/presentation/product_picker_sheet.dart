@@ -134,7 +134,7 @@ class _ProductPickerSheetState extends ConsumerState<_ProductPickerSheet> {
               valueListenable: _searchController,
               builder: (_, value, _) => AppTextField(
                 controller: _searchController,
-                autofocus: true,
+                autofocus: false,
                 textInputAction: TextInputAction.search,
                 autocorrect: false,
                 enableSuggestions: false,

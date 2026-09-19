@@ -105,7 +105,7 @@ class _StorageLocationFormSheetState extends State<_StorageLocationFormSheet> {
               hintText: 'Örn. Mutfak Dolabı, Depo, Kutu 1',
               errorText: _nameError,
             ),
-            autofocus: !_isEdit,
+            autofocus: false,
             textCapitalization: TextCapitalization.sentences,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _confirm(),

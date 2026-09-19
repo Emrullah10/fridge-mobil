@@ -266,7 +266,7 @@ class _CodeGroupInput extends StatelessWidget {
                 controller: controller,
                 focusNode: focusNode,
                 enabled: enabled,
-                autofocus: true,
+                autofocus: false,
                 showCursor: false,
                 keyboardType: TextInputType.visiblePassword,
                 autocorrect: false,

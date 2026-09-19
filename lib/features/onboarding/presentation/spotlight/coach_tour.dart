@@ -49,10 +49,19 @@ Rect? resolveStepRect(CoachStep step, BuildContext context) {
 /// Turu saydam bir rota olarak açar — altındaki gerçek ekran görünür kalır.
 /// [onFinished] tur bittiğinde (son adım geçildi ya da Atla) çağrılır;
 /// çağıran taraf burada `markSeen()` yapar.
+///
+/// [onStepShown] her adım gösterildiğinde (ilk adım dahil, index ile)
+/// çağrılır — bir ekran bir adıma özel bir yan etki tetikleyecekse (ör.
+/// household_home_screen.dart'ın speed-dial menüsünü 1. adımda otomatik
+/// açması) buradan bağlanır. [onStepLeft] o adımdan ayrılırken (ileri/atla/
+/// bitir ile) çağrılır — açılan yan etkiyi geri almak için (menüyü kapatmak
+/// gibi).
 Future<void> showCoachTour(
   BuildContext context, {
   required List<CoachStep> steps,
   required VoidCallback onFinished,
+  void Function(int index)? onStepShown,
+  void Function(int index)? onStepLeft,
 }) {
   // optional adımlar yalnızca hedefleri o an ekrandaysa tura girer — hedefi
   // veriye bağlı olanlar (Dolaba Aktar, SKT rozeti, eşleşme halkası) boş
@@ -68,17 +77,28 @@ Future<void> showCoachTour(
     PageRouteBuilder(
       opaque: false,
       barrierDismissible: false,
-      pageBuilder: (_, a1, a2) =>
-          _CoachTourOverlay(steps: usable, onFinished: onFinished),
+      pageBuilder: (_, a1, a2) => _CoachTourOverlay(
+        steps: usable,
+        onFinished: onFinished,
+        onStepShown: onStepShown,
+        onStepLeft: onStepLeft,
+      ),
     ),
   );
 }
 
 class _CoachTourOverlay extends StatefulWidget {
-  const _CoachTourOverlay({required this.steps, required this.onFinished});
+  const _CoachTourOverlay({
+    required this.steps,
+    required this.onFinished,
+    this.onStepShown,
+    this.onStepLeft,
+  });
 
   final List<CoachStep> steps;
   final VoidCallback onFinished;
+  final void Function(int index)? onStepShown;
+  final void Function(int index)? onStepLeft;
 
   @override
   State<_CoachTourOverlay> createState() => _CoachTourOverlayState();
@@ -106,9 +126,10 @@ class _CoachTourOverlayState extends State<_CoachTourOverlay>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _resolveRect(animate: false),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _resolveRect(animate: false);
+      widget.onStepShown?.call(_index);
+    });
   }
 
   @override
@@ -148,6 +169,7 @@ class _CoachTourOverlayState extends State<_CoachTourOverlay>
   }
 
   void _advance() {
+    widget.onStepLeft?.call(_index);
     var next = _index + 1;
     // Hedefi kaybolmuş optional adımları atla (kullanıcı aradaki adımda
     // kutuyu işaretsiz bıraktı, veri silindi vb.).
@@ -162,9 +184,11 @@ class _CoachTourOverlayState extends State<_CoachTourOverlay>
     }
     setState(() => _index = next);
     _resolveRect(animate: true);
+    widget.onStepShown?.call(next);
   }
 
   void _finish() {
+    widget.onStepLeft?.call(_index);
     widget.onFinished();
     Navigator.of(context).pop();
   }

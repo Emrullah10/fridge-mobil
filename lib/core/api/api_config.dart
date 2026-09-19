@@ -1,8 +1,8 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/app_env.dart';
 
-/// .env dosyasından API_BASE_URL okur. main() içinde dotenv.load()
-/// çağrılmadan önce erişilirse boş döner — bkz. lib/main.dart.
+/// API_BASE_URL derleme zamanında --dart-define ile geçirilir
+/// (bkz. lib/core/config/app_env.dart) — önceden .env dosyasından
+/// (flutter_dotenv) okunuyordu.
 class ApiConfig {
-  static String get baseUrl =>
-      dotenv.env['API_BASE_URL'] ?? 'http://localhost:4000/api';
+  static String get baseUrl => AppEnv.apiBaseUrl;
 }

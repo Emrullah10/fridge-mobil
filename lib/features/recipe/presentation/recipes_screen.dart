@@ -8,7 +8,6 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/scan_progress.dart';
 import '../../billing/application/paywall_controller.dart';
 import '../../billing/presentation/widgets/quota_upsell_banner.dart';
-import '../../chef/presentation/chef_chat_screen.dart';
 import '../../onboarding/application/onboarding_providers.dart';
 import '../../onboarding/presentation/spotlight/coach_tour.dart';
 import '../../onboarding/presentation/spotlight/coach_tour_launcher.dart';
@@ -323,16 +322,8 @@ class _RecipesScreenState extends ConsumerState<RecipesScreen>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'ai_chef_fab',
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ChefChatScreen(householdId: widget.householdId),
-          ),
-        ),
-        icon: const Icon(Icons.auto_awesome_rounded),
-        label: const Text('AI Chef'),
-      ),
+      // AI Asistan FAB'ı household_home_screen.dart'a taşındı — Tarifler
+      // zaten food-only, burada tekrar FAB'a gerek yok (bkz. plan §D3).
     );
   }
 }

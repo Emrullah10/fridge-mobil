@@ -26,6 +26,8 @@ void maybeStartCoachTour(
   required CoachTourId id,
   required List<CoachStep> Function() buildSteps,
   Duration settleDelay = const Duration(milliseconds: 400),
+  void Function(int index)? onStepShown,
+  void Function(int index)? onStepLeft,
 }) {
   final seen = ref.watch(tourSeenProvider(id));
   if (seen != false || _tourInFlight)
@@ -50,7 +52,13 @@ void maybeStartCoachTour(
       if (steps.isEmpty) return; // bayrak SET EDİLMEZ
 
       ref.read(tourSeenProvider(id).notifier).markSeen();
-      await showCoachTour(context, steps: steps, onFinished: () {});
+      await showCoachTour(
+        context,
+        steps: steps,
+        onFinished: () {},
+        onStepShown: onStepShown,
+        onStepLeft: onStepLeft,
+      );
     } finally {
       _tourInFlight = false;
     }

@@ -13,7 +13,7 @@ import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/async_view.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/unit_label.dart';
-import '../../chef/presentation/chef_chat_screen.dart';
+import '../../assistant/presentation/assistant_screen.dart';
 import '../../household/application/household_providers.dart';
 import '../../household/data/household_repository.dart';
 import '../../onboarding/application/onboarding_providers.dart';
@@ -59,9 +59,9 @@ class InventoryScreen extends ConsumerWidget {
       CoachStep(
         targetKey: inventoryChefKey,
         optional: true,
-        title: 'Elindekiyle pişir',
+        title: 'Elindekiyle bir şey yap',
         body:
-            'AI Chef’e sor — tarihi yaklaşan ürünlerle ne yapabileceğini söylesin.',
+            'AI Asistan’a sor — tarihi yaklaşan ürünlerle ne yapabileceğini söylesin.',
         accent: scheme.tertiary,
       ),
     ];
@@ -118,8 +118,8 @@ class InventoryScreen extends ConsumerWidget {
     final dateFormat = DateFormat('dd.MM.yyyy');
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    // Yemek özelliği kapalı alanlarda (atölye/dükkan vb.) AI Chef anlamsız —
-    // bkz. app_bottom_nav.dart'taki aynı gating.
+    // AI Asistan artık her alan türünde çalışıyor (food-kapalı alanlarda da,
+    // bkz. plan §D3) — foodEnabled yalnızca seedPrompt metnini belirler.
     final foodEnabled =
         ref.watch(householdByIdProvider(householdId))?.foodEnabled ?? true;
 
@@ -134,21 +134,21 @@ class InventoryScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(location.name),
         actions: [
-          if (foodEnabled)
-            IconButton(
-              key: inventoryChefKey,
-              tooltip: 'AI Chef’e sor',
-              icon: const Icon(Icons.auto_awesome_rounded),
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ChefChatScreen(
-                    householdId: householdId,
-                    seedPrompt:
-                        'Son kullanma tarihi yaklaşanlarla ne pişirebilirim?',
-                  ),
+          IconButton(
+            key: inventoryChefKey,
+            tooltip: 'AI Asistan’a sor',
+            icon: const Icon(Icons.auto_awesome_rounded),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => AssistantScreen(
+                  initialHouseholdId: householdId,
+                  seedPrompt: foodEnabled
+                      ? 'Son kullanma tarihi yaklaşanlarla ne pişirebilirim?'
+                      : 'Tarihi yaklaşan eşyalarımla ilgili ne yapmalıyım?',
                 ),
               ),
             ),
+          ),
         ],
       ),
       body: AsyncView(
@@ -437,7 +437,7 @@ class _ConsumeSheetState extends State<_ConsumeSheet> {
               const SizedBox(height: AppSpacing.sm),
               AppNumberField(
                 controller: _controller,
-                autofocus: true,
+                autofocus: false,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (text) {
                   final parsedValue = _parsedAmount(text);

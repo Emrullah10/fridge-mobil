@@ -69,19 +69,50 @@ android {
             } else {
                 // key.properties henüz yok — Play'e yüklenecek bir AAB bu
                 // haliyle asla üretilmemeli, sadece yerel `flutter run
-                // --release` için debug'a düşer.
+                // --release` için debug'a düşer (bkz. aşağıdaki
+                // taskGraph.whenReady — bundle/assemble görevlerinde bu
+                // sessiz düşüşü engelliyor).
                 signingConfigs.getByName("debug")
             }
-            // ML Kit'in çok dilli text recognizer sınıfları (Çince/Japonca/
-            // Korece/Devanagari) R8 ile "missing class" hatası veriyordu —
-            // uygulama sadece Latin/varsayılan recognizer'ı kullanıyor,
-            // bu diğer dil paketleri hiç bundle edilmemiş. minify kapalı
-            // kalınca R8 bu sınıfları analiz etmeye çalışmıyor, sorun ortadan
-            // kalkıyor. Bedel: AAB biraz daha büyük ve obfuscate değil —
-            // ilk yayın için kabul edilebilir bir takas.
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8/ProGuard açık — ML Kit'in çok dilli text recognizer
+            // sınıfları (Çince/Japonca/Korece/Devanagari) daha önce "missing
+            // class" hatası veriyordu (uygulama yalnızca Latin/varsayılan
+            // recognizer kullanıyor, diğer dil paketleri hiç bundle
+            // edilmemiş) — proguard-rules.pro'daki -dontwarn kuralları bu
+            // sınıfları görmezden gelir. minify kapalıyken AAB tamamen
+            // okunabilir sınıf/metot adlarıyla çıkıyordu (tersine mühendisliği
+            // kolaylaştırıyordu); artık açık.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
+    }
+}
+
+// Play'e yüklenecek AAB'nin debug anahtarıyla imzalanmış olarak sessizce
+// üretilmesini engeller — key.properties yoksa signingConfig yukarıda
+// debug'a düşüyordu, bu da CI/yeni bir makinede `flutter build appbundle
+// --release`'in görünürde başarıyla ama dağıtılamaz (ya da daha kötü,
+// güvensiz) bir çıktı üretmesine izin veriyordu.
+//
+// Yalnızca bundleRelease (Play'e yüklenen .aab'yi üreten GERÇEK görev)
+// hedeflenir — assembleRelease KASITLI OLARAK dışarıda bırakıldı: onu hem
+// APK üretimi hem de `flutter run --release`'in kullandığı installRelease
+// task'ı da tetikliyor (installRelease -> assembleRelease bağımlılığı),
+// o yüzden assembleRelease'i de engellersek yerel `flutter run --release`
+// ile test etmek key.properties olmadan kırılırdı — bu istenmiyor,
+// yalnızca Play'e giden gerçek dağıtım artefaktı korunuyor.
+gradle.taskGraph.whenReady {
+    val requestedReleaseBundle = allTasks.any { task -> task.name == "bundleRelease" }
+    if (requestedReleaseBundle && !hasReleaseSigning) {
+        throw GradleException(
+            "key.properties bulunamadı — Play'e yüklenecek bir release AAB " +
+            "debug anahtarıyla imzalanamaz. android/key.properties.example'ı " +
+            "kopyalayıp gerçek keystore bilgilerini gir.",
+        )
     }
 }
 
