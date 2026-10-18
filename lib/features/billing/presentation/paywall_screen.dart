@@ -88,9 +88,14 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         _failure = result.failure;
         _debugMessage = result.debugMessage;
         // Yıllık varsayılan seçili (plan §Faz 4 "Paywall içeriği").
+        // Yalnızca aile paketleri yüklendiyse (bireysel yok) o sekmeyle aç —
+        // aksi halde _selectedId null kalıp "Devam Et" sessizce işlevsizdi.
+        if (_individualProducts.isEmpty && _familyProducts.isNotEmpty) {
+          _familyTab = true;
+        }
+        final initial = _familyTab ? _familyProducts : _individualProducts;
         _selectedId =
-            _annualOf(_individualProducts)?.identifier ??
-            _individualProducts.firstOrNull?.identifier;
+            _annualOf(initial)?.identifier ?? initial.firstOrNull?.identifier;
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -117,7 +122,18 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     if (result.success) {
       // Webhook asenkron geldiği için entitlement'ı hemen zorla tazele —
       // kullanıcı "ödedim ama hâlâ ücretsiz görünüyorum" hissine kapılmasın.
-      ref.read(entitlementsControllerProvider.notifier).invalidate();
+      // Webhook gecikebilir: bir kez hemen, sonra kısa aralıklarla birkaç kez
+      // daha tazele (ekran kapandıktan sonra da sürsün diye notifier ve
+      // messenger önceden alınır).
+      final notifier = ref.read(entitlementsControllerProvider.notifier);
+      final messenger = ScaffoldMessenger.of(context);
+      notifier.invalidate();
+      for (var i = 1; i <= 3; i++) {
+        Future.delayed(Duration(seconds: 2 * i), notifier.invalidate);
+      }
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Premium\'a hoş geldin! 🎉')),
+      );
       if (mounted) Navigator.of(context).pop();
       return;
     }
@@ -177,6 +193,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final showPurchaseBar = !_loading && _failure == null;
 
     return Scaffold(
       appBar: AppBar(
@@ -185,33 +202,34 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
           icon: Icon(AppIcons.close(context)),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        title: const Text('Elde Premium'),
       ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
-            Icon(
-              Icons.workspace_premium_rounded,
-              size: 56,
-              color: theme.colorScheme.primary,
+            // Kompakt başlık — fiyatlar ekranın ilk bakışında görünsün diye
+            // eskiden yüzlerce dp tutan ikon+başlık+özellik tablosu fiyat
+            // kartlarının ÜSTÜNDEYDİ.
+            Row(
+              children: [
+                Icon(
+                  Icons.workspace_premium_rounded,
+                  size: 32,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Sınırsız fiş tarama, tarif üretimi ve AI Chef',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.md),
-            Text(
-              'Elde Premium',
-              style: theme.textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              'Sınırsız fiş tarama, tarif üretimi ve AI Chef',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            const PremiumBenefitsCard(),
-            const SizedBox(height: AppSpacing.lg),
             if (_loading)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
@@ -252,42 +270,61 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                       ? _monthlyOf(_visibleProducts)
                       : null,
                 ),
-              const SizedBox(height: AppSpacing.lg),
-              FilledButton(
-                onPressed: _purchasing ? null : _purchase,
-                child: _purchasing
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: AppProgress(strokeWidth: 2),
-                      )
-                    : const Text('Devam Et'),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                _renewalDisclosure(),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Center(
-                child: TextButton(
-                  onPressed: _restoring ? null : _restore,
-                  child: _restoring
-                      ? const SizedBox(
-                          height: 16,
-                          width: 16,
-                          child: AppProgress(strokeWidth: 2),
-                        )
-                      : const Text('Satın alımları geri yükle'),
-                ),
-              ),
             ],
+            const SizedBox(height: AppSpacing.lg),
+            const PremiumBenefitsCard(),
           ],
         ),
       ),
+      // Satın alma çubuğu altta SABİT — kullanıcı özellik tablosunu
+      // kaydırırken de "Devam Et" ve yenileme bilgisi her zaman erişilebilir.
+      bottomNavigationBar: showPurchaseBar
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FilledButton(
+                      onPressed: _purchasing || _selectedId == null
+                          ? null
+                          : _purchase,
+                      child: _purchasing
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: AppProgress(strokeWidth: 2),
+                            )
+                          : const Text('Devam Et'),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      _renewalDisclosure(),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    TextButton(
+                      onPressed: _restoring ? null : _restore,
+                      child: _restoring
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: AppProgress(strokeWidth: 2),
+                            )
+                          : const Text('Satın alımları geri yükle'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
     );
   }
 }

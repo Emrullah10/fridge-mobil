@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/error/api_error.dart';
+import '../../auth/presentation/upgrade_account_screen.dart';
 import '../presentation/paywall_screen.dart';
 import '../presentation/paywall_sheet.dart';
 
@@ -116,7 +117,11 @@ class PaywallController {
           () => Navigator.of(context).push(
             MaterialPageRoute(
               fullscreenDialog: true,
-              builder: (_) => const PaywallScreen(),
+              // Misafir "Ücretsiz Hesap Aç" dediğinde ücretli planlara değil
+              // hesap oluşturmaya gitmeli.
+              builder: (_) => info?.code == 'SIGNUP_REQUIRED'
+                  ? const UpgradeAccountScreen()
+                  : const PaywallScreen(),
             ),
           ),
     );
@@ -139,3 +144,22 @@ final paywallControllerProvider = Provider<AsyncValue<PaywallController>>((
   final prefsAsync = ref.watch(_sharedPreferencesProvider);
   return prefsAsync.whenData((prefs) => PaywallController(prefs));
 });
+
+/// Yapısal plan limiti (alan/bölüm/ürün/üye sayısı) ya da kilitli alan 402'si
+/// geldiyse paywall teaser'ını açar ve true döner; aksi halde false —
+/// çağıran normal hata metnini göstermeye devam eder. Eskiden bu 402'ler
+/// yalnızca düz hata yazısı olarak görünüyor, upsell hiç açılmıyordu.
+bool handlePlanLimitError(BuildContext context, WidgetRef ref, Object error) {
+  final info = PlanLimitInfo.tryParse(error);
+  if (info == null) return false;
+  ref
+      .read(paywallControllerProvider)
+      .whenData(
+        (controller) => controller.maybeShow(
+          context,
+          trigger: PaywallTrigger.quotaExceeded,
+          info: info,
+        ),
+      );
+  return true;
+}

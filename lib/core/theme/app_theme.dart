@@ -6,6 +6,7 @@ import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:google_fonts/google_fonts.dart';
 
 import '../navigation/app_page_transitions.dart';
+import 'app_palette.dart';
 
 /// Uygulama genelinde tek gerçek kaynak: renkler, boşluklar, köşe
 /// yuvarlaklığı. Yeni bir ekran eklerken buradaki token'ları kullan,
@@ -121,13 +122,20 @@ extension AppColorsX on BuildContext {
 }
 
 class AppTheme {
-  static ThemeData light() => _base(brightness: Brightness.light);
-  static ThemeData dark() => _base(brightness: Brightness.dark);
+  static ThemeData light({AppPalette palette = AppPalette.mint}) =>
+      _base(brightness: Brightness.light, palette: palette);
+  static ThemeData dark({AppPalette palette = AppPalette.mint}) =>
+      _base(brightness: Brightness.dark, palette: palette);
 
-  static ThemeData _base({required Brightness brightness}) {
+  static ThemeData _base({
+    required Brightness brightness,
+    required AppPalette palette,
+  }) {
     final isDark = brightness == Brightness.dark;
 
-    final colorScheme = isDark ? _darkColorScheme : _lightColorScheme;
+    final colorScheme = palette.applyTo(
+      isDark ? _darkColorScheme : _lightColorScheme,
+    );
     final appColors = isDark ? AppColors.dark : AppColors.light;
 
     // iOS'ta (ve macOS'ta) sistem fontuna (SF Pro) geçilir — Inter Android

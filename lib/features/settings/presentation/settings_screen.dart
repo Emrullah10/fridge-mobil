@@ -4,6 +4,11 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/palette_providers.dart';
+import '../../../core/theme/text_scale_providers.dart';
+import '../../../core/ui/app_sheet.dart';
+import '../../../core/ui/app_segmented.dart';
 import '../../../core/theme/theme_providers.dart';
 import '../../../core/ui/app_progress.dart';
 import '../../../core/ui/app_dialog.dart';
@@ -11,10 +16,12 @@ import '../../../core/ui/app_switch.dart';
 import '../../auth/application/auth_providers.dart';
 import '../../auth/presentation/upgrade_account_screen.dart';
 import '../../billing/application/entitlements_providers.dart';
+import '../../billing/application/paywall_controller.dart';
 import '../../billing/presentation/widgets/premium_status_card.dart';
 import '../../notification/application/notification_providers.dart';
 import '../../onboarding/application/onboarding_providers.dart';
 import 'diet_profile_screen.dart';
+import 'palette_picker_sheet.dart';
 
 /// backend notification-types.js NOTIFICATION_TYPES ile birebir aynı
 /// anahtarlar. Tercih satırı yoksa varsayılan açık (bkz. backend
@@ -172,6 +179,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (confirmed) {
       await ref.read(authControllerProvider.notifier).logout();
     }
+  }
+
+  // Tema rengi premium özelliği: ücretsiz kullanıcı paywall'a, misafir
+  // hesap oluşturmaya yönlenir; premium/deneme paleti seçer.
+  void _openPalettePicker(BuildContext context) {
+    final entitlements = ref.read(entitlementsProvider);
+    if (entitlements.isGuest) {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const UpgradeAccountScreen()));
+      return;
+    }
+    if (!(entitlements.isPremium || entitlements.isTrial)) {
+      ref
+          .read(paywallControllerProvider)
+          .whenData(
+            (controller) => controller.maybeShow(
+              context,
+              trigger: PaywallTrigger.lockedFeatureTap,
+            ),
+          );
+      return;
+    }
+    showAppSheet<void>(context, builder: (_, __) => const PalettePickerSheet());
   }
 
   Future<void> _confirmDeleteAccount(
@@ -337,6 +368,61 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ],
               ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.text_fields_rounded),
+                      const SizedBox(width: AppSpacing.md),
+                      Text('Yazı boyutu', style: textTheme.titleSmall),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  SizedBox(
+                    width: double.infinity,
+                    child: AppSegmented<double>(
+                      options: const [
+                        AppSegmentedOption(
+                          value: kTextScaleSmall,
+                          label: 'Küçük',
+                        ),
+                        AppSegmentedOption(
+                          value: kTextScaleNormal,
+                          label: 'Normal',
+                        ),
+                        AppSegmentedOption(
+                          value: kTextScaleLarge,
+                          label: 'Büyük',
+                        ),
+                      ],
+                      selected: ref.watch(textScaleProvider),
+                      onChanged: (scale) =>
+                          ref.read(textScaleProvider.notifier).setScale(scale),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.palette_outlined),
+              title: const Text('Tema rengi'),
+              subtitle: Text(ref.watch(effectivePaletteProvider).label),
+              trailing:
+                  ref.watch(entitlementsProvider).isPremium ||
+                      ref.watch(entitlementsProvider).isTrial
+                  ? const Icon(Icons.chevron_right_rounded)
+                  : const Icon(Icons.lock_outline_rounded),
+              onTap: () => _openPalettePicker(context),
             ),
           ),
           const SizedBox(height: AppSpacing.lg),

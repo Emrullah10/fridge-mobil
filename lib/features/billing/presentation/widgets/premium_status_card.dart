@@ -5,6 +5,7 @@ import '../../../auth/application/auth_providers.dart';
 import '../../../auth/presentation/upgrade_account_screen.dart';
 import '../../application/entitlements_providers.dart';
 import '../../domain/entitlements.dart';
+import '../paywall_screen.dart';
 import '../subscription_screen.dart';
 
 /// Ayarlar'ın en üstünde (profil kartının hemen altında) gösterilen kompakt
@@ -49,11 +50,16 @@ class PremiumStatusCard extends ConsumerWidget {
               : 'Planları karşılaştır, Premium\'a geç',
         ),
         trailing: const Icon(Icons.chevron_right_rounded),
+        // Ücretsiz kullanıcı doğrudan fiyat ekranına gider (Abonelik ara
+        // ekranı fiyat göstermeyen bir geçişti); premium/deneme abonelik
+        // yönetimine, misafir hesap oluşturmaya.
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => isGuest
                 ? const UpgradeAccountScreen()
-                : const SubscriptionScreen(),
+                : isPremiumLike
+                ? const SubscriptionScreen()
+                : const PaywallScreen(),
           ),
         ),
       ),

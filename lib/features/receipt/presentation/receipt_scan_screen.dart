@@ -89,12 +89,12 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
             ? (isCupertino(context)
                   ? 'Kamera/galeri izni verilmedi. Ayarlar > Elde yolundan izni aç.'
                   : 'Kamera/galeri izni verilmedi. Ayarlar > Uygulamalar > Elde yolundan izni aç.')
-            : 'Bir şeyler ters gitti: ${error.message ?? error.code}';
+            : 'Fotoğraf alınamadı, tekrar dene';
       });
     } catch (error) {
       setState(() {
         _step = _ScanStep.idle;
-        _errorMessage = 'Bir şeyler ters gitti: $error';
+        _errorMessage = 'Fotoğraf alınamadı, tekrar dene';
       });
     }
   }

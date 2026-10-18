@@ -57,6 +57,13 @@ class TextShoppingSuggestionsNotifier
       () => ref.read(shoppingRepositoryProvider).suggestFromText(arg, text),
     );
   }
+
+  /// Eklenen öneri çipi listeden kalksın — aynı ürün iki kez eklenmesin.
+  void removeSuggestion(ShoppingSuggestion suggestion) {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    state = AsyncData(current.where((s) => s != suggestion).toList());
+  }
 }
 
 final textShoppingSuggestionsProvider =

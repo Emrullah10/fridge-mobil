@@ -18,6 +18,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'core/config/app_env.dart';
 import 'core/theme/app_theme.dart';
 import 'core/ui/app_progress.dart';
+import 'core/theme/palette_providers.dart';
+import 'core/theme/text_scale_providers.dart';
 import 'core/theme/theme_providers.dart';
 import 'core/version/app_config_repository.dart';
 import 'core/version/in_app_updater.dart';
@@ -106,13 +108,15 @@ class FridgeApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final textScale = ref.watch(textScaleProvider);
+    final palette = ref.watch(effectivePaletteProvider);
 
     return MaterialApp(
       navigatorKey: rootNavigatorKey,
       title: 'Elde',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.light(palette: palette),
+      darkTheme: AppTheme.dark(palette: palette),
       themeMode: themeMode,
       // locale null: cihaz dilini takip eder, desteklenmeyen dilde tr'ye düşer
       // (supportedLocales sırası). İleride Ayarlar'dan manuel geçiş bir
@@ -135,11 +139,24 @@ class FridgeApp extends ConsumerWidget {
       // kapsar (her ekrana ayrı ayrı GestureDetector eklemeye gerek yok).
       // translucent + en dıştaki algılayıcı olduğu için buton/liste
       // dokunuşlarını yutmaz (gesture arena içteki algılayıcıyı önceliklendirir).
-      builder: (context, child) => GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: child,
-      ),
+      builder: (context, child) {
+        // Kullanıcı yazı boyutu × sistem yazı ölçeği; alt/üst sınırlı ki
+        // sabit yükseklikli bileşenler (navbar vb.) bozulmasın.
+        final mq = MediaQuery.of(context);
+        final systemScale = mq.textScaler.scale(10) / 10;
+        return MediaQuery(
+          data: mq.copyWith(
+            textScaler: TextScaler.linear(
+              (systemScale * textScale).clamp(0.8, 2.0),
+            ),
+          ),
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: child,
+          ),
+        );
+      },
       home: const _AuthGate(),
     );
   }
@@ -439,15 +456,40 @@ class _AuthGateState extends ConsumerState<_AuthGate>
   /// anda push edilmeye çalışılmasın diye (bkz. build() çağrı sırası).
   /// `PaywallTrigger.trialEnded`/`winBack`'in TEK gösterim yeri — enum'da
   /// tanımlıydı ama hiç çağrılmıyordu.
+  Future<Entitlements?> _awaitEntitlements() {
+    final current = ref.read(entitlementsControllerProvider);
+    if (current.valueOrNull != null) return Future.value(current.valueOrNull);
+    if (current.hasError) return Future.value(null);
+
+    final completer = Completer<Entitlements?>();
+    late final ProviderSubscription<AsyncValue<Entitlements>> subscription;
+    subscription = ref.listenManual<AsyncValue<Entitlements>>(
+      entitlementsControllerProvider,
+      (_, next) {
+        if (completer.isCompleted) return;
+        if (next.valueOrNull != null) {
+          completer.complete(next.valueOrNull);
+        } else if (next.hasError) {
+          completer.complete(null);
+        }
+      },
+    );
+    return completer.future.whenComplete(subscription.close);
+  }
+
   Future<void> _maybeShowTrialEndedOrWinBack() async {
     final context = rootNavigatorKey.currentContext;
     if (context == null || !context.mounted) return;
 
     // entitlementsProvider henüz taze veri çekmemiş olabilir (ilk açılış) —
     // Entitlements.empty ile yanlış tetikleme olmasın diye kontrollüce okur.
-    final entitlementsAsync = ref.read(entitlementsControllerProvider);
-    final entitlements = entitlementsAsync.value;
-    if (entitlements == null) return;
+    // Kontrol auth geçişinde çalışıyor ve controller her auth değişiminde
+    // yeniden `loading`'e düşüyor — senkron okumak HER ZAMAN null veriyordu
+    // (deneme-bitti paywall'ı ve win-back hiç tetiklenmiyordu). İlk veri
+    // gelene kadar bekle (zamanlayıcı değil dinleyici: widget kapanınca
+    // abonelik kendiliğinden iptal olur).
+    final entitlements = await _awaitEntitlements();
+    if (entitlements == null || !mounted) return;
 
     final controllerAsync = ref.read(paywallControllerProvider);
     final controller = controllerAsync.value;

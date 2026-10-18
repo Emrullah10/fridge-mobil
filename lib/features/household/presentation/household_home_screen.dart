@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/error/api_error.dart';
+import '../../billing/application/paywall_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_dialog.dart';
 import '../../../core/ui/app_icons.dart';
@@ -280,6 +281,7 @@ class HouseholdHomeScreen extends ConsumerWidget {
           );
       ref.invalidate(storageLocationsProvider(household.id));
     } catch (error) {
+      if (context.mounted && handlePlanLimitError(context, ref, error)) return;
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,

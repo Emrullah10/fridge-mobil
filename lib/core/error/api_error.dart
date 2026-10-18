@@ -19,10 +19,22 @@ String describeApiError(Object error) {
       case DioExceptionType.connectionError:
         return 'İnternet bağlantısı yok veya sunucuya erişilemiyor.';
       default:
-        return 'Bir şeyler ters gitti (${error.response?.statusCode ?? 'bağlantı hatası'}).';
+        // Gövdesiz yanıt (proxy/tünel HTML hata sayfası vb.) — durum koduna
+        // göre anlamlı bir metin ver, ham "(502)" gösterme.
+        final status = error.response?.statusCode;
+        if (status == 404) return 'İstenen kayıt bulunamadı.';
+        if (status == 401 || status == 403) {
+          return 'Bu işlem için yetkin yok, tekrar giriş yapmayı dene.';
+        }
+        if (status != null && status >= 500) {
+          return 'Sunucu şu an yanıt vermiyor, birazdan tekrar dene.';
+        }
+        return 'Bir şeyler ters gitti, tekrar dene.';
     }
   }
-  return error.toString();
+  // Ham Dart/platform hata metnini (TypeError, "Exception: ..." vb.) kullanıcıya
+  // sızdırma.
+  return 'Bir şeyler ters gitti, tekrar dene.';
 }
 
 /// Backend {error:{code,...}} gövdesindeki makine-okunur kodu döner —

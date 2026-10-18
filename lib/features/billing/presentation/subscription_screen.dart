@@ -115,7 +115,7 @@ class SubscriptionScreen extends ConsumerWidget {
           const SizedBox(height: AppSpacing.md),
           const PremiumBenefitsCard(),
           const SizedBox(height: AppSpacing.lg),
-          if (entitlements.isPremium || entitlements.isTrial)
+          if (entitlements.isPremium)
             FilledButton.tonal(
               onPressed: () => _openManageUrl(context, ref),
               child: const Text('Aboneliği Yönet / İptal Et'),

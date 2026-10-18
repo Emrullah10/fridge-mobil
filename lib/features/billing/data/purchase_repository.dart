@@ -220,7 +220,11 @@ class PurchaseRepository {
     if (!_configured)
       return const OfferingsResult.failed(OfferingsFailure.notConfigured);
     try {
-      final offerings = await Purchases.getOfferings();
+      // Billing client takılırsa (emülatörde Play Store yokken görülüyor)
+      // sonsuz spinner yerine TimeoutException → storeError.
+      final offerings = await Purchases.getOfferings().timeout(
+        const Duration(seconds: 15),
+      );
       final current = offerings.current;
       if (current == null || current.availablePackages.isEmpty) {
         return const OfferingsResult.failed(OfferingsFailure.noOffering);
@@ -321,6 +325,13 @@ class PurchaseRepository {
         success: false,
         errorMessage: e.message ?? 'Satın alma başarısız oldu.',
       );
+    } catch (_) {
+      // PlatformException dışı hatalar yakalanmazsa paywall _purchasing=true
+      // kalıp buton sonsuza dek kilitleniyordu.
+      return const PurchaseResult(
+        success: false,
+        errorMessage: 'Satın alma başarısız oldu, tekrar dene.',
+      );
     }
   }
 
@@ -332,8 +343,9 @@ class PurchaseRepository {
   Future<bool> restorePurchases() async {
     if (!_configured) return false;
     try {
-      await Purchases.restorePurchases();
-      return true;
+      final info = await Purchases.restorePurchases();
+      // Hata atmaması "geri yüklendi" demek değil — aktif entitlement şart.
+      return info.entitlements.active.isNotEmpty;
     } catch (_) {
       return false;
     }

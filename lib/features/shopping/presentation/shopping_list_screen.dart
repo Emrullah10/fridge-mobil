@@ -172,6 +172,15 @@ class ShoppingListScreen extends ConsumerWidget {
 
     final result = ref.read(textShoppingSuggestionsProvider(householdId));
     result.whenOrNull(
+      data: (suggestions) {
+        if (suggestions.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bu istek için öneri bulunamadı, farklı yaz'),
+            ),
+          );
+        }
+      },
       error: (error, _) {
         final info = PlanLimitInfo.tryParse(error);
         if (info != null) {
@@ -192,11 +201,27 @@ class ShoppingListScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _toggleChecked(WidgetRef ref, ShoppingItem item) async {
+  void _showError(BuildContext context, Object error) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
+  }
+
+  Future<void> _toggleChecked(
+    BuildContext context,
+    WidgetRef ref,
+    ShoppingItem item,
+  ) async {
     AppHaptics.selection();
-    await ref
-        .read(shoppingRepositoryProvider)
-        .updateItem(householdId, item.id, isChecked: !item.isChecked);
+    try {
+      await ref
+          .read(shoppingRepositoryProvider)
+          .updateItem(householdId, item.id, isChecked: !item.isChecked);
+    } catch (error) {
+      // Çevrimdışı/sunucu hatasında kutucuk sessizce hiçbir şey yapmıyordu.
+      _showError(context, error);
+    }
     ref.invalidate(shoppingListProvider(householdId));
   }
 
@@ -225,7 +250,17 @@ class ShoppingListScreen extends ConsumerWidget {
     ShoppingItem item,
   ) async {
     AppHaptics.destructive();
-    await ref.read(shoppingRepositoryProvider).removeItem(householdId, item.id);
+    try {
+      await ref
+          .read(shoppingRepositoryProvider)
+          .removeItem(householdId, item.id);
+    } catch (error) {
+      // Dismissible ağaçtan kalkmıştı ama silme başarısızdı — listeyi
+      // sunucudan tazele ki kalem geri gelsin, ve nedenini söyle.
+      ref.invalidate(shoppingListProvider(householdId));
+      _showError(context, error);
+      return;
+    }
     ref.invalidate(shoppingListProvider(householdId));
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -234,17 +269,21 @@ class ShoppingListScreen extends ConsumerWidget {
         action: SnackBarAction(
           label: 'Geri al',
           onPressed: () async {
-            await ref
-                .read(shoppingRepositoryProvider)
-                .addItem(
-                  householdId,
-                  productId: item.productId,
-                  customName: item.productId == null ? item.name : null,
-                  quantity: item.quantity,
-                  unit: item.unit,
-                  note: item.note,
-                  source: item.source,
-                );
+            try {
+              await ref
+                  .read(shoppingRepositoryProvider)
+                  .addItem(
+                    householdId,
+                    productId: item.productId,
+                    customName: item.productId == null ? item.name : null,
+                    quantity: item.quantity,
+                    unit: item.unit,
+                    note: item.note,
+                    source: item.source,
+                  );
+            } catch (error) {
+              _showError(context, error);
+            }
             ref.invalidate(shoppingListProvider(householdId));
           },
         ),
@@ -328,7 +367,7 @@ class ShoppingListScreen extends ConsumerWidget {
           onLongPress: () => _editItem(context, ref, item),
           child: CheckboxListTile(
             value: item.isChecked,
-            onChanged: (_) => _toggleChecked(ref, item),
+            onChanged: (_) => _toggleChecked(context, ref, item),
             controlAffinity: ListTileControlAffinity.leading,
             title: Text(
               item.name,
@@ -362,6 +401,10 @@ class ShoppingListScreen extends ConsumerWidget {
     final aiSuggestionsAsync = ref.watch(
       aiShoppingSuggestionsProvider(householdId),
     );
+    // "Ne almalıyım?" serbest metin sonuçları — eskiden hiç watch
+    // edilmiyordu, başarılı yanıt bile ekranda görünmüyordu.
+    final textAsync = ref.watch(textShoppingSuggestionsProvider(householdId));
+    final textSuggestions = textAsync.valueOrNull ?? const [];
 
     // 402 (misafir/kota dolu) -> AsyncValue.guard hatayı state.error'a
     // sarıyor, buradan yakalayıp metin hatası yerine paywall gösteriyoruz.
@@ -466,6 +509,8 @@ class ShoppingListScreen extends ConsumerWidget {
               suggestionsAsync.maybeWhen(
                 data: (suggestions) =>
                     (suggestions.isEmpty &&
+                        textSuggestions.isEmpty &&
+                        !textAsync.isLoading &&
                         aiSuggestionsAsync.valueOrNull?.isEmpty != false)
                     ? const SizedBox.shrink()
                     : SizedBox(
@@ -474,19 +519,67 @@ class ShoppingListScreen extends ConsumerWidget {
                         // düşürüyordu (iOS 44pt / Android 48dp minimumunun
                         // altında). Padding yalnızca yatayda kalıyor, dış
                         // yükseklik çipin tamamına ayrılıyor.
-                        height: 44,
+                        height:
+                            44 *
+                            MediaQuery.textScalerOf(
+                              context,
+                            ).scale(1).clamp(1.0, 1.6),
                         child: ListView.separated(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.md,
                           ),
                           scrollDirection: Axis.horizontal,
                           itemCount:
+                              (textAsync.isLoading ? 1 : 0) +
+                              textSuggestions.length +
                               suggestions.length +
                               (aiSuggestionsAsync.valueOrNull?.length ?? 0) +
                               1, // "Akıllı öneriler" tetikleme çipi
                           separatorBuilder: (_, __) =>
                               const SizedBox(width: AppSpacing.xs),
                           itemBuilder: (context, index) {
+                            // AI çağrısı 8-20 sn sürebiliyor — çip şeridinin
+                            // başında "hazırlanıyor" göstergesi.
+                            if (textAsync.isLoading) {
+                              if (index == 0) {
+                                return const Chip(
+                                  avatar: SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: AppProgress(strokeWidth: 2),
+                                  ),
+                                  label: Text('Öneriler hazırlanıyor…'),
+                                );
+                              }
+                              index -= 1;
+                            }
+                            if (index < textSuggestions.length) {
+                              final suggestion = textSuggestions[index];
+                              return ActionChip(
+                                avatar: const Icon(
+                                  Icons.auto_awesome_rounded,
+                                  size: 16,
+                                ),
+                                label: Text(suggestion.name),
+                                tooltip: suggestion.reasonText,
+                                onPressed: () async {
+                                  await _addAiSuggestion(
+                                    context,
+                                    ref,
+                                    suggestion,
+                                  );
+                                  ref
+                                      .read(
+                                        textShoppingSuggestionsProvider(
+                                          householdId,
+                                        ).notifier,
+                                      )
+                                      .removeSuggestion(suggestion);
+                                },
+                              );
+                            }
+                            index -= textSuggestions.length;
+
                             if (index < suggestions.length) {
                               final suggestion = suggestions[index];
                               return ActionChip(

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_sheet.dart';
+import '../application/entitlements_providers.dart';
 
 /// Bağlamsal paywall — kota doldu / kilitli özelliğe dokunuldu / misafir
 /// AI denedi anlarında gösterilir (bkz. plan §Faz 4 Tetiklenme #1, #6).
@@ -22,7 +24,7 @@ Future<void> showPaywallSheet(
   );
 }
 
-class _PaywallSheetContent extends StatelessWidget {
+class _PaywallSheetContent extends ConsumerWidget {
   const _PaywallSheetContent({this.info, this.onUpgrade});
 
   final PlanLimitInfo? info;
@@ -41,9 +43,18 @@ class _PaywallSheetContent extends StatelessWidget {
     }
   }
 
+  String _resetLabel(DateTime resetsAt) {
+    final days = resetsAt.difference(DateTime.now()).inDays;
+    if (days <= 0) return 'Hakkın bugün yenileniyor';
+    return 'Hakkın $days gün sonra yenilenir';
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final startingPrice = info?.code == 'SIGNUP_REQUIRED'
+        ? null
+        : ref.watch(cheapestMonthlyPriceProvider).valueOrNull;
 
     // Eskiden burada elle çizilmiş 40x4 bir tutamaç çubuğu vardı — global
     // sheet tutamacıyla (showAppSheet'in showDragHandle:true'su) çakışıp
@@ -76,7 +87,27 @@ class _PaywallSheetContent extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             _UsageMeter(used: info!.used!, limit: info!.limit!),
           ],
+          if (info?.resetsAt != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              _resetLabel(info!.resetsAt!),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
+          if (startingPrice != null && (info?.upgradeAvailable ?? true)) ...[
+            Text(
+              "Premium $startingPrice/ay'dan başlayan fiyatlarla",
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.primary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
           if (info?.upgradeAvailable ?? true)
             FilledButton(
               onPressed: () {

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -75,10 +76,38 @@ class PendingReceiptScanNotifier extends StateNotifier<PendingReceiptScan?> {
     // Kademeli aralık: ilk denemeler sık (backend genelde birkaç saniyede
     // biter), sonra seyrekleşir — hem hızlı yanıt hem daha az istek.
     var delayMs = 1000;
+    // Sonsuz döngü koruması: silinmiş fiş / 401 / kalıcı ağ hatasında banner
+    // sonsuza dek "işleniyor" kalıp 3 sn'de bir istek atıyordu.
+    final startedAt = DateTime.now();
+    var consecutiveErrors = 0;
+    const maxDuration = Duration(minutes: 3);
+    const maxConsecutiveErrors = 5;
+
+    Future<void> giveUp() async {
+      state = PendingReceiptScan(
+        scanId: scanId,
+        status: PendingScanStatus.failed,
+        errorMessage: 'Fiş durumu alınamadı, tekrar dene',
+      );
+      await _forgetPersisted();
+      _polling = false;
+    }
+
     while (true) {
+      if (DateTime.now().difference(startedAt) > maxDuration) {
+        await giveUp();
+        return;
+      }
       try {
         final result = await _repo.getScan(_householdId, scanId);
-        if (result.status == 'review_pending' || result.status == 'completed') {
+        if (result.status == 'completed') {
+          // Zaten onaylanmış fiş "hazır" banner'ı olarak geri gelmesin.
+          state = null;
+          await _forgetPersisted();
+          _polling = false;
+          return;
+        }
+        if (result.status == 'review_pending') {
           state = PendingReceiptScan(
             scanId: scanId,
             status: PendingScanStatus.ready,
@@ -97,8 +126,24 @@ class PendingReceiptScanNotifier extends StateNotifier<PendingReceiptScan?> {
           _polling = false;
           return;
         }
+        consecutiveErrors = 0;
+      } on DioException catch (error) {
+        final status = error.response?.statusCode;
+        // Fiş silinmiş ya da oturum geçersiz — beklemenin faydası yok.
+        if (status == 401 || status == 404) {
+          await giveUp();
+          return;
+        }
+        if (++consecutiveErrors >= maxConsecutiveErrors) {
+          await giveUp();
+          return;
+        }
       } catch (_) {
-        // Geçici ağ hatası — bir sonraki denemede düzelebilir, sessizce devam.
+        // Geçici hata — bir sonraki denemede düzelebilir, sessizce devam.
+        if (++consecutiveErrors >= maxConsecutiveErrors) {
+          await giveUp();
+          return;
+        }
       }
       await Future.delayed(Duration(milliseconds: delayMs));
       delayMs = delayMs >= 3000 ? 3000 : delayMs + 500;

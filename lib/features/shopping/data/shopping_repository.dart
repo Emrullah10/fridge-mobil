@@ -67,8 +67,8 @@ class ShoppingSuggestion {
   factory ShoppingSuggestion.fromJson(Map<String, dynamic> json) =>
       ShoppingSuggestion(
         productId: json['productId'] as String?,
-        name: json['name'] as String,
-        unit: json['unit'] as String,
+        name: json['name']?.toString() ?? '',
+        unit: json['unit'] as String? ?? 'piece',
         quantity: (json['quantity'] as num?)?.toDouble(),
         reason: json['reason'] as String?,
         reasonText: json['reasonText'] as String?,

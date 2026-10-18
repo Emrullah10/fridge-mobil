@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_sheet.dart';
 import '../../../core/widgets/app_badge.dart';
 import '../../../core/widgets/scan_progress.dart';
+import '../../auth/presentation/upgrade_account_screen.dart';
 
 /// Misafir modunda "Fiş Tara" FAB'ına basınca gerçek kamera/Gemini yerine
 /// açılan sıfır-maliyetli demo — plan §Faz 2. Gemini HİÇ çağrılmaz, sahte
@@ -157,7 +158,16 @@ class _DemoReceiptSheetState extends State<_DemoReceiptSheet> {
             ),
             const SizedBox(height: AppSpacing.lg),
             FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
+              // Buton "Hesap Aç" diyordu ama yalnızca sheet'i kapatıyordu.
+              onPressed: () {
+                final navigator = Navigator.of(context, rootNavigator: true);
+                Navigator.of(context).pop();
+                navigator.push(
+                  MaterialPageRoute(
+                    builder: (_) => const UpgradeAccountScreen(),
+                  ),
+                );
+              },
               child: const Text('Kendi Fişini Tara — Ücretsiz Hesap Aç'),
             ),
           ],

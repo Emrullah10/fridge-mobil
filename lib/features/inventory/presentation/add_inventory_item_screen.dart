@@ -156,6 +156,7 @@ class _AddInventoryItemScreenState
       ref.invalidate(inventoryItemsProvider(params));
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
+      if (mounted && handlePlanLimitError(context, ref, error)) return;
       setState(() => _errorMessage = describeApiError(error));
     } finally {
       if (mounted) setState(() => _isSaving = false);

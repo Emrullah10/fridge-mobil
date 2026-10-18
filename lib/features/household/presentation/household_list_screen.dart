@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/api_error.dart';
+import '../../billing/application/paywall_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/async_view.dart';
@@ -31,6 +32,7 @@ class HouseholdListScreen extends ConsumerWidget {
           );
       ref.invalidate(householdsProvider);
     } catch (error) {
+      if (context.mounted && handlePlanLimitError(context, ref, error)) return;
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
@@ -66,9 +68,9 @@ class HouseholdListScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.auto_awesome_rounded),
             tooltip: 'AI Asistan',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const AssistantScreen()),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const AssistantScreen())),
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),

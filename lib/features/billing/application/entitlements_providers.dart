@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:purchases_flutter/purchases_flutter.dart' show PackageType;
 
 import '../../auth/application/auth_providers.dart';
 import '../data/entitlements_repository.dart';
@@ -86,4 +87,17 @@ final entitlementsControllerProvider =
 final entitlementsProvider = Provider<Entitlements>((ref) {
   final async = ref.watch(entitlementsControllerProvider);
   return async.value ?? Entitlements.empty;
+});
+
+/// Teaser sheet'inde "₺X/ay'dan başlayan" göstermek için en ucuz aylık
+/// karşılığı döner. Offerings yüklenemezse null — sheet satırı gizler,
+/// satın alma akışını engellemez.
+final cheapestMonthlyPriceProvider = FutureProvider<String?>((ref) async {
+  final result = await ref.read(purchaseRepositoryProvider).fetchOfferings();
+  final products = result.products;
+  if (products.isEmpty) return null;
+  final annual = products.where((p) => p.packageType == PackageType.annual);
+  final monthly = products.where((p) => p.packageType == PackageType.monthly);
+  return annual.firstOrNull?.pricePerMonthString ??
+      monthly.firstOrNull?.priceString;
 });

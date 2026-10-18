@@ -58,6 +58,9 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
   final Map<String, String?> _locationIdByItemId = {};
   bool _locationsInitialized = false;
   bool _isConfirming = false;
+  // Fiş daha önce dolaba eklenmişse (status 'completed') ekran salt-okunur —
+  // onay butonu hiçbir zaman başarılı olamayacağı için hiç gösterilmez.
+  bool _alreadyConfirmed = false;
   // Fişin tamamı için okunan toplam tutar — satır fiyatları toplamıyla
   // karşılaştırılıp kullanıcıya eksik fiyatlı satır varsa gösterilir.
   double? _scanTotalAmount;
@@ -104,6 +107,8 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
       setState(() {
         _items = result.lineItems;
         _scanTotalAmount = result.totalAmount;
+        _alreadyConfirmed = result.status == 'completed';
+        if (_alreadyConfirmed) _selectedIds.clear();
         _loadingItems = false;
       });
     } catch (error) {
@@ -226,6 +231,7 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
   }
 
   Future<void> _confirm() async {
+    if (_isConfirming || _alreadyConfirmed) return;
     final selectedItems = _items
         .where((i) => _selectedIds.contains(i.id))
         .toList();
@@ -305,6 +311,23 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
       }
     } catch (error) {
       if (mounted) {
+        if (apiErrorCode(error) == 'RECEIPT_ALREADY_CONFIRMED') {
+          // Önceki istek sunucuda tamamlanmış (ör. yanıt ağda kaybolmuş):
+          // hata göstermek yerine envanteri tazeleyip ekranı kapat.
+          ref.invalidate(
+            inventoryItemsProvider(
+              InventoryParams(householdId: widget.householdId),
+            ),
+          );
+          ref
+              .read(pendingReceiptScanProvider(widget.householdId).notifier)
+              .clear();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Bu fiş zaten dolaba eklenmiş')),
+          );
+          Navigator.of(context).pop(true);
+          return;
+        }
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(describeApiError(error))));
@@ -369,13 +392,15 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
         children: [
           CheckboxListTile(
             value: isSelected,
-            onChanged: (checked) => setState(() {
-              if (checked == true) {
-                _selectedIds.add(item.id);
-              } else {
-                _selectedIds.remove(item.id);
-              }
-            }),
+            onChanged: _alreadyConfirmed
+                ? null
+                : (checked) => setState(() {
+                    if (checked == true) {
+                      _selectedIds.add(item.id);
+                    } else {
+                      _selectedIds.remove(item.id);
+                    }
+                  }),
             title: Text(item.parsedName, style: textTheme.titleSmall),
             subtitle: Padding(
               padding: const EdgeInsets.only(top: AppSpacing.xs),
@@ -683,17 +708,36 @@ class _ReceiptReviewScreenState extends ConsumerState<ReceiptReviewScreen> {
             if (_isDragging)
               _buildDropBar(context, locationsAsync.valueOrNull ?? []),
             if (_scanTotalAmount != null) _buildPriceComparisonBar(colorScheme),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: FilledButton(
-                onPressed: _isConfirming || _selectedIds.isEmpty
-                    ? null
-                    : _confirm,
-                child: _isConfirming
-                    ? const ButtonProgress()
-                    : Text('${_selectedIds.length} ürünü dolaba ekle'),
+            if (_alreadyConfirmed)
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.check_circle_rounded,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      'Bu fiş dolaba eklendi',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ],
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: FilledButton(
+                  onPressed: _isConfirming || _selectedIds.isEmpty
+                      ? null
+                      : _confirm,
+                  child: _isConfirming
+                      ? const ButtonProgress()
+                      : Text('${_selectedIds.length} ürünü dolaba ekle'),
+                ),
               ),
-            ),
           ],
         ),
       ),
